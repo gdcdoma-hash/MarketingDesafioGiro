@@ -667,3 +667,69 @@ function salvarDivulgadorMarketing(dados) {
     nome: String(pessoa.nome || '').trim()
   };
 }
+
+
+function alterarStatusOrigemMarketing(ref, novoStatus) {
+  const refNormalizada = String(ref || '').trim();
+  const statusNormalizado = String(novoStatus || '').trim().toUpperCase();
+
+  if (!refNormalizada) {
+    return {
+      status: 'ERRO',
+      mensagem: 'REF não informada.'
+    };
+  }
+
+  if (!['ATIVO', 'INATIVO'].includes(statusNormalizado)) {
+    return {
+      status: 'ERRO',
+      mensagem: 'Status inválido.'
+    };
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(ABAS.MARKETING);
+
+  if (!sheet) {
+    return {
+      status: 'ERRO',
+      mensagem: 'Aba Marketing não encontrada.'
+    };
+  }
+
+  const dados = sheet.getDataRange().getDisplayValues();
+  const cabecalhos = (dados[0] || []).map(valor =>
+    String(valor || '').trim()
+  );
+  const indiceRef = cabecalhos.indexOf('REF');
+  const indiceStatus = cabecalhos.indexOf('STATUS');
+
+  if (indiceRef === -1 || indiceStatus === -1) {
+    return {
+      status: 'ERRO',
+      mensagem: 'Cabeçalhos REF ou STATUS não encontrados.'
+    };
+  }
+
+  const indiceLinha = dados.findIndex((linha, indice) =>
+    indice > 0 &&
+    String(linha[indiceRef] || '').trim() === refNormalizada
+  );
+
+  if (indiceLinha === -1) {
+    return {
+      status: 'NAO_ENCONTRADO',
+      mensagem: 'REF não encontrada na aba Marketing.'
+    };
+  }
+
+  sheet
+    .getRange(indiceLinha + 1, indiceStatus + 1)
+    .setValue(statusNormalizado);
+
+  return {
+    status: 'OK',
+    mensagem: 'Status atualizado.',
+    novoStatus: statusNormalizado
+  };
+}
