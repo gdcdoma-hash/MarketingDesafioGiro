@@ -1,6 +1,7 @@
 <script>
 
 let dadosAtuais = null;
+let filtroDivulgadoresAtual = 'ATIVO';
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -33,7 +34,7 @@ function renderizar(dados) {
   const metricasPorTipo = renderizarMetricas(dados.metricasPorTipo);
   const metricasPorCidade = renderizarMetricas(dados.metricasPorCidade);
   const metricasPorUf = renderizarMetricas(dados.metricasPorUf);
-  const divulgadores = renderizarDivulgadores(dados.divulgadores);
+  const divulgadores = filtrarDivulgadores(dados.divulgadores);
 
   document.getElementById('conteudo').innerHTML = `
     <section class="meta-card">
@@ -142,14 +143,20 @@ function renderizar(dados) {
           Divulgadores
         </h2>
 
-        <div class="secao-info">
-          ${dados.divulgadores.length} cadastrados
+        <div
+          id="contador-divulgadores"
+          class="secao-info">
+          ${textoContadorDivulgadores(divulgadores.length)}
         </div>
 
       </div>
 
+      <div class="filtros-divulgadores" role="group" aria-label="Filtrar divulgadores por status">
+        ${renderizarFiltrosDivulgadores()}
+      </div>
+
       <div id="lista-divulgadores">
-        ${divulgadores}
+        ${renderizarDivulgadores(divulgadores)}
       </div>
 
     </section>
@@ -331,6 +338,69 @@ function renderizarDivulgadores(lista) {
 }
 
 
+function filtrarDivulgadores(lista) {
+  if (filtroDivulgadoresAtual === 'TODOS') {
+    return lista;
+  }
+
+  return lista.filter(item =>
+    String(item.status || '').toUpperCase() === filtroDivulgadoresAtual
+  );
+}
+
+
+function renderizarFiltrosDivulgadores() {
+  return [
+    { valor: 'ATIVO', texto: 'ATIVOS' },
+    { valor: 'INATIVO', texto: 'INATIVOS' },
+    { valor: 'TODOS', texto: 'TODOS' }
+  ].map(filtro => {
+    const selecionado = filtro.valor === filtroDivulgadoresAtual;
+
+    return `
+      <button
+        type="button"
+        class="filtro-divulgadores-btn ${selecionado ? 'ativo' : ''}"
+        aria-pressed="${selecionado}"
+        onclick="alterarFiltroDivulgadores('${filtro.valor}')">
+        ${filtro.texto}
+      </button>
+    `;
+  }).join('');
+}
+
+
+function textoContadorDivulgadores(total) {
+  if (filtroDivulgadoresAtual === 'ATIVO') {
+    return `${total} ${total === 1 ? 'ativo' : 'ativos'}`;
+  }
+
+  if (filtroDivulgadoresAtual === 'INATIVO') {
+    return `${total} ${total === 1 ? 'inativo' : 'inativos'}`;
+  }
+
+  return `${total} ${total === 1 ? 'cadastrado' : 'cadastrados'}`;
+}
+
+
+function alterarFiltroDivulgadores(filtro) {
+  filtroDivulgadoresAtual = filtro;
+  atualizarListaDivulgadores();
+}
+
+
+function atualizarListaDivulgadores() {
+  const divulgadores = filtrarDivulgadores(dadosAtuais.divulgadores);
+
+  document.querySelector('.filtros-divulgadores').innerHTML =
+    renderizarFiltrosDivulgadores();
+  document.getElementById('contador-divulgadores').textContent =
+    textoContadorDivulgadores(divulgadores.length);
+  document.getElementById('lista-divulgadores').innerHTML =
+    renderizarDivulgadores(divulgadores);
+}
+
+
 function alterarStatusDivulgador(ref, novoStatus, botao) {
   if (
     novoStatus === 'INATIVO' &&
@@ -364,8 +434,7 @@ function alterarStatusDivulgador(ref, novoStatus, botao) {
         divulgador.status = res.novoStatus;
       }
 
-      document.getElementById('lista-divulgadores').innerHTML =
-        renderizarDivulgadores(dadosAtuais.divulgadores);
+      atualizarListaDivulgadores();
     })
     .withFailureHandler(erro => {
       console.error(erro);
