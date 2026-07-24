@@ -351,6 +351,47 @@ select {
   background: var(--success);
 }
 
+.origem-status {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.origem-status.ativo {
+  background: #dcfce7;
+  color: var(--success);
+}
+
+.origem-status.inativo {
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.btn-status {
+  width: 100%;
+  min-height: 50px;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-status.inativar {
+  color: #b91c1c;
+}
+
+.btn-status:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
 .carregando,
 .vazio,
 .erro {
@@ -574,6 +615,19 @@ select {
     margin-top: 17px;
     border-radius: 15px;
     font-size: 18px;
+  }
+
+  .origem-status {
+    margin-top: 17px;
+    padding: 7px 11px;
+    font-size: 14px;
+  }
+
+  .btn-status {
+    min-height: 58px;
+    margin-top: 11px;
+    border-radius: 15px;
+    font-size: 17px;
   }
 
   /* MENSAGENS */

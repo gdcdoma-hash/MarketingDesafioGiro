@@ -148,7 +148,9 @@ function renderizar(dados) {
 
       </div>
 
-      ${divulgadores}
+      <div id="lista-divulgadores">
+        ${divulgadores}
+      </div>
 
     </section>
   `;
@@ -252,7 +254,10 @@ function renderizarDivulgadores(lista) {
     `;
   }
 
-  return lista.map(item => `
+  return lista.map(item => {
+    const ativo = String(item.status || '').toUpperCase() === 'ATIVO';
+
+    return `
     <article class="card-origem">
 
       <div class="origem-topo">
@@ -295,17 +300,80 @@ function renderizarDivulgadores(lista) {
 
       </div>
 
+      <div class="origem-status ${ativo ? 'ativo' : 'inativo'}">
+        ${ativo ? 'ATIVO' : 'INATIVO'}
+      </div>
+
+      ${ativo ? `
+        <button
+          class="btn-copiar"
+          onclick="copiarLink(
+            '${escJs(item.link)}',
+            this
+          )">
+          COPIAR LINK
+        </button>
+      ` : ''}
+
       <button
-        class="btn-copiar"
-        onclick="copiarLink(
-          '${escJs(item.link)}',
+        class="btn-status ${ativo ? 'inativar' : 'reativar'}"
+        onclick="alterarStatusDivulgador(
+          '${escJs(item.ref)}',
+          '${ativo ? 'INATIVO' : 'ATIVO'}',
           this
         )">
-        COPIAR LINK
+        ${ativo ? 'INATIVAR' : 'REATIVAR'}
       </button>
 
     </article>
-  `).join('');
+  `;
+  }).join('');
+}
+
+
+function alterarStatusDivulgador(ref, novoStatus, botao) {
+  if (
+    novoStatus === 'INATIVO' &&
+    !window.confirm('Deseja inativar este divulgador?')
+  ) {
+    return;
+  }
+
+  const textoOriginal = botao.textContent;
+  botao.disabled = true;
+  botao.textContent = 'SALVANDO...';
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (!res || res.status !== 'OK') {
+        botao.disabled = false;
+        botao.textContent = textoOriginal;
+        window.alert(
+          res && res.mensagem
+            ? res.mensagem
+            : 'Não foi possível atualizar o status.'
+        );
+        return;
+      }
+
+      const divulgador = dadosAtuais.divulgadores.find(item =>
+        String(item.ref) === String(ref)
+      );
+
+      if (divulgador) {
+        divulgador.status = res.novoStatus;
+      }
+
+      document.getElementById('lista-divulgadores').innerHTML =
+        renderizarDivulgadores(dadosAtuais.divulgadores);
+    })
+    .withFailureHandler(erro => {
+      console.error(erro);
+      botao.disabled = false;
+      botao.textContent = textoOriginal;
+      window.alert('Não foi possível atualizar o status.');
+    })
+    .alterarStatusOrigemMarketing(ref, novoStatus);
 }
 
 
