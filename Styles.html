@@ -230,6 +230,52 @@ select {
   margin-bottom: 12px;
 }
 
+.metricas-painel {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.metrica-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: var(--card);
+}
+
+.metrica-titulo {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.metrica-linha {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 0;
+  border-top: 1px solid var(--border);
+}
+
+.metrica-nome {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.metrica-numero {
+  flex: 0 0 auto;
+  font-size: 20px;
+}
+
+.metrica-vazia {
+  padding: 10px 0;
+  color: var(--muted);
+}
+
 .origem-topo {
   display: flex;
   align-items: flex-start;
@@ -328,6 +374,10 @@ select {
 
   .titulo {
     font-size: 30px;
+  }
+
+  .metricas-painel {
+    grid-template-columns: 1fr 1fr;
   }
 }
 /* =========================================================
@@ -468,6 +518,23 @@ select {
     padding: 21px;
     margin-bottom: 14px;
     border-radius: 19px;
+  }
+
+  .metrica-card {
+    padding: 21px;
+    border-radius: 19px;
+  }
+
+  .metrica-titulo {
+    font-size: 19px;
+  }
+
+  .metrica-linha {
+    padding: 13px 0;
+  }
+
+  .metrica-numero {
+    font-size: 23px;
   }
 
   .origem-topo {
