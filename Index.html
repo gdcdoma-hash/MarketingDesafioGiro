@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+
+ <meta
+  name="viewport"
+  content="width=device-width, initial-scale=1, viewport-fit=cover"
+>
+
+  <?!= include('Styles'); ?>
+</head>
+
+<body>
+
+  <div class="app">
+
+    <header class="topo">
+      <h1 class="titulo">Marketing Giro</h1>
+
+      <div class="subtitulo">
+        Origem e desempenho das inscrições
+      </div>
+
+      <div class="filtro-periodo">
+        <label for="periodo">Período</label>
+
+        <select
+          id="periodo"
+          onchange="carregarDados(this.value)">
+          <option>Carregando...</option>
+        </select>
+
+            <div class="acoes-topo">
+      <button
+        class="btn-novo"
+        type="button"
+        onclick="abrirNovoDivulgador()">
+        + NOVO DIVULGADOR
+      </button>
+</div>
+      </div>
+    </header>
+
+    <main id="conteudo">
+      <div class="carregando">
+        Carregando dados...
+      </div>
+    </main>
+
+  </div>
+<div
+  id="modal-divulgador"
+  class="modal-overlay hidden">
+
+  <div class="modal-card">
+
+    <div class="modal-cabecalho">
+      <div>
+        <div class="modal-titulo">
+          Novo divulgador
+        </div>
+
+        <div class="modal-subtitulo">
+          Informe o código do participante.
+        </div>
+      </div>
+
+      <button
+        class="modal-fechar"
+        type="button"
+        onclick="fecharNovoDivulgador()">
+        ×
+      </button>
+    </div>
+
+    <div id="etapa-busca-divulgador">
+
+      <label class="campo-label">
+            Participante
+          </label>
+
+          <input
+            id="busca-participante"
+            class="campo-input"
+            type="search"
+            autocomplete="off"
+            placeholder="Digite nome ou código">
+
+          <button
+            id="btn-buscar-divulgador"
+            class="btn-principal"
+            type="button"
+            onclick="buscarNovoDivulgador()">
+            BUSCAR
+          </button>
+
+          <div
+  id="resultados-busca"
+  class="resultados-busca hidden">
+</div>
+
+    </div>
+
+    <div
+      id="etapa-confirmar-divulgador"
+      class="hidden">
+
+      <div class="pessoa-encontrada">
+        <div
+          id="novo-nome"
+          class="pessoa-nome">
+        </div>
+
+        <div
+          id="novo-cidade"
+          class="pessoa-detalhe">
+        </div>
+
+        <div
+          id="novo-whatsapp"
+          class="pessoa-detalhe">
+        </div>
+      </div>
+
+      <label class="campo-label">
+        Tipo
+      </label>
+
+      <select
+        id="novo-tipo"
+        class="campo-input">
+
+        <option value="PARTICIPANTE">
+          PARTICIPANTE
+        </option>
+
+        <option value="ADMIN">
+          ADMIN
+        </option>
+
+        <option value="APOIADOR">
+          APOIADOR
+        </option>
+
+        <option value="GRUPO">
+          GRUPO
+        </option>
+
+      </select>
+
+      <button
+        id="btn-salvar-divulgador"
+        class="btn-principal"
+        type="button"
+        onclick="salvarNovoDivulgador()">
+        SALVAR DIVULGADOR
+      </button>
+
+      <button
+        class="btn-secundario"
+        type="button"
+        onclick="voltarBuscaDivulgador()">
+        TROCAR CÓDIGO
+      </button>
+
+    </div>
+
+    <div
+      id="mensagem-divulgador"
+      class="mensagem-modal hidden">
+    </div>
+
+  </div>
+
+</div>
+  <?!= include('Scripts'); ?>
+
+</body>
+</html>

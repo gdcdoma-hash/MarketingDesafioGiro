@@ -1,0 +1,680 @@
+<script>
+
+let dadosAtuais = null;
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  carregarDados('');
+});
+
+
+function carregarDados(periodo) {
+  document.getElementById('conteudo').innerHTML =
+    '<div class="carregando">Carregando dados...</div>';
+
+  google.script.run
+    .withSuccessHandler(renderizar)
+    .withFailureHandler(erro => {
+      console.error(erro);
+
+      document.getElementById('conteudo').innerHTML =
+        '<div class="erro">Não foi possível carregar os dados.</div>';
+    })
+    .obterDadosPainel(periodo);
+}
+
+
+function renderizar(dados) {
+  dadosAtuais = dados;
+
+  renderizarPeriodos(dados);
+
+  const principais = renderizarPrincipais(dados.principaisOrigens);
+  const divulgadores = renderizarDivulgadores(dados.divulgadores);
+
+  document.getElementById('conteudo').innerHTML = `
+    <section class="meta-card">
+      <div class="meta-topo">
+
+        <div>
+          <div class="meta-label">
+            Meta do período
+          </div>
+
+          <div class="meta-numero">
+            ${dados.totalPeriodo} / ${dados.meta}
+          </div>
+        </div>
+
+        <div class="meta-percentual">
+          ${Number(dados.percentualMeta || 0).toFixed(1)}%
+        </div>
+
+      </div>
+
+      <div class="barra">
+        <div
+          class="barra-preenchida"
+          style="width:${Math.min(
+            100,
+            Number(dados.percentualMeta || 0)
+          )}%">
+        </div>
+      </div>
+    </section>
+
+    <section class="resumos">
+
+      <div class="resumo-card">
+        <div class="resumo-numero">
+          ${dados.totalAtribuidas}
+        </div>
+
+        <div class="resumo-label">
+          Inscrições com origem identificada
+        </div>
+      </div>
+
+      <div class="resumo-card">
+        <div class="resumo-numero">
+          ${dados.totalDireto}
+        </div>
+
+        <div class="resumo-label">
+          Direto / sem referência
+        </div>
+      </div>
+
+    </section>
+
+    <nav class="navegacao">
+
+      <button
+        class="nav-btn ativa"
+        onclick="abrirAba('painel', this)">
+        Painel
+      </button>
+
+      <button
+        class="nav-btn"
+        onclick="abrirAba('divulgadores', this)">
+        Divulgadores
+      </button>
+
+    </nav>
+
+    <section
+      id="painel"
+      class="secao ativa">
+
+      <div class="secao-cabecalho">
+
+        <h2 class="secao-titulo">
+          Principais origens
+        </h2>
+
+        <div class="secao-info">
+          ${esc(dados.periodoSelecionado || '')}
+        </div>
+
+      </div>
+
+      ${principais}
+
+    </section>
+
+    <section
+      id="divulgadores"
+      class="secao">
+
+      <div class="secao-cabecalho">
+
+        <h2 class="secao-titulo">
+          Divulgadores
+        </h2>
+
+        <div class="secao-info">
+          ${dados.divulgadores.length} cadastrados
+        </div>
+
+      </div>
+
+      ${divulgadores}
+
+    </section>
+  `;
+}
+
+
+function renderizarPeriodos(dados) {
+  const select = document.getElementById('periodo');
+
+  select.innerHTML = dados.periodos
+    .map(periodo => `
+      <option
+        value="${esc(periodo)}"
+        ${periodo === dados.periodoSelecionado
+          ? 'selected'
+          : ''}>
+        ${esc(periodo)}
+      </option>
+    `)
+    .join('');
+}
+
+
+function renderizarPrincipais(lista) {
+  if (!lista.length) {
+    return `
+      <div class="vazio">
+        Ainda não existem inscrições atribuídas neste período.
+      </div>
+    `;
+  }
+
+  return lista.map(item => `
+    <article class="card-origem">
+
+      <div class="origem-topo">
+
+        <div class="origem-info">
+
+          <div class="origem-nome">
+            ${esc(item.nome)}
+          </div>
+
+          <span class="origem-tipo">
+            ${esc(item.tipo)}
+          </span>
+
+        </div>
+
+        <div class="origem-qtd">
+
+          <div class="origem-numero">
+            ${item.inscricoes}
+          </div>
+
+          <div class="origem-legenda">
+            ${item.inscricoes === 1
+              ? 'inscrição'
+              : 'inscrições'}
+          </div>
+
+        </div>
+
+      </div>
+
+    </article>
+  `).join('');
+}
+
+
+function renderizarDivulgadores(lista) {
+  if (!lista.length) {
+    return `
+      <div class="vazio">
+        Nenhum divulgador cadastrado.
+      </div>
+    `;
+  }
+
+  return lista.map(item => `
+    <article class="card-origem">
+
+      <div class="origem-topo">
+
+        <div class="origem-info">
+
+          <div class="origem-nome">
+            ${esc(item.nome || item.ref)}
+          </div>
+
+          ${
+            item.cidadeUf
+              ? `
+                <div class="origem-cidade">
+                  ${esc(item.cidadeUf)}
+                </div>
+              `
+              : ''
+          }
+
+          <span class="origem-tipo">
+            ${esc(item.tipo || '-')}
+          </span>
+
+        </div>
+
+        <div class="origem-qtd">
+
+          <div class="origem-numero">
+            ${item.inscricoes}
+          </div>
+
+          <div class="origem-legenda">
+            ${item.inscricoes === 1
+              ? 'inscrição'
+              : 'inscrições'}
+          </div>
+
+        </div>
+
+      </div>
+
+      <button
+        class="btn-copiar"
+        onclick="copiarLink(
+          '${escJs(item.link)}',
+          this
+        )">
+        COPIAR LINK
+      </button>
+
+    </article>
+  `).join('');
+}
+
+
+function abrirAba(id, botao) {
+  document
+    .querySelectorAll('.secao')
+    .forEach(el => el.classList.remove('ativa'));
+
+  document
+    .querySelectorAll('.nav-btn')
+    .forEach(el => el.classList.remove('ativa'));
+
+  const secao = document.getElementById(id);
+
+  if (secao) {
+    secao.classList.add('ativa');
+  }
+
+  botao.classList.add('ativa');
+}
+
+
+function copiarLink(link, botao) {
+  if (!link) return;
+
+  const copiar =
+    navigator.clipboard &&
+    navigator.clipboard.writeText
+      ? navigator.clipboard.writeText(link)
+      : Promise.reject();
+
+  copiar
+    .then(() => mostrarLinkCopiado(botao))
+    .catch(() => copiarLinkFallback(link, botao));
+}
+
+
+function copiarLinkFallback(link, botao) {
+  const area = document.createElement('textarea');
+
+  area.value = link;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+
+  document.body.appendChild(area);
+
+  area.focus();
+  area.select();
+
+  try {
+    document.execCommand('copy');
+    mostrarLinkCopiado(botao);
+
+  } catch (e) {
+    window.prompt('Copie o link:', link);
+  }
+
+  document.body.removeChild(area);
+}
+
+
+function mostrarLinkCopiado(botao) {
+  const textoOriginal =
+    botao.dataset.textoOriginal ||
+    botao.textContent;
+
+  botao.dataset.textoOriginal = textoOriginal;
+
+  botao.textContent = 'LINK COPIADO ✓';
+  botao.classList.add('copiado');
+
+  setTimeout(() => {
+    botao.textContent = textoOriginal;
+    botao.classList.remove('copiado');
+  }, 1600);
+}
+
+
+function esc(valor) {
+  return String(valor || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+
+function escJs(valor) {
+  return String(valor || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '')
+    .replace(/\n/g, '');
+}
+let novoDivulgadorAtual = null;
+
+
+function abrirNovoDivulgador() {
+  novoDivulgadorAtual = null;
+
+  document.getElementById(
+  'busca-participante'
+).value = '';
+
+limparResultadosBusca();
+
+
+  document
+    .getElementById('etapa-busca-divulgador')
+    .classList.remove('hidden');
+
+  document
+    .getElementById('etapa-confirmar-divulgador')
+    .classList.add('hidden');
+
+  ocultarMensagemDivulgador();
+
+  document
+    .getElementById('modal-divulgador')
+    .classList.remove('hidden');
+
+  setTimeout(() => {
+    
+      document
+  .getElementById('busca-participante')
+  .focus();
+  }, 100);
+}
+
+
+function fecharNovoDivulgador() {
+  document
+    .getElementById('modal-divulgador')
+    .classList.add('hidden');
+
+  novoDivulgadorAtual = null;
+}
+
+
+function voltarBuscaDivulgador() {
+  novoDivulgadorAtual = null;
+
+  document
+    .getElementById('etapa-confirmar-divulgador')
+    .classList.add('hidden');
+
+  document
+    .getElementById('etapa-busca-divulgador')
+    .classList.remove('hidden');
+
+  ocultarMensagemDivulgador();
+}
+
+
+function buscarNovoDivulgador() {
+  const termo = document
+    .getElementById('busca-participante')
+    .value
+    .trim();
+
+  if (!termo) {
+    mostrarMensagemDivulgador(
+      'Digite um nome ou código.'
+    );
+
+    return;
+  }
+
+  const botao = document.getElementById(
+    'btn-buscar-divulgador'
+  );
+
+  botao.disabled = true;
+  botao.textContent = 'BUSCANDO...';
+
+  ocultarMensagemDivulgador();
+  limparResultadosBusca();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      botao.disabled = false;
+      botao.textContent = 'BUSCAR';
+
+      if (!res || res.status !== 'OK') {
+        mostrarMensagemDivulgador(
+          res && res.mensagem
+            ? res.mensagem
+            : 'Nenhum participante encontrado.'
+        );
+
+        return;
+      }
+
+      const resultados =
+        Array.isArray(res.resultados)
+          ? res.resultados
+          : [];
+
+      if (resultados.length === 1) {
+        selecionarPessoaMarketing(
+          resultados[0]
+        );
+
+        return;
+      }
+
+      renderizarResultadosBusca(resultados);
+    })
+    .withFailureHandler(erro => {
+      console.error(erro);
+
+      botao.disabled = false;
+      botao.textContent = 'BUSCAR';
+
+      mostrarMensagemDivulgador(
+        'Não foi possível realizar a busca.'
+      );
+    })
+    .buscarPessoasMarketing(termo);
+}
+
+function salvarNovoDivulgador() {
+  if (!novoDivulgadorAtual) return;
+
+  const tipo = document
+    .getElementById('novo-tipo')
+    .value;
+
+  const botao = document.getElementById(
+    'btn-salvar-divulgador'
+  );
+
+  botao.disabled = true;
+  botao.textContent = 'SALVANDO...';
+
+  ocultarMensagemDivulgador();
+
+  google.script.run
+    .withSuccessHandler(res => {
+      botao.disabled = false;
+      botao.textContent = 'SALVAR DIVULGADOR';
+
+      if (!res || res.status !== 'OK') {
+        mostrarMensagemDivulgador(
+          res && res.mensagem
+            ? res.mensagem
+            : 'Não foi possível salvar.'
+        );
+
+        return;
+      }
+
+      mostrarMensagemDivulgador(
+        'Divulgador cadastrado com sucesso.'
+      );
+
+      setTimeout(() => {
+        fecharNovoDivulgador();
+
+        carregarDados(
+          dadosAtuais
+            ? dadosAtuais.periodoSelecionado
+            : ''
+        );
+      }, 700);
+    })
+    .withFailureHandler(erro => {
+      console.error(erro);
+
+      botao.disabled = false;
+      botao.textContent = 'SALVAR DIVULGADOR';
+
+      mostrarMensagemDivulgador(
+        'Não foi possível salvar o divulgador.'
+      );
+    })
+    .salvarDivulgadorMarketing({
+      idDgmb: novoDivulgadorAtual.idDgmb,
+      tipo: tipo
+    });
+}
+
+
+function mostrarMensagemDivulgador(texto) {
+  const el = document.getElementById(
+    'mensagem-divulgador'
+  );
+
+  el.textContent = texto;
+  el.classList.remove('hidden');
+}
+
+
+function ocultarMensagemDivulgador() {
+  const el = document.getElementById(
+    'mensagem-divulgador'
+  );
+
+  el.textContent = '';
+  el.classList.add('hidden');
+}
+function renderizarResultadosBusca(lista) {
+  const area = document.getElementById(
+    'resultados-busca'
+  );
+
+  if (!lista.length) {
+    area.classList.add('hidden');
+    return;
+  }
+
+  area.innerHTML = lista
+    .map((pessoa, indice) => `
+      <button
+        type="button"
+        class="resultado-pessoa"
+        onclick="selecionarResultadoBusca(${indice})">
+
+        <div class="resultado-nome">
+          ${esc(pessoa.nome)}
+        </div>
+
+        <div class="resultado-detalhes">
+          ${esc(pessoa.cidadeUf || '-')}
+        </div>
+
+        <div class="resultado-codigo">
+          Código ${esc(pessoa.idDgmb)}
+        </div>
+
+      </button>
+    `)
+    .join('');
+
+  area.dataset.resultados =
+    JSON.stringify(lista);
+
+  area.classList.remove('hidden');
+}
+
+
+function selecionarResultadoBusca(indice) {
+  const area = document.getElementById(
+    'resultados-busca'
+  );
+
+  let lista = [];
+
+  try {
+    lista = JSON.parse(
+      area.dataset.resultados || '[]'
+    );
+  } catch (e) {
+    lista = [];
+  }
+
+  const pessoa = lista[indice];
+
+  if (!pessoa) return;
+
+  selecionarPessoaMarketing(pessoa);
+}
+
+
+function selecionarPessoaMarketing(pessoa) {
+  novoDivulgadorAtual = pessoa;
+
+  limparResultadosBusca();
+  ocultarMensagemDivulgador();
+
+  document.getElementById(
+    'novo-nome'
+  ).textContent = pessoa.nome || '';
+
+  document.getElementById(
+    'novo-cidade'
+  ).textContent = pessoa.cidadeUf || '';
+
+  document.getElementById(
+    'novo-whatsapp'
+  ).textContent = pessoa.whatsapp || '';
+
+  document
+    .getElementById('etapa-busca-divulgador')
+    .classList.add('hidden');
+
+  document
+    .getElementById('etapa-confirmar-divulgador')
+    .classList.remove('hidden');
+}
+
+
+function limparResultadosBusca() {
+  const area = document.getElementById(
+    'resultados-busca'
+  );
+
+  if (!area) return;
+
+  area.innerHTML = '';
+  area.dataset.resultados = '';
+  area.classList.add('hidden');
+}
+</script>
