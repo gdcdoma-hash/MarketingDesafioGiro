@@ -30,6 +30,9 @@ function renderizar(dados) {
   renderizarPeriodos(dados);
 
   const principais = renderizarPrincipais(dados.principaisOrigens);
+  const metricasPorTipo = renderizarMetricas(dados.metricasPorTipo);
+  const metricasPorCidade = renderizarMetricas(dados.metricasPorCidade);
+  const metricasPorUf = renderizarMetricas(dados.metricasPorUf);
   const divulgadores = renderizarDivulgadores(dados.divulgadores);
 
   document.getElementById('conteudo').innerHTML = `
@@ -121,6 +124,12 @@ function renderizar(dados) {
 
       ${principais}
 
+      <div class="metricas-painel">
+        ${renderizarBlocoMetricas('Por tipo', metricasPorTipo)}
+        ${renderizarBlocoMetricas('Por cidade', metricasPorCidade)}
+        ${renderizarBlocoMetricas('Por UF', metricasPorUf)}
+      </div>
+
     </section>
 
     <section
@@ -141,6 +150,30 @@ function renderizar(dados) {
 
       ${divulgadores}
 
+    </section>
+  `;
+}
+
+
+function renderizarMetricas(lista) {
+  if (!Array.isArray(lista) || !lista.length) {
+    return '<div class="metrica-vazia">Sem inscrições neste período.</div>';
+  }
+
+  return lista.map(item => `
+    <div class="metrica-linha">
+      <span class="metrica-nome">${esc(item.nome)}</span>
+      <strong class="metrica-numero">${item.inscricoes}</strong>
+    </div>
+  `).join('');
+}
+
+
+function renderizarBlocoMetricas(titulo, conteudo) {
+  return `
+    <section class="metrica-card">
+      <h3 class="metrica-titulo">${esc(titulo)}</h3>
+      <div class="metrica-lista">${conteudo}</div>
     </section>
   `;
 }

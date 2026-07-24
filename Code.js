@@ -359,6 +359,9 @@ function obterDadosPainel(periodoSolicitado) {
   let totalPeriodo = 0;
   let totalAtribuidas = 0;
   let totalDireto = 0;
+  const totaisPorTipo = {};
+  const totaisPorCidade = {};
+  const totaisPorUf = {};
 
   desafios.forEach(inscricao => {
     const idDesafio = extrairIdDesafio_(inscricao.Observacao);
@@ -378,6 +381,27 @@ function obterDadosPainel(periodoSolicitado) {
     totalPeriodo++;
 
     const ref = String(inscricao.REF_MARKETING || '').trim();
+    const origem = ref ? origens[ref] : null;
+    const tipo = !ref
+      ? 'DIRETO'
+      : String(origem && origem.tipo || '').trim() || 'NAO_CLASSIFICADO';
+
+    totaisPorTipo[tipo] = (totaisPorTipo[tipo] || 0) + 1;
+
+    const idDgmb = String(inscricao.ID_DGMB || '').trim();
+    const pessoa = idDgmb ? pessoasPorId[idDgmb] : null;
+    const cidadeUf = String(pessoa && pessoa['Cidade-UF'] || '').trim();
+    const cidade = cidadeUf || 'NÃO INFORMADO';
+    const partesCidade = cidadeUf.split(' - ');
+    const ufExtraida = partesCidade.length > 1
+      ? String(partesCidade[partesCidade.length - 1] || '').trim().toUpperCase()
+      : '';
+    const uf = /^[A-Z]{2}$/.test(ufExtraida)
+      ? ufExtraida
+      : 'NÃO INFORMADO';
+
+    totaisPorCidade[cidade] = (totaisPorCidade[cidade] || 0) + 1;
+    totaisPorUf[uf] = (totaisPorUf[uf] || 0) + 1;
 
     if (!ref) {
       totalDireto++;
@@ -404,6 +428,20 @@ function obterDadosPainel(periodoSolicitado) {
     .filter(item => item.inscricoes > 0)
     .slice(0, 10);
 
+  const ordenarMetricas = totais => Object.keys(totais)
+    .map(nome => ({ nome, inscricoes: totais[nome] }))
+    .sort((a, b) => {
+      if (b.inscricoes !== a.inscricoes) {
+        return b.inscricoes - a.inscricoes;
+      }
+
+      return a.nome.localeCompare(b.nome, 'pt-BR');
+    });
+
+  const metricasPorTipo = ordenarMetricas(totaisPorTipo);
+  const metricasPorCidade = ordenarMetricas(totaisPorCidade);
+  const metricasPorUf = ordenarMetricas(totaisPorUf);
+
   const percentualMeta = META_MARKETING > 0
     ? Math.min(100, (totalPeriodo / META_MARKETING) * 100)
     : 0;
@@ -417,7 +455,10 @@ function obterDadosPainel(periodoSolicitado) {
     totalDireto,
     percentualMeta,
     divulgadores,
-    principaisOrigens
+    principaisOrigens,
+    metricasPorTipo,
+    metricasPorCidade,
+    metricasPorUf
   };
 }
 
