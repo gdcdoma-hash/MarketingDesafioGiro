@@ -48,6 +48,13 @@ button {
   margin-bottom: 16px;
 }
 
+.topo-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .titulo {
   margin: 0;
   font-size: 28px;
@@ -61,18 +68,23 @@ button {
   color: var(--muted);
 }
 
-.filtro-periodo {
-  margin-top: 16px;
+.periodo-atual {
+  margin-top: 8px;
+  font-size: 17px;
+  color: var(--muted);
 }
 
-.filtro-periodo label {
-  display: block;
-  margin-bottom: 7px;
-  font-size: 13px;
-  font-weight: 700;
+.btn-configuracoes {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: .4px;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
 }
 
 select {
@@ -379,23 +391,42 @@ select {
   background: var(--success);
 }
 
-.origem-status {
-  display: inline-block;
+.origem-nome-com-status {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.indicador-status {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.indicador-status.ativo {
+  background: var(--success);
+}
+
+.indicador-status.inativo {
+  background: #9ca3af;
+}
+
+.acoes-divulgador {
+  display: grid;
+  grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
+  gap: 8px;
   margin-top: 14px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
 }
 
-.origem-status.ativo {
-  background: #dcfce7;
-  color: var(--success);
+.acoes-divulgador.inativo {
+  grid-template-columns: 1fr;
 }
 
-.origem-status.inativo {
-  background: var(--soft);
-  color: var(--muted);
+.acoes-divulgador .btn-copiar,
+.acoes-divulgador .btn-status {
+  min-width: 0;
+  margin-top: 0;
 }
 
 .btn-status {
@@ -488,13 +519,8 @@ select {
     line-height: 1.3;
   }
 
-  .filtro-periodo {
-    margin-top: 20px;
-  }
-
-  .filtro-periodo label {
-    margin-bottom: 8px;
-    font-size: 14px;
+  .periodo-atual {
+    font-size: 18px;
   }
 
   select {
@@ -655,12 +681,6 @@ select {
     font-size: 18px;
   }
 
-  .origem-status {
-    margin-top: 17px;
-    padding: 7px 11px;
-    font-size: 14px;
-  }
-
   .btn-status {
     min-height: 58px;
     margin-top: 11px;
@@ -722,6 +742,10 @@ select {
   padding: 20px;
   border-radius: 22px 22px 16px 16px;
   background: #fff;
+}
+
+.modal-configuracoes-card {
+  max-width: 460px;
 }
 
 .modal-cabecalho {
