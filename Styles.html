@@ -41,7 +41,7 @@ button {
   padding:
     max(18px, env(safe-area-inset-top))
     16px
-    max(28px, env(safe-area-inset-bottom));
+    calc(100px + env(safe-area-inset-bottom));
 }
 
 .topo {
@@ -472,7 +472,7 @@ select {
     padding:
       max(22px, env(safe-area-inset-top))
       18px
-      max(32px, env(safe-area-inset-bottom));
+      calc(104px + env(safe-area-inset-bottom));
   }
 
   /* TOPO */
@@ -681,20 +681,26 @@ select {
   display: none !important;
 }
 
-.acoes-topo {
-  margin-top: 14px;
-}
-
-.btn-novo {
-  width: 100%;
-  min-height: 54px;
+.btn-novo-flutuante {
+  position: fixed;
+  right: calc(20px + env(safe-area-inset-right));
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 900;
+  width: 62px;
+  height: 62px;
   border: 0;
-  border-radius: 14px;
+  border-radius: 50%;
   background: var(--dark);
   color: #fff;
-  font-size: 16px;
-  font-weight: 800;
+  box-shadow: 0 8px 24px rgba(17, 24, 39, .28);
+  font-size: 36px;
+  line-height: 1;
+  font-weight: 500;
   cursor: pointer;
+}
+
+.btn-novo-flutuante:active {
+  transform: scale(.96);
 }
 
 .modal-overlay {
@@ -747,6 +753,52 @@ select {
   font-size: 27px;
   line-height: 1;
   cursor: pointer;
+}
+
+.confirmacao-titulo,
+.sucesso-titulo {
+  margin-bottom: 18px;
+  font-size: 20px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.sucesso-titulo {
+  color: var(--success);
+}
+
+.confirmacao-dados,
+.sucesso-dados {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--soft);
+}
+
+.confirmacao-tipo-label {
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.confirmacao-tipo {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.confirmacao-acoes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.confirmacao-acoes .btn-principal,
+.confirmacao-acoes .btn-secundario {
+  margin-top: 0;
 }
 
 .campo-label {

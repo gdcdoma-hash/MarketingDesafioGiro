@@ -31,14 +31,6 @@
           <option>Carregando...</option>
         </select>
 
-            <div class="acoes-topo">
-      <button
-        class="btn-novo"
-        type="button"
-        onclick="abrirNovoDivulgador()">
-        + NOVO DIVULGADOR
-      </button>
-</div>
       </div>
     </header>
 
@@ -49,6 +41,15 @@
     </main>
 
   </div>
+
+  <button
+    class="btn-novo-flutuante"
+    type="button"
+    aria-label="Novo divulgador"
+    onclick="abrirNovoDivulgador()">
+    +
+  </button>
+
 <div
   id="modal-divulgador"
   class="modal-overlay hidden">
@@ -99,6 +100,94 @@
   id="resultados-busca"
   class="resultados-busca hidden">
 </div>
+
+    </div>
+
+    <div
+      id="etapa-revisar-divulgador"
+      class="hidden">
+
+      <div class="confirmacao-titulo">
+        Confirmar cadastro
+      </div>
+
+      <div class="confirmacao-dados">
+        <div
+          id="confirmar-nome"
+          class="pessoa-nome">
+        </div>
+
+        <div class="pessoa-detalhe">
+          Código: <strong id="confirmar-codigo"></strong>
+        </div>
+
+        <div class="confirmacao-tipo-label">
+          Tipo
+        </div>
+
+        <div
+          id="confirmar-tipo"
+          class="confirmacao-tipo">
+        </div>
+      </div>
+
+      <div class="confirmacao-acoes">
+        <button
+          class="btn-secundario"
+          type="button"
+          onclick="voltarEdicaoDivulgador()">
+          VOLTAR
+        </button>
+
+        <button
+          id="btn-confirmar-divulgador"
+          class="btn-principal"
+          type="button"
+          onclick="confirmarNovoDivulgador()">
+          CONFIRMAR
+        </button>
+      </div>
+
+    </div>
+
+    <div
+      id="etapa-sucesso-divulgador"
+      class="hidden">
+
+      <div class="sucesso-titulo">
+        ✓ Divulgador cadastrado
+      </div>
+
+      <div class="sucesso-dados">
+        <div
+          id="sucesso-nome"
+          class="pessoa-nome">
+        </div>
+
+        <div
+          id="sucesso-cidade"
+          class="pessoa-detalhe">
+        </div>
+
+        <div
+          id="sucesso-tipo"
+          class="confirmacao-tipo">
+        </div>
+      </div>
+
+      <button
+        id="btn-copiar-novo-link"
+        class="btn-copiar"
+        type="button">
+        COPIAR LINK
+      </button>
+
+      <button
+        class="btn-secundario"
+        type="button"
+        onclick="fecharNovoDivulgador()">
+        FECHAR
+      </button>
 
     </div>
 

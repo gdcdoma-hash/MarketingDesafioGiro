@@ -664,7 +664,10 @@ function salvarDivulgadorMarketing(dados) {
   return {
     status: 'OK',
     mensagem: 'Divulgador cadastrado.',
-    nome: String(pessoa.nome || '').trim()
+    nome: String(pessoa.nome || '').trim(),
+    cidadeUf: String(pessoa['Cidade-UF'] || '').trim(),
+    tipo: tipo,
+    link: PORTAL_INSCRICAO_URL + '?ref=' + encodeURIComponent(idDgmb)
   };
 }
 
