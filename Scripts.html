@@ -339,6 +339,11 @@ function renderizarDivulgadores(lista) {
 
       </div>
 
+      <div class="origem-historico">
+        Histórico: ${item.totalHistorico || 0}
+        ${(item.totalHistorico || 0) === 1 ? 'inscrição' : 'inscrições'}
+      </div>
+
       <div class="acoes-divulgador ${ativo ? '' : 'inativo'}">
         ${ativo ? `
           <button
