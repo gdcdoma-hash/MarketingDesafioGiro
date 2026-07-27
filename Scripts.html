@@ -550,6 +550,8 @@ function abrirNovoDivulgador() {
 
 limparResultadosBusca();
 
+  document.getElementById('novo-tipo').value = 'PARTICIPANTE';
+
 
   document
     .getElementById('etapa-busca-divulgador')
@@ -557,6 +559,14 @@ limparResultadosBusca();
 
   document
     .getElementById('etapa-confirmar-divulgador')
+    .classList.add('hidden');
+
+  document
+    .getElementById('etapa-revisar-divulgador')
+    .classList.add('hidden');
+
+  document
+    .getElementById('etapa-sucesso-divulgador')
     .classList.add('hidden');
 
   ocultarMensagemDivulgador();
@@ -672,8 +682,44 @@ function salvarNovoDivulgador() {
     .getElementById('novo-tipo')
     .value;
 
+  document.getElementById('confirmar-nome').textContent =
+    novoDivulgadorAtual.nome || '';
+  document.getElementById('confirmar-codigo').textContent =
+    novoDivulgadorAtual.idDgmb || '';
+  document.getElementById('confirmar-tipo').textContent = tipo;
+
+  document
+    .getElementById('etapa-confirmar-divulgador')
+    .classList.add('hidden');
+  document
+    .getElementById('etapa-revisar-divulgador')
+    .classList.remove('hidden');
+
+  ocultarMensagemDivulgador();
+}
+
+
+function voltarEdicaoDivulgador() {
+  document
+    .getElementById('etapa-revisar-divulgador')
+    .classList.add('hidden');
+  document
+    .getElementById('etapa-confirmar-divulgador')
+    .classList.remove('hidden');
+
+  ocultarMensagemDivulgador();
+}
+
+
+function confirmarNovoDivulgador() {
+  if (!novoDivulgadorAtual) return;
+
+  const tipo = document
+    .getElementById('novo-tipo')
+    .value;
+
   const botao = document.getElementById(
-    'btn-salvar-divulgador'
+    'btn-confirmar-divulgador'
   );
 
   botao.disabled = true;
@@ -684,7 +730,7 @@ function salvarNovoDivulgador() {
   google.script.run
     .withSuccessHandler(res => {
       botao.disabled = false;
-      botao.textContent = 'SALVAR DIVULGADOR';
+      botao.textContent = 'CONFIRMAR';
 
       if (!res || res.status !== 'OK') {
         mostrarMensagemDivulgador(
@@ -696,25 +742,19 @@ function salvarNovoDivulgador() {
         return;
       }
 
-      mostrarMensagemDivulgador(
-        'Divulgador cadastrado com sucesso.'
+      mostrarSucessoNovoDivulgador(res);
+
+      carregarDados(
+        dadosAtuais
+          ? dadosAtuais.periodoSelecionado
+          : ''
       );
-
-      setTimeout(() => {
-        fecharNovoDivulgador();
-
-        carregarDados(
-          dadosAtuais
-            ? dadosAtuais.periodoSelecionado
-            : ''
-        );
-      }, 700);
     })
     .withFailureHandler(erro => {
       console.error(erro);
 
       botao.disabled = false;
-      botao.textContent = 'SALVAR DIVULGADOR';
+      botao.textContent = 'CONFIRMAR';
 
       mostrarMensagemDivulgador(
         'Não foi possível salvar o divulgador.'
@@ -724,6 +764,25 @@ function salvarNovoDivulgador() {
       idDgmb: novoDivulgadorAtual.idDgmb,
       tipo: tipo
     });
+}
+
+
+function mostrarSucessoNovoDivulgador(res) {
+  document.getElementById('sucesso-nome').textContent = res.nome || '';
+  document.getElementById('sucesso-cidade').textContent = res.cidadeUf || '';
+  document.getElementById('sucesso-tipo').textContent = res.tipo || '';
+
+  const botaoCopiar = document.getElementById('btn-copiar-novo-link');
+  botaoCopiar.onclick = () => copiarLink(res.link, botaoCopiar);
+
+  document
+    .getElementById('etapa-revisar-divulgador')
+    .classList.add('hidden');
+  document
+    .getElementById('etapa-sucesso-divulgador')
+    .classList.remove('hidden');
+
+  ocultarMensagemDivulgador();
 }
 
 
