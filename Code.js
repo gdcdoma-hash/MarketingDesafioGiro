@@ -352,6 +352,7 @@ function obterDadosPainel(periodoSolicitado) {
       tipo: String(item.TIPO || '').trim(),
       status: String(item.STATUS || '').trim(),
       inscricoes: 0,
+      totalHistorico: 0,
       link: PORTAL_INSCRICAO_URL + '?ref=' + encodeURIComponent(ref)
     };
   });
@@ -364,11 +365,6 @@ function obterDadosPainel(periodoSolicitado) {
   const totaisPorUf = {};
 
   desafios.forEach(inscricao => {
-    const idDesafio = extrairIdDesafio_(inscricao.Observacao);
-    const periodo = periodoPorDesafio[idDesafio] || '';
-
-    if (periodo !== periodoSelecionado) return;
-
     // Se houver uma inscrição explicitamente cancelada, não entra na métrica.
     const status = String(
       inscricao.Status_Usuario_Desafio ||
@@ -378,9 +374,19 @@ function obterDadosPainel(periodoSolicitado) {
 
     if (status.includes('CANCEL')) return;
 
+    const ref = String(inscricao.REF_MARKETING || '').trim();
+
+    if (ref && origens[ref]) {
+      origens[ref].totalHistorico++;
+    }
+
+    const idDesafio = extrairIdDesafio_(inscricao.Observacao);
+    const periodo = periodoPorDesafio[idDesafio] || '';
+
+    if (periodo !== periodoSelecionado) return;
+
     totalPeriodo++;
 
-    const ref = String(inscricao.REF_MARKETING || '').trim();
     const origem = ref ? origens[ref] : null;
     const tipo = !ref
       ? 'DIRETO'
