@@ -189,7 +189,10 @@ function renderizarBlocoMetricas(titulo, conteudo) {
 
 
 function renderizarPeriodos(dados) {
-  const select = document.getElementById('periodo');
+  const select = document.getElementById('periodo-configuracoes');
+
+  document.getElementById('periodo-atual').textContent =
+    dados.periodoSelecionado || '';
 
   select.innerHTML = dados.periodos
     .map(periodo => `
@@ -202,6 +205,28 @@ function renderizarPeriodos(dados) {
       </option>
     `)
     .join('');
+}
+
+
+function abrirConfiguracoes() {
+  if (dadosAtuais) {
+    renderizarPeriodos(dadosAtuais);
+  }
+
+  document.getElementById('modal-configuracoes').classList.remove('hidden');
+}
+
+
+function fecharConfiguracoes() {
+  document.getElementById('modal-configuracoes').classList.add('hidden');
+}
+
+
+function aplicarConfiguracoes() {
+  const periodo = document.getElementById('periodo-configuracoes').value;
+
+  fecharConfiguracoes();
+  carregarDados(periodo);
 }
 
 
@@ -271,8 +296,15 @@ function renderizarDivulgadores(lista) {
 
         <div class="origem-info">
 
-          <div class="origem-nome">
-            ${esc(item.nome || item.ref)}
+          <div class="origem-nome-com-status">
+            <span
+              class="indicador-status ${ativo ? 'ativo' : 'inativo'}"
+              role="img"
+              aria-label="${ativo ? 'Ativo' : 'Inativo'}">
+            </span>
+            <div class="origem-nome">
+              ${esc(item.nome || item.ref)}
+            </div>
           </div>
 
           ${
@@ -307,30 +339,28 @@ function renderizarDivulgadores(lista) {
 
       </div>
 
-      <div class="origem-status ${ativo ? 'ativo' : 'inativo'}">
-        ${ativo ? 'ATIVO' : 'INATIVO'}
-      </div>
+      <div class="acoes-divulgador ${ativo ? '' : 'inativo'}">
+        ${ativo ? `
+          <button
+            class="btn-copiar"
+            onclick="copiarLink(
+              '${escJs(item.link)}',
+              this
+            )">
+            COPIAR LINK
+          </button>
+        ` : ''}
 
-      ${ativo ? `
         <button
-          class="btn-copiar"
-          onclick="copiarLink(
-            '${escJs(item.link)}',
+          class="btn-status ${ativo ? 'inativar' : 'reativar'}"
+          onclick="alterarStatusDivulgador(
+            '${escJs(item.ref)}',
+            '${ativo ? 'INATIVO' : 'ATIVO'}',
             this
           )">
-          COPIAR LINK
+          ${ativo ? 'INATIVAR' : 'REATIVAR'}
         </button>
-      ` : ''}
-
-      <button
-        class="btn-status ${ativo ? 'inativar' : 'reativar'}"
-        onclick="alterarStatusDivulgador(
-          '${escJs(item.ref)}',
-          '${ativo ? 'INATIVO' : 'ATIVO'}',
-          this
-        )">
-        ${ativo ? 'INATIVAR' : 'REATIVAR'}
-      </button>
+      </div>
 
     </article>
   `;

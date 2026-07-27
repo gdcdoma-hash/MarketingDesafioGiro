@@ -16,21 +16,26 @@
   <div class="app">
 
     <header class="topo">
-      <h1 class="titulo">Marketing Giro</h1>
+      <div class="topo-linha">
+        <h1 class="titulo">Marketing Giro</h1>
+
+        <button
+          class="btn-configuracoes"
+          type="button"
+          aria-label="Abrir configurações"
+          onclick="abrirConfiguracoes()">
+          ⚙
+        </button>
+      </div>
 
       <div class="subtitulo">
         Origem e desempenho das inscrições
       </div>
 
-      <div class="filtro-periodo">
-        <label for="periodo">Período</label>
-
-        <select
-          id="periodo"
-          onchange="carregarDados(this.value)">
-          <option>Carregando...</option>
-        </select>
-
+      <div
+        id="periodo-atual"
+        class="periodo-atual">
+        Carregando...
       </div>
     </header>
 
@@ -49,6 +54,42 @@
     onclick="abrirNovoDivulgador()">
     +
   </button>
+
+  <div
+    id="modal-configuracoes"
+    class="modal-overlay hidden">
+
+    <div class="modal-card modal-configuracoes-card">
+      <div class="modal-cabecalho">
+        <div class="modal-titulo">Configurações</div>
+
+        <button
+          class="modal-fechar"
+          type="button"
+          aria-label="Fechar configurações"
+          onclick="fecharConfiguracoes()">
+          ×
+        </button>
+      </div>
+
+      <label class="campo-label" for="periodo-configuracoes">
+        Período do painel
+      </label>
+
+      <select
+        id="periodo-configuracoes"
+        class="campo-input">
+        <option>Carregando...</option>
+      </select>
+
+      <button
+        class="btn-principal"
+        type="button"
+        onclick="aplicarConfiguracoes()">
+        APLICAR
+      </button>
+    </div>
+  </div>
 
 <div
   id="modal-divulgador"
