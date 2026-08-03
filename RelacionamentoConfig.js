@@ -108,6 +108,13 @@ const REL_CONFIG = Object.freeze({
       'EXPORTADO',
       'ATUALIZAR'
     ]),
+    TIPO_ORIGEM: Object.freeze([
+      'GRUPO_WHATSAPP',
+      'LOJA',
+      'EVENTO',
+      'LISTA_MANUAL',
+      'OUTRO'
+    ]),
     STATUS: Object.freeze(['ATIVO', 'INATIVO'])
   })
 });

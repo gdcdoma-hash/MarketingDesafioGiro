@@ -97,6 +97,39 @@
     line-height: 1.6;
   }
 
+  .rel-section-header, .rel-filters, .rel-modal-header, .rel-modal-actions {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .rel-filters { justify-content: flex-start; margin: 28px 0 20px; }
+  .rel-filters label { width: min(360px, 100%); }
+  .rel-filters label:last-child { width: 180px; }
+  .rel-app label { display: grid; gap: 7px; color: #374151; font-size: 14px; font-weight: 700; }
+  .rel-app input, .rel-app select, .rel-app textarea {
+    box-sizing: border-box; width: 100%; padding: 11px 12px; border: 1px solid #cbd2dc;
+    border-radius: 7px; background: #fff; color: #1f2937; font: inherit;
+  }
+  .rel-app input:focus, .rel-app select:focus, .rel-app textarea:focus { outline: 2px solid #2563eb; outline-offset: 1px; }
+  .rel-button { min-height: 42px; padding: 0 16px; border: 1px solid #cbd2dc; border-radius: 7px; background: #fff; color: #1f2937; font-weight: 700; cursor: pointer; }
+  .rel-button-primary { border-color: #1d4ed8; background: #1d4ed8; color: #fff; }
+  .rel-button:disabled { cursor: wait; opacity: .65; }
+  .rel-table-wrap { overflow-x: auto; }
+  .rel-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .rel-table th, .rel-table td { padding: 14px 12px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+  .rel-table th { color: #566273; font-size: 12px; text-transform: uppercase; }
+  .rel-table td:last-child, .rel-table th:last-child { text-align: right; }
+  .rel-status { display: inline-block; padding: 4px 8px; border-radius: 999px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 700; }
+  .rel-status-inativo { background: #f3f4f6; color: #4b5563; }
+  .rel-action { border: 0; background: none; color: #1d4ed8; font-weight: 700; cursor: pointer; }
+  .rel-alert { margin: 16px 0; padding: 12px; border-radius: 7px; background: #eff6ff; color: #1e40af; }
+  .rel-alert-error { background: #fef2f2; color: #991b1b; }
+  .rel-empty { margin: 24px 0 0; color: #566273; text-align: center; }
+  .rel-modal { width: min(520px, calc(100% - 32px)); box-sizing: border-box; padding: 0; border: 0; border-radius: 10px; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
+  .rel-modal::backdrop { background: rgba(17,24,39,.55); }
+  .rel-modal form { display: grid; gap: 18px; padding: 26px; }
+  .rel-modal h2 { margin: 0; font-size: 21px; }
+  .rel-close { border: 0; background: none; color: #566273; font-size: 28px; cursor: pointer; }
+  .rel-modal-actions { justify-content: flex-end; margin-top: 4px; }
+
   @media (max-width: 640px) {
     .rel-app .rel-header-content,
     .rel-app .rel-main {
@@ -119,5 +152,11 @@
     .rel-app .rel-card {
       padding: 24px;
     }
+    .rel-section-header, .rel-filters { align-items: stretch; flex-direction: column; }
+    .rel-filters label, .rel-filters label:last-child { width: 100%; }
+    .rel-table thead { display: none; }
+    .rel-table tr { display: grid; margin-bottom: 12px; padding: 12px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .rel-table td { padding: 5px 0; border: 0; }
+    .rel-table td:last-child { text-align: left; }
   }
 </style>
