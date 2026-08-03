@@ -270,21 +270,6 @@ const PORTAL_INSCRICAO_URL =
   'https://script.google.com/macros/s/AKfycby5Z_ogTZ9HtpXU66RyClIAPZn7LD1njpMWg0xLfdkMzOB01wLk70wN6HHime6J1eQHmA/exec';
 
 
-function doGet() {
-  const output = HtmlService
-    .createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('Marketing — Desafio Giro')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-
-  output.addMetaTag(
-    'viewport',
-    'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
-  );
-
-  return output;
-}
-
 function include(nomeArquivo) {
   return HtmlService
     .createHtmlOutputFromFile(nomeArquivo)
