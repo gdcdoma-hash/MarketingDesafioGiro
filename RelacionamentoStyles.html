@@ -84,6 +84,22 @@
     box-shadow: 0 4px 16px rgba(31, 41, 55, 0.05);
   }
 
+  .rel-import-card { margin-bottom: 20px; }
+  .rel-import-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+  .rel-import-actions { display: flex; align-items: end; }
+  .rel-import-preview { margin-top: 24px; padding-top: 24px; border-top: 1px solid #e5e7eb; }
+  .rel-import-preview h3 { margin: 0 0 16px; font-size: 17px; }
+  .rel-import-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; }
+  .rel-import-metric { padding: 12px; border-radius: 7px; background: #f3f5f8; }
+  .rel-import-metric dt { color: #566273; font-size: 12px; font-weight: 700; }
+  .rel-import-metric dd { margin: 6px 0 0; font-size: 20px; font-weight: 700; }
+  .rel-import-confirm { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 20px; }
+  .rel-import-confirm p { margin: 0; color: #566273; }
+  .rel-import-invalidos { margin-top: 20px; padding: 14px; border-radius: 7px; background: #fef2f2; color: #7f1d1d; }
+  .rel-import-invalidos h4 { margin: 0 0 10px; }
+  .rel-import-invalidos ul { margin: 0; padding-left: 20px; }
+  .rel-import-invalidos li + li { margin-top: 6px; }
+
   .rel-summary {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -187,6 +203,9 @@
     .rel-app .rel-card {
       padding: 24px;
     }
+    .rel-import-form, .rel-import-metrics { grid-template-columns: 1fr; }
+    .rel-import-actions .rel-button { width: 100%; }
+    .rel-import-confirm { align-items: stretch; flex-direction: column; }
     .rel-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .rel-summary-card-wide { grid-column: 1 / -1; }
     .rel-section-header, .rel-filters { align-items: stretch; flex-direction: column; }
