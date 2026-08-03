@@ -1,0 +1,40 @@
+<script>
+  const relResumo = (() => {
+    'use strict';
+
+    const elementos = {};
+
+    function inicializar() {
+      Object.assign(elementos, {
+        totalOrigens: document.querySelector('#rel-total-origens'),
+        origensAtivas: document.querySelector('#rel-origens-ativas'),
+        origensInativas: document.querySelector('#rel-origens-inativas'),
+        totalContatos: document.querySelector('#rel-total-contatos'),
+        ultimaImportacao: document.querySelector('#rel-ultima-importacao')
+      });
+      carregar();
+    }
+
+    function renderizar(resumo) {
+      elementos.totalOrigens.textContent = resumo.totalOrigens;
+      elementos.origensAtivas.textContent = resumo.origensAtivas;
+      elementos.origensInativas.textContent = resumo.origensInativas;
+      elementos.totalContatos.textContent = resumo.totalContatos;
+      elementos.ultimaImportacao.textContent = resumo.ultimaImportacao
+        ? relUI.formatarData(resumo.ultimaImportacao)
+        : 'Ainda não realizada';
+    }
+
+    async function carregar() {
+      try {
+        const resposta = await relApiClient.executar('rel_obterResumo');
+        if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
+        renderizar(resposta.dados);
+      } catch (erro) {
+        relUI.exibirMensagemTela(erro.message || 'Não foi possível carregar o resumo.', 'erro');
+      }
+    }
+
+    return Object.freeze({ inicializar, carregar });
+  })();
+</script>

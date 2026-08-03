@@ -24,6 +24,14 @@
     </header>
 
     <main class="rel-main">
+      <section class="rel-summary" aria-label="Resumo operacional">
+        <article class="rel-summary-card"><span>Total de origens</span><strong id="rel-total-origens">—</strong></article>
+        <article class="rel-summary-card"><span>Ativas</span><strong id="rel-origens-ativas">—</strong></article>
+        <article class="rel-summary-card"><span>Inativas</span><strong id="rel-origens-inativas">—</strong></article>
+        <article class="rel-summary-card"><span>Contatos</span><strong id="rel-total-contatos">—</strong></article>
+        <article class="rel-summary-card rel-summary-card-wide"><span>Última importação</span><strong id="rel-ultima-importacao">—</strong></article>
+      </section>
+
       <section class="rel-card" aria-labelledby="rel-origens-title">
         <div class="rel-section-header">
           <div><h2 id="rel-origens-title" class="rel-card-title">Origens</h2><p class="rel-message">Gerencie de onde os contatos foram obtidos.</p></div>
@@ -54,6 +62,7 @@
 
   <?!= include('RelacionamentoApiClient'); ?>
   <?!= include('RelacionamentoUI'); ?>
+  <?!= include('RelacionamentoResumo'); ?>
   <?!= include('RelacionamentoOrigens'); ?>
   <?!= include('RelacionamentoScripts'); ?>
 </body>
