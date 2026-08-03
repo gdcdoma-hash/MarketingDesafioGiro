@@ -56,10 +56,38 @@ button {
 }
 
 .titulo {
+  min-width: 0;
   margin: 0;
   font-size: 28px;
   line-height: 1.15;
   font-weight: 800;
+}
+
+.topo-acoes {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.link-modulo {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 12px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.link-modulo:focus-visible {
+  outline: 2px solid var(--dark);
+  outline-offset: 2px;
 }
 
 .subtitulo {
@@ -85,6 +113,16 @@ button {
   font-size: 25px;
   line-height: 1;
   cursor: pointer;
+}
+
+@media (max-width: 380px) {
+  .topo-linha {
+    gap: 8px;
+  }
+
+  .titulo {
+    font-size: 24px;
+  }
 }
 
 select {
