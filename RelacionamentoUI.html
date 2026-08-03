@@ -1,0 +1,85 @@
+<script>
+  const relUI = (() => {
+    'use strict';
+
+    const elementos = {};
+
+    function inicializar() {
+      Object.assign(elementos, {
+        busca: document.querySelector('#rel-busca'),
+        status: document.querySelector('#rel-filtro-status'),
+        corpo: document.querySelector('#rel-origens-corpo'),
+        vazio: document.querySelector('#rel-vazio'),
+        aviso: document.querySelector('#rel-aviso'),
+        modal: document.querySelector('#rel-modal'),
+        form: document.querySelector('#rel-form-origem'),
+        nome: document.querySelector('#rel-nome'),
+        tipo: document.querySelector('#rel-tipo'),
+        observacao: document.querySelector('#rel-observacao'),
+        salvar: document.querySelector('#rel-salvar'),
+        formAviso: document.querySelector('#rel-form-aviso'),
+        novaOrigem: document.querySelector('#rel-nova-origem'),
+        fecharModal: document.querySelectorAll('[data-rel-fechar]')
+      });
+    }
+
+    function obterElementos() {
+      return elementos;
+    }
+
+    function atualizarMensagem(elemento, mensagem, tipo) {
+      elemento.textContent = mensagem;
+      elemento.hidden = !mensagem;
+      elemento.classList.toggle('rel-alert-error', tipo === 'erro');
+    }
+
+    function exibirMensagemTela(mensagem, tipo) {
+      atualizarMensagem(elementos.aviso, mensagem, tipo);
+    }
+
+    function limparMensagemTela() {
+      atualizarMensagem(elementos.aviso, '', 'sucesso');
+    }
+
+    function exibirMensagemFormulario(mensagem, tipo) {
+      atualizarMensagem(elementos.formAviso, mensagem, tipo);
+    }
+
+    function limparMensagemFormulario() {
+      atualizarMensagem(elementos.formAviso, '', 'sucesso');
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '';
+      const data = valor instanceof Date ? valor : new Date(valor);
+      return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleDateString('pt-BR');
+    }
+
+    function abrirModalOrigem() {
+      limparMensagemFormulario();
+      elementos.modal.showModal();
+      elementos.nome.focus();
+    }
+
+    function fecharModalOrigem() {
+      elementos.modal.close();
+    }
+
+    function definirSalvandoOrigem(salvando) {
+      elementos.salvar.disabled = salvando;
+    }
+
+    return Object.freeze({
+      inicializar,
+      obterElementos,
+      exibirMensagemTela,
+      limparMensagemTela,
+      exibirMensagemFormulario,
+      limparMensagemFormulario,
+      formatarData,
+      abrirModalOrigem,
+      fecharModalOrigem,
+      definirSalvandoOrigem
+    });
+  })();
+</script>

@@ -24,17 +24,37 @@
     </header>
 
     <main class="rel-main">
-      <section class="rel-card" aria-labelledby="rel-status-title">
-        <h2 id="rel-status-title" class="rel-card-title">
-          Estrutura inicial criada com sucesso.
-        </h2>
-        <p class="rel-message">
-          As funcionalidades serão adicionadas nas próximas etapas.
-        </p>
+      <section class="rel-card" aria-labelledby="rel-origens-title">
+        <div class="rel-section-header">
+          <div><h2 id="rel-origens-title" class="rel-card-title">Origens</h2><p class="rel-message">Gerencie de onde os contatos foram obtidos.</p></div>
+          <button id="rel-nova-origem" class="rel-button rel-button-primary" type="button">Nova origem</button>
+        </div>
+        <div class="rel-filters">
+          <label>Busca<input id="rel-busca" type="search" placeholder="Nome da origem"></label>
+          <label>Status<select id="rel-filtro-status"><option value="ATIVO">Ativas</option><option value="INATIVO">Inativas</option><option value="TODOS">Todas</option></select></label>
+        </div>
+        <div id="rel-aviso" class="rel-alert" role="status" hidden></div>
+        <div class="rel-table-wrap">
+          <table class="rel-table"><thead><tr><th>Nome da origem</th><th>Tipo</th><th>Status</th><th>Cadastro</th><th></th></tr></thead><tbody id="rel-origens-corpo"></tbody></table>
+        </div>
+        <p id="rel-vazio" class="rel-empty" hidden>Nenhuma origem encontrada.</p>
       </section>
     </main>
+    <dialog id="rel-modal" class="rel-modal">
+      <form id="rel-form-origem" method="dialog">
+        <div class="rel-modal-header"><h2>Nova origem</h2><button class="rel-close" type="button" data-rel-fechar aria-label="Fechar">×</button></div>
+        <label>Nome da origem<input id="rel-nome" maxlength="120" required></label>
+        <label>Tipo<select id="rel-tipo" required><option value="">Selecione</option><option value="GRUPO_WHATSAPP">Grupo de WhatsApp</option><option value="LOJA">Loja</option><option value="EVENTO">Evento</option><option value="LISTA_MANUAL">Lista manual</option><option value="OUTRO">Outro</option></select></label>
+        <label>Observação (opcional)<textarea id="rel-observacao" maxlength="500" rows="3"></textarea></label>
+        <div id="rel-form-aviso" class="rel-alert" role="alert" hidden></div>
+        <div class="rel-modal-actions"><button class="rel-button" type="button" data-rel-fechar>Cancelar</button><button id="rel-salvar" class="rel-button rel-button-primary" type="submit">Salvar origem</button></div>
+      </form>
+    </dialog>
   </div>
 
+  <?!= include('RelacionamentoApiClient'); ?>
+  <?!= include('RelacionamentoUI'); ?>
+  <?!= include('RelacionamentoOrigens'); ?>
   <?!= include('RelacionamentoScripts'); ?>
 </body>
 </html>

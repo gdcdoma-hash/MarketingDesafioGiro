@@ -1,0 +1,20 @@
+<script>
+  const relApiClient = (() => {
+    'use strict';
+
+    function executar(nomeFuncao, ...argumentos) {
+      return new Promise((resolve, reject) => {
+        google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(erro => {
+            const mensagem = erro && erro.message
+              ? erro.message
+              : String(erro || 'Falha na comunicação com o servidor.');
+            reject(erro instanceof Error ? erro : new Error(mensagem));
+          })[nomeFuncao](...argumentos);
+      });
+    }
+
+    return Object.freeze({ executar });
+  })();
+</script>

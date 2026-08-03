@@ -1,0 +1,175 @@
+<script>
+  const relOrigens = (() => {
+    'use strict';
+
+    const relApresentacao = Object.freeze({
+      tiposOrigem: Object.freeze({
+        GRUPO_WHATSAPP: 'Grupo de WhatsApp',
+        LOJA: 'Loja',
+        EVENTO: 'Evento',
+        LISTA_MANUAL: 'Lista manual',
+        OUTRO: 'Outro'
+      })
+    });
+    const estado = {
+      carregandoLista: false,
+      recarregarLista: false,
+      salvandoOrigem: false,
+      alterandoStatusIds: new Set(),
+      temporizadorBusca: null
+    };
+    let elementos;
+
+    function criarCelula(texto) {
+      const celula = document.createElement('td');
+      celula.textContent = texto || '';
+      return celula;
+    }
+
+    function criarLinhaOrigem(origem) {
+      const linha = document.createElement('tr');
+      const identificacao = document.createElement('td');
+      const nome = document.createElement('strong');
+      const id = document.createElement('small');
+      nome.textContent = origem.nomeOrigem || '';
+      id.textContent = origem.idOrigem || '';
+      identificacao.append(nome, document.createElement('br'), id);
+
+      const tipo = criarCelula(relApresentacao.tiposOrigem[origem.tipoOrigem] || origem.tipoOrigem);
+      const status = document.createElement('td');
+      const marcadorStatus = document.createElement('span');
+      marcadorStatus.className = 'rel-status' + (origem.status === 'INATIVO' ? ' rel-status-inativo' : '');
+      marcadorStatus.textContent = origem.status === 'ATIVO' ? 'Ativo' : 'Inativo';
+      status.appendChild(marcadorStatus);
+
+      const cadastro = criarCelula(relUI.formatarData(origem.dataCadastro));
+      const acoes = document.createElement('td');
+      const botao = document.createElement('button');
+      botao.className = 'rel-action';
+      botao.type = 'button';
+      botao.dataset.id = origem.idOrigem || '';
+      botao.dataset.status = origem.status === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+      botao.textContent = origem.status === 'ATIVO' ? 'Inativar' : 'Reativar';
+      acoes.appendChild(botao);
+
+      linha.append(identificacao, tipo, status, cadastro, acoes);
+      return linha;
+    }
+
+    function renderizarListaOrigens(origens) {
+      const fragmento = document.createDocumentFragment();
+      origens.forEach(origem => fragmento.appendChild(criarLinhaOrigem(origem)));
+      elementos.corpo.replaceChildren(fragmento);
+      elementos.vazio.hidden = origens.length !== 0;
+    }
+
+    function renderizarCarregamento() {
+      const linha = document.createElement('tr');
+      const celula = criarCelula('Carregando...');
+      celula.colSpan = 5;
+      linha.appendChild(celula);
+      elementos.corpo.replaceChildren(linha);
+      elementos.vazio.hidden = true;
+    }
+
+    async function carregarLista() {
+      if (estado.carregandoLista) {
+        estado.recarregarLista = true;
+        return;
+      }
+      estado.carregandoLista = true;
+      renderizarCarregamento();
+      try {
+        const resposta = await relApiClient.executar('rel_listarOrigens', {
+          busca: elementos.busca.value,
+          status: elementos.status.value
+        });
+        if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
+        renderizarListaOrigens(resposta.dados.origens);
+      } catch (erro) {
+        elementos.corpo.replaceChildren();
+        relUI.exibirMensagemTela(erro.message || 'Não foi possível listar as origens.', 'erro');
+      } finally {
+        estado.carregandoLista = false;
+        if (estado.recarregarLista) {
+          estado.recarregarLista = false;
+          carregarLista();
+        }
+      }
+    }
+
+    async function salvarOrigem(evento) {
+      evento.preventDefault();
+      if (estado.salvandoOrigem) return;
+      estado.salvandoOrigem = true;
+      relUI.definirSalvandoOrigem(true);
+      relUI.limparMensagemFormulario();
+      try {
+        const resposta = await relApiClient.executar('rel_cadastrarOrigem', {
+          nomeOrigem: elementos.nome.value,
+          tipoOrigem: elementos.tipo.value,
+          observacao: elementos.observacao.value
+        });
+        if (resposta.status === 'DUPLICADO' || resposta.status !== 'OK') {
+          relUI.exibirMensagemFormulario(resposta.mensagem, 'erro');
+          return;
+        }
+        relUI.fecharModalOrigem();
+        elementos.form.reset();
+        relUI.exibirMensagemTela(resposta.mensagem, 'sucesso');
+        await carregarLista();
+      } catch (erro) {
+        relUI.exibirMensagemFormulario(erro.message || 'Não foi possível cadastrar a origem.', 'erro');
+      } finally {
+        estado.salvandoOrigem = false;
+        relUI.definirSalvandoOrigem(false);
+      }
+    }
+
+    async function alterarStatus(botao) {
+      const idOrigem = botao.dataset.id;
+      if (estado.alterandoStatusIds.has(idOrigem)) return;
+      estado.alterandoStatusIds.add(idOrigem);
+      botao.disabled = true;
+      try {
+        const resposta = await relApiClient.executar(
+          'rel_alterarStatusOrigem',
+          idOrigem,
+          botao.dataset.status
+        );
+        if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
+        relUI.exibirMensagemTela(resposta.mensagem, 'sucesso');
+        await carregarLista();
+      } catch (erro) {
+        relUI.exibirMensagemTela(erro.message || 'Não foi possível alterar o status.', 'erro');
+      } finally {
+        estado.alterandoStatusIds.delete(idOrigem);
+        botao.disabled = false;
+      }
+    }
+
+    function registrarEventos() {
+      elementos.novaOrigem.addEventListener('click', relUI.abrirModalOrigem);
+      elementos.fecharModal.forEach(botao => botao.addEventListener('click', relUI.fecharModalOrigem));
+      elementos.form.addEventListener('submit', salvarOrigem);
+      elementos.status.addEventListener('change', carregarLista);
+      elementos.busca.addEventListener('input', () => {
+        clearTimeout(estado.temporizadorBusca);
+        estado.temporizadorBusca = setTimeout(carregarLista, 250);
+      });
+      elementos.corpo.addEventListener('click', evento => {
+        const botao = evento.target.closest('[data-id]');
+        if (botao) alterarStatus(botao);
+      });
+    }
+
+    function iniciar() {
+      relUI.inicializar();
+      elementos = relUI.obterElementos();
+      registrarEventos();
+      carregarLista();
+    }
+
+    return Object.freeze({ iniciar });
+  })();
+</script>
