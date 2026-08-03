@@ -1,0 +1,178 @@
+<script>
+  const relImportacao = (() => {
+    'use strict';
+
+    const estado = { analisando: false, importando: false, selecaoAnalisada: null };
+    const elementos = {};
+    const rotulosResumo = Object.freeze({
+      linhasLidas: 'Linhas lidas', telefonesValidos: 'Telefones válidos únicos',
+      vazios: 'Células vazias', invalidos: 'Telefones inválidos',
+      duplicadosNaFonte: 'Duplicados na fonte', contatosNovos: 'Novos contatos',
+      contatosExistentes: 'Contatos existentes', vinculosNovos: 'Novos vínculos',
+      vinculosExistentes: 'Vínculos existentes', contatosCriados: 'Contatos criados',
+      contatosAtualizados: 'Contatos atualizados', vinculosCriados: 'Vínculos criados',
+      vinculosAtualizados: 'Vínculos atualizados'
+    });
+
+    function preencherSelect(select, itens, valor, texto, placeholder) {
+      const opcoes = [new Option(placeholder, '')];
+      itens.forEach(item => opcoes.push(new Option(item[texto], item[valor])));
+      select.replaceChildren(...opcoes);
+    }
+
+    function mensagem(texto, tipo) {
+      elementos.aviso.textContent = texto || '';
+      elementos.aviso.hidden = !texto;
+      elementos.aviso.classList.toggle('rel-alert-error', tipo === 'erro');
+    }
+
+    function invalidarAnalise() {
+      estado.selecaoAnalisada = null;
+      elementos.preview.hidden = true;
+      mensagem('');
+    }
+
+    function obterSelecao() {
+      return {
+        idOrigem: elementos.origem.value,
+        idAba: elementos.aba.value,
+        indiceColuna: Number(elementos.coluna.value),
+        primeiraLinhaDados: Number(elementos.primeiraLinha.value)
+      };
+    }
+
+    function renderizarResumo(resumo, titulo) {
+      const fragmento = document.createDocumentFragment();
+      Object.keys(resumo).forEach(chave => {
+        if (rotulosResumo[chave] === undefined) return;
+        const grupo = document.createElement('div');
+        grupo.className = 'rel-import-metric';
+        const termo = document.createElement('dt');
+        const valor = document.createElement('dd');
+        termo.textContent = rotulosResumo[chave];
+        valor.textContent = resumo[chave];
+        grupo.append(termo, valor);
+        fragmento.appendChild(grupo);
+      });
+      elementos.preview.querySelector('h3').textContent = titulo;
+      elementos.resumo.replaceChildren(fragmento);
+      elementos.preview.hidden = false;
+    }
+
+    function renderizarInvalidos(itens) {
+      const invalidos = itens || [];
+      elementos.invalidos.replaceChildren();
+      elementos.invalidos.hidden = invalidos.length === 0;
+      if (!invalidos.length) return;
+      const titulo = document.createElement('h4');
+      titulo.textContent = 'Amostra de telefones inválidos';
+      const lista = document.createElement('ul');
+      invalidos.forEach(item => {
+        const linha = document.createElement('li');
+        const identificacao = document.createElement('strong');
+        identificacao.textContent = 'Linha ' + item.linha + ': ';
+        linha.append(identificacao, document.createTextNode(
+          String(item.valorOriginal || '') + ' — ' + String(item.motivo || '')
+        ));
+        lista.appendChild(linha);
+      });
+      elementos.invalidos.append(titulo, lista);
+    }
+
+    async function carregarOpcoes() {
+      try {
+        const resposta = await relApiClient.executar('rel_obterOpcoesImportacao');
+        if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
+        preencherSelect(elementos.origem, resposta.dados.origens, 'idOrigem', 'nomeOrigem', 'Selecione');
+        preencherSelect(elementos.aba, resposta.dados.abas, 'idAba', 'nomeAba', 'Selecione');
+      } catch (erro) {
+        mensagem(erro.message || 'Não foi possível carregar as opções de importação.', 'erro');
+      }
+    }
+
+    async function carregarColunas() {
+      invalidarAnalise();
+      elementos.coluna.disabled = true;
+      preencherSelect(elementos.coluna, [], 'indiceColuna', 'nomeColuna',
+        elementos.aba.value ? 'Carregando...' : 'Selecione uma aba');
+      if (!elementos.aba.value) return;
+      try {
+        const resposta = await relApiClient.executar('rel_listarColunasImportacao', elementos.aba.value);
+        if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
+        preencherSelect(elementos.coluna, resposta.dados.colunas, 'indiceColuna', 'nomeColuna', 'Selecione');
+        elementos.coluna.disabled = false;
+      } catch (erro) {
+        mensagem(erro.message || 'Não foi possível listar as colunas.', 'erro');
+      }
+    }
+
+    async function preAnalisar(evento) {
+      evento.preventDefault();
+      if (estado.analisando || estado.importando) return;
+      estado.analisando = true;
+      elementos.preAnalisar.disabled = true;
+      invalidarAnalise();
+      try {
+        const selecao = obterSelecao();
+        const resposta = await relApiClient.executar('rel_preAnalisarImportacao', selecao);
+        if (resposta.dados && resposta.dados.resumo) {
+          renderizarResumo(resposta.dados.resumo, 'Resumo da pré-análise');
+          renderizarInvalidos(resposta.dados.amostraInvalidos);
+        }
+        if (resposta.status !== 'OK') {
+          elementos.confirmar.disabled = true;
+          throw new Error(resposta.mensagem);
+        }
+        estado.selecaoAnalisada = selecao;
+        elementos.confirmar.disabled = resposta.dados.resumo.telefonesValidos === 0;
+        mensagem(resposta.mensagem, 'sucesso');
+      } catch (erro) {
+        mensagem(erro.message || 'Não foi possível pré-analisar a importação.', 'erro');
+      } finally {
+        estado.analisando = false;
+        elementos.preAnalisar.disabled = false;
+      }
+    }
+
+    async function confirmar() {
+      if (!estado.selecaoAnalisada || estado.importando) return;
+      estado.importando = true;
+      elementos.confirmar.disabled = true;
+      try {
+        const resposta = await relApiClient.executar('rel_confirmarImportacao', estado.selecaoAnalisada);
+        if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
+        renderizarResumo(resposta.dados.resumo, 'Resultado da importação');
+        renderizarInvalidos(resposta.dados.amostraInvalidos);
+        mensagem(resposta.mensagem, 'sucesso');
+        estado.selecaoAnalisada = null;
+        await relResumo.carregar();
+      } catch (erro) {
+        mensagem(erro.message || 'Não foi possível confirmar a importação.', 'erro');
+      } finally {
+        estado.importando = false;
+        elementos.confirmar.disabled = false;
+      }
+    }
+
+    function inicializar() {
+      Object.assign(elementos, {
+        form: document.querySelector('#rel-form-importacao'), origem: document.querySelector('#rel-import-origem'),
+        aba: document.querySelector('#rel-import-aba'), coluna: document.querySelector('#rel-import-coluna'),
+        primeiraLinha: document.querySelector('#rel-import-primeira-linha'),
+        preAnalisar: document.querySelector('#rel-pre-analisar'), aviso: document.querySelector('#rel-import-aviso'),
+        preview: document.querySelector('#rel-import-preview'), resumo: document.querySelector('#rel-import-resumo'),
+        invalidos: document.querySelector('#rel-import-invalidos'),
+        confirmar: document.querySelector('#rel-confirmar-importacao')
+      });
+      elementos.form.addEventListener('submit', preAnalisar);
+      elementos.aba.addEventListener('change', carregarColunas);
+      elementos.origem.addEventListener('change', invalidarAnalise);
+      elementos.coluna.addEventListener('change', invalidarAnalise);
+      elementos.primeiraLinha.addEventListener('input', invalidarAnalise);
+      elementos.confirmar.addEventListener('click', confirmar);
+      carregarOpcoes();
+    }
+
+    return Object.freeze({ inicializar, carregarOpcoes });
+  })();
+</script>

@@ -32,6 +32,26 @@
         <article class="rel-summary-card rel-summary-card-wide"><span>Última importação</span><strong id="rel-ultima-importacao">—</strong></article>
       </section>
 
+      <section class="rel-card rel-import-card" aria-labelledby="rel-importacao-title">
+        <div class="rel-section-header">
+          <div><h2 id="rel-importacao-title" class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione uma origem, uma aba e a coluna que contém os telefones.</p></div>
+        </div>
+        <form id="rel-form-importacao" class="rel-import-form">
+          <label>Origem ativa<select id="rel-import-origem" required><option value="">Selecione</option></select></label>
+          <label>Aba da planilha<select id="rel-import-aba" required><option value="">Selecione</option></select></label>
+          <label>Coluna do telefone<select id="rel-import-coluna" required disabled><option value="">Selecione uma aba</option></select></label>
+          <label>Primeira linha de dados<input id="rel-import-primeira-linha" type="number" min="1" step="1" value="2" required></label>
+          <div class="rel-import-actions"><button id="rel-pre-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
+        </form>
+        <div id="rel-import-aviso" class="rel-alert" role="status" hidden></div>
+        <section id="rel-import-preview" class="rel-import-preview" aria-live="polite" hidden>
+          <h3>Resumo da pré-análise</h3>
+          <dl id="rel-import-resumo" class="rel-import-metrics"></dl>
+          <div id="rel-import-invalidos" class="rel-import-invalidos" hidden></div>
+          <div class="rel-import-confirm"><p>Confira os números antes de gravar os contatos.</p><button id="rel-confirmar-importacao" class="rel-button rel-button-primary" type="button">Confirmar importação</button></div>
+        </section>
+      </section>
+
       <section class="rel-card" aria-labelledby="rel-origens-title">
         <div class="rel-section-header">
           <div><h2 id="rel-origens-title" class="rel-card-title">Origens</h2><p class="rel-message">Gerencie de onde os contatos foram obtidos.</p></div>
@@ -63,6 +83,7 @@
   <?!= include('RelacionamentoApiClient'); ?>
   <?!= include('RelacionamentoUI'); ?>
   <?!= include('RelacionamentoResumo'); ?>
+  <?!= include('RelacionamentoImportacao'); ?>
   <?!= include('RelacionamentoOrigens'); ?>
   <?!= include('RelacionamentoScripts'); ?>
 </body>

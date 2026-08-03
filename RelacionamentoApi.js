@@ -14,6 +14,22 @@ function rel_obterResumo() {
   return rel_api_executar_(() => rel_resumo_obter_());
 }
 
+function rel_obterOpcoesImportacao() {
+  return rel_api_executar_(() => rel_importacao_obterOpcoes_());
+}
+
+function rel_listarColunasImportacao(idAba) {
+  return rel_api_executar_(() => rel_importacao_listarColunas_(idAba));
+}
+
+function rel_preAnalisarImportacao(dados) {
+  return rel_api_executar_(() => rel_importacao_preAnalisar_(dados));
+}
+
+function rel_confirmarImportacao(dados) {
+  return rel_api_executar_(() => rel_importacao_confirmar_(dados));
+}
+
 function rel_api_executar_(operacao) {
   try {
     return operacao();
