@@ -10,6 +10,10 @@ function rel_alterarStatusOrigem(idOrigem, novoStatus) {
   return rel_api_executar_(() => rel_origem_alterarStatus_(idOrigem, novoStatus));
 }
 
+function rel_obterResumo() {
+  return rel_api_executar_(() => rel_resumo_obter_());
+}
+
 function rel_api_executar_(operacao) {
   try {
     return operacao();

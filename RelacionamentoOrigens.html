@@ -117,7 +117,7 @@
         relUI.fecharModalOrigem();
         elementos.form.reset();
         relUI.exibirMensagemTela(resposta.mensagem, 'sucesso');
-        await carregarLista();
+        await Promise.all([carregarLista(), relResumo.carregar()]);
       } catch (erro) {
         relUI.exibirMensagemFormulario(erro.message || 'Não foi possível cadastrar a origem.', 'erro');
       } finally {
@@ -139,7 +139,7 @@
         );
         if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
         relUI.exibirMensagemTela(resposta.mensagem, 'sucesso');
-        await carregarLista();
+        await Promise.all([carregarLista(), relResumo.carregar()]);
       } catch (erro) {
         relUI.exibirMensagemTela(erro.message || 'Não foi possível alterar o status.', 'erro');
       } finally {
