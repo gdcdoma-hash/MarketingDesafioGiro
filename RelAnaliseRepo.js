@@ -3,7 +3,7 @@ const REL_ANALISE_CABECALHOS_CONTATOS = Object.freeze([
   'CIDADE', 'UF', 'DATA_ANALISE', 'ATUALIZADO_EM'
 ]);
 const REL_ANALISE_CABECALHOS_PORTAL = Object.freeze([
-  'ID_DGMB', 'Nome', 'Cidade-UF', 'Telefone'
+  'ID_DGMB', 'nome', 'Cidade-UF', 'whatsapp'
 ]);
 
 function rel_analise_lerTabela_(planilha, nomeAba, cabecalhos, codigoErro) {

@@ -27,14 +27,14 @@ function rel_analise_executar_() {
     let telefonesInvalidosDadosPessoais = 0;
 
     bases.portal.linhas.forEach((linha, indiceLinha) => {
-      const telefone = rel_telefone_normalizar_(linha[mapaPortal.Telefone]);
+      const telefone = rel_telefone_normalizar_(linha[mapaPortal.whatsapp]);
       if (!telefone.valido) {
         telefonesInvalidosDadosPessoais += 1;
         return;
       }
       const registro = {
         id: rel_analise_valor_(linha[mapaPortal.ID_DGMB]),
-        nome: rel_analise_valor_(linha[mapaPortal.Nome]),
+        nome: rel_analise_valor_(linha[mapaPortal.nome]),
         cidadeUf: rel_analise_valor_(linha[mapaPortal['Cidade-UF']]),
         linha: indiceLinha + 2
       };
