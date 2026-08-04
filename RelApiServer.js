@@ -30,6 +30,26 @@ function rel_analisarContatosPortal() {
   return rel_api_executar_(() => rel_analise_executar_());
 }
 
+function rel_listarContatos(filtros) {
+  return rel_api_executar_(() => rel_contatos_listar_(filtros));
+}
+
+function rel_atualizarEtapaContato(dados) {
+  return rel_api_executar_(() => rel_contatos_atualizarEtapa_(dados));
+}
+
+function rel_salvarDadosContato(dados) {
+  return rel_api_executar_(() => rel_contatos_salvarDados_(dados));
+}
+
+function rel_listarOpcoesCidades(filtros) {
+  return rel_api_executar_(() => rel_cidades_listarOpcoes_(filtros));
+}
+
+function rel_cadastrarCidade(dados) {
+  return rel_api_executar_(() => rel_cidades_cadastrar_(dados));
+}
+
 function rel_api_executar_(operacao) {
   try {
     const resposta = operacao();

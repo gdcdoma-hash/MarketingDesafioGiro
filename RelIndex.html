@@ -25,6 +25,8 @@
     </header>
 
     <main class="rel-main">
+      <?!= include('RelContatos'); ?>
+
       <section class="rel-summary" aria-label="Resumo operacional">
         <article class="rel-summary-card"><span>Total de origens</span><strong id="rel-total-origens">—</strong></article>
         <article class="rel-summary-card"><span>Ativas</span><strong id="rel-origens-ativas">—</strong></article>
@@ -91,6 +93,26 @@
         <div class="rel-modal-actions"><button class="rel-button" type="button" data-rel-fechar>Cancelar</button><button id="rel-salvar" class="rel-button rel-button-primary" type="submit">Salvar origem</button></div>
       </form>
     </dialog>
+    <dialog id="rel-contato-modal" class="rel-modal rel-contact-modal">
+      <form id="rel-contato-form" method="dialog">
+        <div class="rel-modal-header"><h2>Informar dados</h2><button class="rel-close" type="button" data-contato-fechar aria-label="Fechar">×</button></div>
+        <input id="rel-contato-telefone" type="hidden">
+        <label>Nome<input id="rel-contato-nome" maxlength="120" autocomplete="off"></label>
+        <div class="rel-contact-form-grid">
+          <label>UF<select id="rel-contato-uf"><option value="">Selecione</option></select></label>
+          <label>Região<select id="rel-contato-regiao"><option value="">Selecione</option><option value="PARA">Pará</option><option value="IMPERATRIZ">Imperatriz</option><option value="SAO_LUIS">São Luís</option><option value="PINHEIRO">Pinheiro</option><option value="CURURUPU">Cururupu</option><option value="SANTA_INES">Santa Inês</option><option value="BR">BR</option></select></label>
+        </div>
+        <label>Cidade<select id="rel-contato-cidade"><option value="">Selecione UF e região</option><option value="__NOVA__">Nova cidade</option></select></label>
+        <div id="rel-nova-cidade-campos" class="rel-new-city" hidden><label>Nova cidade<input id="rel-nova-cidade" maxlength="100"></label><button id="rel-cadastrar-cidade" class="rel-button" type="button">Cadastrar cidade</button></div>
+        <div class="rel-contact-form-grid">
+          <label>É ciclista?<select id="rel-contato-ciclista"><option value="NAO_CONFIRMADO">Não confirmado</option><option value="SIM">Sim</option><option value="NAO">Não</option></select></label>
+          <label>Modalidade<select id="rel-contato-modalidade"><option value="NAO_INFORMADO">Não informado</option><option value="MTB">MTB</option><option value="SPEED">Speed</option><option value="GRAVEL">Gravel</option><option value="URBANO">Urbano</option><option value="MULTIPLAS">Múltiplas</option></select></label>
+        </div>
+        <label>Observação (opcional)<textarea id="rel-contato-observacao" maxlength="500" rows="3"></textarea></label>
+        <div id="rel-contato-form-aviso" class="rel-alert" role="alert" hidden></div>
+        <div class="rel-modal-actions"><button class="rel-button" type="button" data-contato-fechar>Cancelar</button><button id="rel-contato-salvar" class="rel-button rel-button-primary" type="submit">Salvar dados</button></div>
+      </form>
+    </dialog>
   </div>
 
   <?!= include('RelApi'); ?>
@@ -99,6 +121,7 @@
   <?!= include('RelAnalise'); ?>
   <?!= include('RelImport'); ?>
   <?!= include('RelOrigens'); ?>
+  <?!= include('RelContatosScripts'); ?>
   <?!= include('RelScripts'); ?>
 </body>
 </html>
