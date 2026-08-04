@@ -18,7 +18,7 @@ function rel_resumo_obter_() {
       totalContatos: contatos.filter(contato =>
         String(contato.TELEFONE_NORMALIZADO || '').trim()
       ).length,
-      ultimaImportacao: ultimaImportacao
+      ultimaImportacao: ultimaImportacao ? ultimaImportacao.toISOString() : ''
     }
   };
 }

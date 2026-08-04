@@ -55,17 +55,12 @@ function rel_importacao_atualizarContatos_(tabela, contatos, data) {
     .getRange(2, tabela.mapa.ATUALIZADO_EM + 1, quantidade, 1).getValues();
   const exibicoes = tabela.aba
     .getRange(2, tabela.mapa.TELEFONE_EXIBICAO + 1, quantidade, 1).getValues();
-  const nomes = tabela.aba
-    .getRange(2, tabela.mapa.NOME_CONTATO + 1, quantidade, 1).getValues();
   contatos.forEach(contato => {
     const indice = contato.linha - 2;
     ultimaImportacao[indice][0] = data;
     atualizadoEm[indice][0] = data;
     if (!String(exibicoes[indice][0] || '').trim()) {
       exibicoes[indice][0] = contato.telefoneExibicao;
-    }
-    if (!String(nomes[indice][0] || '').trim() && contato.nome) {
-      nomes[indice][0] = contato.nome;
     }
   });
   tabela.aba.getRange(2, tabela.mapa.DATA_ULTIMA_IMPORTACAO + 1, quantidade, 1)
@@ -74,8 +69,6 @@ function rel_importacao_atualizarContatos_(tabela, contatos, data) {
     .setValues(atualizadoEm);
   tabela.aba.getRange(2, tabela.mapa.TELEFONE_EXIBICAO + 1, quantidade, 1)
     .setValues(exibicoes);
-  tabela.aba.getRange(2, tabela.mapa.NOME_CONTATO + 1, quantidade, 1)
-    .setValues(nomes);
 }
 
 function rel_importacao_atualizarVinculos_(tabela, vinculos, data) {

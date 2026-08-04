@@ -3,12 +3,10 @@
     'use strict';
 
     const LIMITE_REGISTROS = 5000;
-    const LIMITE_NOME = 120;
     const estado = { analisando: false, importando: false, selecaoAnalisada: null };
     const elementos = {};
     const rotulosResumo = Object.freeze({
       linhasLidas: 'Linhas lidas', telefonesValidos: 'Telefones válidos únicos',
-      nomesAproveitaveis: 'Nomes aproveitáveis',
       vazios: 'Células vazias', invalidos: 'Telefones inválidos',
       duplicadosNaFonte: 'Duplicados na fonte', contatosNovos: 'Novos contatos',
       contatosExistentes: 'Contatos existentes', vinculosNovos: 'Novos vínculos',
@@ -33,18 +31,14 @@
       estado.selecaoAnalisada = null;
       estado.registros = null;
       elementos.preview.hidden = true;
+      elementos.invalidos.hidden = true;
+      elementos.confirmar.disabled = true;
       mensagem('');
     }
 
     function exibirArquivo(nomeArquivo, nomeAba) {
       elementos.nomeArquivo.textContent = nomeArquivo || 'Nenhum arquivo selecionado';
       elementos.nomeAba.textContent = nomeAba || '—';
-    }
-
-    function sanitizarNome(valor) {
-      return String(valor || '')
-        .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
-        .replace(/\s+/g, ' ').trim().slice(0, LIMITE_NOME);
     }
 
     function obterSelecao() {
@@ -81,7 +75,6 @@
       let nomeAba = '';
       let linhas = [];
       let indiceTelefone = -1;
-      let indiceNome = -1;
       pasta.SheetNames.some(nome => {
         const linhasAba = XLSX.utils.sheet_to_json(pasta.Sheets[nome], {
           header: 1, defval: '', raw: false, blankrows: true
@@ -97,9 +90,6 @@
         nomeAba = nome;
         linhas = linhasAba;
         indiceTelefone = telefone;
-        indiceNome = localizarColuna(linhasAba[0], [
-          'saved_name', 'public_name', 'name', 'nome'
-        ]);
         return true;
       });
       if (!linhas.length) {
@@ -114,7 +104,6 @@
         nomeAba: nomeAba,
         registros: registros.map((linha, indice) => ({
           telefoneOriginal: linha[indiceTelefone],
-          nomeOriginal: sanitizarNome(indiceNome >= 0 ? linha[indiceNome] : ''),
           linhaArquivo: indice + 2
         }))
       };
@@ -212,12 +201,17 @@
         renderizarInvalidos(resposta.dados.amostraInvalidos);
         mensagem(resposta.mensagem, 'sucesso');
         estado.selecaoAnalisada = null;
+        estado.registros = null;
+        estado.nomeArquivo = '';
+        estado.nomeAbaArquivo = '';
+        elementos.arquivo.value = '';
+        exibirArquivo('', '');
         await relResumo.carregar();
       } catch (erro) {
         mensagem(erro.message || 'Não foi possível confirmar a importação.', 'erro');
       } finally {
         estado.importando = false;
-        elementos.confirmar.disabled = false;
+        elementos.confirmar.disabled = !estado.selecaoAnalisada;
       }
     }
 

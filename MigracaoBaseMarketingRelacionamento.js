@@ -104,6 +104,136 @@ function dg_auditarBaseMarketingRelacionamento() {
   return resumo;
 }
 
+/**
+ * Remove exclusivamente as abas antigas de Relacionamento da planilha do Portal.
+ * Função administrativa manual: não é chamada pelo front-end nem por gatilhos.
+ */
+function dg_removerAbasAntigasRelacionamentoPortal() {
+  dg_validarConfiguracaoPlanilhas_();
+  const portal = dg_abrirPlanilhaPortal_();
+  const operacional = dg_abrirPlanilhaMarketingRelacionamento_();
+  if (!portal || !operacional || portal.getId() === operacional.getId()) {
+    throw new Error('Limpeza interrompida: não foi possível distinguir as duas planilhas.');
+  }
+
+  const estruturas = [
+    REL_CONFIG.ABAS.CONTATOS,
+    REL_CONFIG.ABAS.ORIGENS,
+    REL_CONFIG.ABAS.CONTATO_ORIGENS,
+    REL_CONFIG.ABAS.HISTORICO,
+    REL_CONFIG.ABAS.CIDADES
+  ];
+  const nomesPermitidos = [
+    'Relacionamento_Contatos',
+    'Relacionamento_Origens',
+    'Relacionamento_ContatoOrigens',
+    'Relacionamento_Historico',
+    'Relacionamento_Cidades',
+    'Rel_EntradaContatos'
+  ];
+  const relatorio = [
+    '=== LIMPEZA DAS ABAS ANTIGAS DO PORTAL ===',
+    '',
+    'Validação da base operacional:'
+  ];
+
+  estruturas.forEach(estrutura => {
+    const aba = operacional.getSheetByName(estrutura.NOME);
+    if (!aba) {
+      throw new Error('Limpeza interrompida: aba operacional ausente: ' + estrutura.NOME + '.');
+    }
+    const problemas = rel_validarCabecalhos_(aba, estrutura.CABECALHOS);
+    if (problemas.length) {
+      throw new Error('Limpeza interrompida: ' + estrutura.NOME + ': ' + problemas.join('; '));
+    }
+    relatorio.push('- ' + estrutura.NOME + ': OK');
+  });
+
+  dg_validarDadosAntigosContidos_(
+    portal,
+    operacional,
+    REL_CONFIG.ABAS.CONTATOS.NOME,
+    ['TELEFONE_NORMALIZADO']
+  );
+  dg_validarDadosAntigosContidos_(
+    portal,
+    operacional,
+    REL_CONFIG.ABAS.CONTATO_ORIGENS.NOME,
+    ['TELEFONE_NORMALIZADO', 'ID_ORIGEM'],
+    'QUANTIDADE_OCORRENCIAS'
+  );
+
+  relatorio.push('', 'Planilha principal:');
+  nomesPermitidos.forEach(nome => {
+    const aba = portal.getSheetByName(nome);
+    if (!aba) {
+      relatorio.push('- ' + nome + ': ausente');
+      return;
+    }
+    portal.deleteSheet(aba);
+    relatorio.push('- ' + nome + ': removida');
+  });
+  relatorio.push('', 'Abas protegidas:', '- nenhuma alteração');
+  const resumo = relatorio.join('\n');
+  Logger.log(resumo);
+  return resumo;
+}
+
+function dg_validarDadosAntigosContidos_(portal, operacional, nomeAba, camposChave, campoQuantidade) {
+  const antiga = portal.getSheetByName(nomeAba);
+  if (!antiga || !dg_abaPossuiDados_(antiga)) return;
+  const oficial = operacional.getSheetByName(nomeAba);
+  const registrosAntigos = dg_mapearRegistrosLimpeza_(antiga, camposChave, campoQuantidade);
+  const registrosOficiais = dg_mapearRegistrosLimpeza_(oficial, camposChave, campoQuantidade);
+
+  Object.keys(registrosAntigos).forEach(chave => {
+    if (registrosOficiais[chave] === undefined) {
+      throw new Error('Limpeza interrompida: registro da aba antiga ' + nomeAba +
+        ' não existe na base operacional (' + chave + ').');
+    }
+    if (campoQuantidade && registrosOficiais[chave] < registrosAntigos[chave]) {
+      throw new Error('Limpeza interrompida: quantidade divergente em ' + nomeAba +
+        ' (' + chave + ').');
+    }
+  });
+}
+
+function dg_abaPossuiDados_(aba) {
+  if (aba.getLastRow() < 2 || !aba.getLastColumn()) return false;
+  return aba.getRange(2, 1, aba.getLastRow() - 1, aba.getLastColumn())
+    .getDisplayValues().some(linha => linha.some(valor => String(valor || '').trim()));
+}
+
+function dg_mapearRegistrosLimpeza_(aba, camposChave, campoQuantidade) {
+  const ultimaColuna = aba.getLastColumn();
+  const cabecalhos = aba.getRange(1, 1, 1, ultimaColuna).getDisplayValues()[0];
+  const mapa = {};
+  cabecalhos.forEach((cabecalho, indice) => { mapa[String(cabecalho || '').trim()] = indice; });
+  camposChave.concat(campoQuantidade ? [campoQuantidade] : []).forEach(campo => {
+    if (mapa[campo] === undefined) {
+      throw new Error('Limpeza interrompida: cabeçalho ' + campo + ' ausente em ' + aba.getName() + '.');
+    }
+  });
+
+  const registros = {};
+  if (aba.getLastRow() < 2) return registros;
+  aba.getRange(2, 1, aba.getLastRow() - 1, ultimaColuna).getDisplayValues().forEach(linha => {
+    if (!linha.some(valor => String(valor || '').trim())) return;
+    const chave = camposChave.map(campo => String(linha[mapa[campo]] || '').trim()).join('|');
+    if (!chave || chave.split('|').some(parte => !parte)) {
+      throw new Error('Limpeza interrompida: registro sem chave em ' + aba.getName() + '.');
+    }
+    if (registros[chave] !== undefined) {
+      throw new Error('Limpeza interrompida: chave duplicada em ' + aba.getName() + ' (' + chave + ').');
+    }
+    registros[chave] = campoQuantidade ? Number(linha[mapa[campoQuantidade]] || 0) : true;
+    if (campoQuantidade && (!Number.isFinite(registros[chave]) || registros[chave] < 0)) {
+      throw new Error('Limpeza interrompida: quantidade inválida em ' + aba.getName() + ' (' + chave + ').');
+    }
+  });
+  return registros;
+}
+
 function dg_validarConfiguracaoPlanilhas_() {
   if (!DG_PLANILHA_MARKETING_RELACIONAMENTO_ID ||
       DG_PLANILHA_MARKETING_RELACIONAMENTO_ID === SPREADSHEET_ID) {

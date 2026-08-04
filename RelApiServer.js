@@ -28,7 +28,16 @@ function rel_confirmarImportacao(dados) {
 
 function rel_api_executar_(operacao) {
   try {
-    return operacao();
+    const resposta = operacao();
+    if (!resposta || typeof resposta !== 'object' || Array.isArray(resposta) ||
+        typeof resposta.status !== 'string') {
+      throw new Error('A API retornou uma resposta fora do contrato esperado.');
+    }
+    return rel_api_serializar_({
+      status: resposta.status,
+      mensagem: resposta.mensagem || '',
+      dados: resposta.dados || {}
+    });
   } catch (erro) {
     console.error(erro);
     return {
@@ -37,4 +46,21 @@ function rel_api_executar_(operacao) {
       dados: {}
     };
   }
+}
+
+function rel_api_serializar_(valor) {
+  if (valor instanceof Date) {
+    return Number.isNaN(valor.getTime()) ? '' : valor.toISOString();
+  }
+  if (Array.isArray(valor)) return valor.map(item => rel_api_serializar_(item));
+  if (valor && typeof valor === 'object') {
+    return Object.keys(valor).reduce((serializado, chave) => {
+      const item = valor[chave];
+      if (item !== undefined && typeof item !== 'function') {
+        serializado[chave] = rel_api_serializar_(item);
+      }
+      return serializado;
+    }, {});
+  }
+  return valor;
 }
