@@ -5,30 +5,11 @@ function rel_importacao_resposta_(status, mensagem, dados) {
 function rel_importacao_validarSelecao_(dados) {
   const entrada = dados || {};
   const idOrigem = String(entrada.idOrigem || '').trim();
-  const idAba = String(entrada.idAba || '').trim();
-  const indiceColuna = Number(entrada.indiceColuna);
-  const primeiraLinhaDados = Number(entrada.primeiraLinhaDados);
   if (!idOrigem) return { erro: 'Selecione uma origem.' };
   const origem = rel_origem_listarRegistros_()
     .find(item => item.idOrigem === idOrigem && item.status === 'ATIVO');
   if (!origem) return { erro: 'A origem selecionada não existe ou está inativa.' };
-  const aba = rel_importacao_obterAbaPorId_(idAba);
-  if (!aba || rel_importacao_abaProibida_(aba)) {
-    return { erro: 'A aba selecionada não pode ser usada como fonte.' };
-  }
-  const colunas = rel_importacao_lerCabecalhosFonte_(aba);
-  if (!Number.isInteger(indiceColuna) || !colunas.some(item => item.indiceColuna === indiceColuna)) {
-    return { erro: 'Selecione uma coluna válida.' };
-  }
-  if (!Number.isInteger(primeiraLinhaDados) || primeiraLinhaDados < 1) {
-    return { erro: 'Informe uma primeira linha de dados válida.' };
-  }
-  return {
-    origem: origem,
-    aba: aba,
-    indiceColuna: indiceColuna,
-    primeiraLinhaDados: primeiraLinhaDados
-  };
+  return { origem: origem };
 }
 
 function rel_importacao_obterOpcoes_() {
@@ -37,17 +18,7 @@ function rel_importacao_obterOpcoes_() {
     .map(origem => ({ idOrigem: origem.idOrigem, nomeOrigem: origem.nomeOrigem }));
   return rel_importacao_resposta_('OK', '', {
     origens: origens,
-    abas: rel_importacao_listarAbasFonte_()
-  });
-}
-
-function rel_importacao_listarColunas_(idAba) {
-  const aba = rel_importacao_obterAbaPorId_(idAba);
-  if (!aba || rel_importacao_abaProibida_(aba)) {
-    return rel_importacao_resposta_('ERRO_VALIDACAO', 'Aba de origem inválida.', {});
-  }
-  return rel_importacao_resposta_('OK', '', {
-    colunas: rel_importacao_lerCabecalhosFonte_(aba)
+    urlAbaImportacao: rel_importacao_obterUrlAba_()
   });
 }
 
@@ -56,11 +27,7 @@ function rel_importacao_analisar_(dados) {
   if (selecao.erro) {
     return { erro: rel_importacao_resposta_('ERRO_VALIDACAO', selecao.erro, {}) };
   }
-  const valores = rel_importacao_lerColunaFonte_(
-    selecao.aba,
-    selecao.indiceColuna,
-    selecao.primeiraLinhaDados
-  );
+  const valores = rel_importacao_lerTelefonesEntrada_();
   const porTelefone = {};
   let vazios = 0;
   let invalidos = 0;
@@ -72,7 +39,7 @@ function rel_importacao_analisar_(dados) {
       invalidos++;
       if (amostraInvalidos.length < 20) {
         amostraInvalidos.push({
-          linha: selecao.primeiraLinhaDados + indice,
+          linha: 2 + indice,
           valorOriginal: String(valor),
           motivo: normalizado.motivo
         });
@@ -138,14 +105,14 @@ function rel_importacao_preAnalisar_(dados) {
   const analise = rel_importacao_analisar_(dados);
   if (analise.erro) return analise.erro;
   if (!analise.resumo.telefonesValidos) {
-    return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado.', {
+    return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado na aba Rel_EntradaContatos.', {
       resumo: analise.resumo,
       amostraInvalidos: analise.amostraInvalidos
     });
   }
   return rel_importacao_resposta_('OK', 'Pré-análise concluída.', {
     origem: { idOrigem: analise.selecao.origem.idOrigem, nomeOrigem: analise.selecao.origem.nomeOrigem },
-    nomeAba: analise.selecao.aba.getName(),
+    nomeAba: REL_CONFIG.ABAS.ENTRADA_CONTATOS.NOME,
     resumo: analise.resumo,
     amostraInvalidos: analise.amostraInvalidos
   });
@@ -158,7 +125,7 @@ function rel_importacao_confirmar_(dados) {
     const analise = rel_importacao_analisar_(dados);
     if (analise.erro) return analise.erro;
     if (!analise.resumo.telefonesValidos) {
-      return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado.', {
+      return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado na aba Rel_EntradaContatos.', {
         resumo: analise.resumo,
         amostraInvalidos: analise.amostraInvalidos
       });
