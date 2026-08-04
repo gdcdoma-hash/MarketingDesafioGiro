@@ -84,7 +84,11 @@
     box-shadow: 0 4px 16px rgba(31, 41, 55, 0.05);
   }
 
-  .rel-import-card { margin-bottom: 20px; }
+  .rel-analysis-card, .rel-import-card { margin-bottom: 20px; }
+  .rel-analysis-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 20px 0 0; }
+  .rel-analysis-metric { padding: 12px; border-radius: 7px; background: #f3f5f8; }
+  .rel-analysis-metric dt { color: #566273; font-size: 12px; font-weight: 700; }
+  .rel-analysis-metric dd { margin: 6px 0 0; font-size: 20px; font-weight: 700; }
   .rel-import-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 16px; margin-top: 24px; }
   .rel-import-actions { display: flex; align-items: end; }
   .rel-import-file-info { display: flex; flex-wrap: wrap; gap: 12px 28px; margin: 16px 0 0; color: #566273; }
@@ -208,7 +212,7 @@
     .rel-app .rel-card {
       padding: 24px;
     }
-    .rel-import-form, .rel-import-metrics { grid-template-columns: 1fr; }
+    .rel-import-form, .rel-import-metrics, .rel-analysis-metrics { grid-template-columns: 1fr; }
     .rel-import-actions .rel-button { width: 100%; }
     .rel-import-confirm { align-items: stretch; flex-direction: column; }
     .rel-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

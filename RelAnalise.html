@@ -1,0 +1,69 @@
+<script>
+  const relAnalise = (() => {
+    'use strict';
+
+    const elementos = {};
+    const metricas = [
+      ['analisados', 'Contatos analisados'], ['encontrados', 'Encontrados no Portal'],
+      ['naoEncontrados', 'Não encontrados'], ['conflitos', 'Conflitos'], ['atualizados', 'Atualizados'],
+      ['duplicidadesEquivalentes', 'Duplicidades equivalentes'],
+      ['cadastrosIncompletos', 'Cadastros incompletos'], ['contatosInvalidos', 'Contatos inválidos'],
+      ['telefonesInvalidosDadosPessoais', 'Telefones inválidos no Portal'],
+      ['cidadeNaoSeparada', 'Cidades não separadas']
+    ];
+
+    function mostrarMensagem(mensagem, erro) {
+      elementos.aviso.textContent = mensagem;
+      elementos.aviso.hidden = !mensagem;
+      elementos.aviso.classList.toggle('rel-alert-error', Boolean(erro));
+    }
+
+    function renderizar(dados) {
+      elementos.resumo.textContent = '';
+      metricas.forEach(metrica => {
+        const item = document.createElement('div');
+        const titulo = document.createElement('dt');
+        const valor = document.createElement('dd');
+        item.className = 'rel-analysis-metric';
+        titulo.textContent = metrica[1];
+        valor.textContent = Number(dados[metrica[0]] || 0);
+        item.appendChild(titulo);
+        item.appendChild(valor);
+        elementos.resumo.appendChild(item);
+      });
+      elementos.resumo.hidden = false;
+    }
+
+    async function analisar() {
+      if (elementos.botao.disabled) return;
+      elementos.botao.disabled = true;
+      elementos.botao.textContent = 'Analisando...';
+      mostrarMensagem('Analisando contatos...', false);
+      try {
+        const resposta = await relApiClient.executar('rel_analisarContatosPortal');
+        if (!resposta || resposta.status !== 'OK') throw new Error(
+          resposta && resposta.status === 'ERRO_ESTRUTURA'
+            ? 'Não foi possível analisar os contatos porque a estrutura das planilhas está incompleta.'
+            : 'Não foi possível concluir a análise dos contatos.'
+        );
+        renderizar(resposta.dados);
+        mostrarMensagem('Análise concluída com sucesso.', false);
+        await relResumo.carregar();
+      } catch (erro) {
+        mostrarMensagem(erro.message || 'Não foi possível concluir a análise dos contatos.', true);
+      } finally {
+        elementos.botao.disabled = false;
+        elementos.botao.textContent = 'Analisar contatos';
+      }
+    }
+
+    function inicializar() {
+      elementos.botao = document.querySelector('#rel-analisar-contatos');
+      elementos.aviso = document.querySelector('#rel-analise-aviso');
+      elementos.resumo = document.querySelector('#rel-analise-resumo');
+      elementos.botao.addEventListener('click', analisar);
+    }
+
+    return Object.freeze({ inicializar });
+  })();
+</script>

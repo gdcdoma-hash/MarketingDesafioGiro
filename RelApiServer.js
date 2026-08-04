@@ -26,6 +26,10 @@ function rel_confirmarImportacao(dados) {
   return rel_api_executar_(() => rel_importacao_confirmar_(dados));
 }
 
+function rel_analisarContatosPortal() {
+  return rel_api_executar_(() => rel_analise_executar_());
+}
+
 function rel_api_executar_(operacao) {
   try {
     const resposta = operacao();
