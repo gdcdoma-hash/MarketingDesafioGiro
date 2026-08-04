@@ -1,5 +1,5 @@
 function rel_origem_obterAba_() {
-  const aba = SpreadsheetApp.openById(SPREADSHEET_ID)
+  const aba = dg_abrirPlanilhaMarketingRelacionamento_()
     .getSheetByName(REL_CONFIG.ABAS.ORIGENS.NOME);
 
   if (!aba) throw new Error('A aba Relacionamento_Origens não foi encontrada.');

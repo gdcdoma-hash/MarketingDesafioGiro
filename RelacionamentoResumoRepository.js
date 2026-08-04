@@ -1,5 +1,5 @@
 function rel_resumo_obterRegistros_(configuracaoAba, cabecalhosNecessarios) {
-  const aba = SpreadsheetApp.openById(SPREADSHEET_ID)
+  const aba = dg_abrirPlanilhaMarketingRelacionamento_()
     .getSheetByName(configuracaoAba.NOME);
   if (!aba) throw new Error('A aba ' + configuracaoAba.NOME + ' não foi encontrada.');
 

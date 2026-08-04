@@ -15,15 +15,17 @@ const ABAS = {
  * Apenas lê as quatro abas necessárias para o mini sistema de marketing.
  */
 function testarConexaoMarketing() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilhaOperacional = dg_abrirPlanilhaMarketingRelacionamento_();
+  const planilhaPortal = dg_abrirPlanilhaPortal_();
 
-  const marketing = lerAbaComoObjetos_(ss, ABAS.MARKETING);
-  const dadosPessoais = lerAbaComoObjetos_(ss, ABAS.DADOS_PESSOAIS);
-  const desafios = lerAbaComoObjetos_(ss, ABAS.DESAFIOS);
-  const listaDesafios = lerAbaComoObjetos_(ss, ABAS.LISTA_DESAFIOS);
+  const marketing = lerAbaComoObjetos_(planilhaOperacional, ABAS.MARKETING);
+  const dadosPessoais = lerAbaComoObjetos_(planilhaPortal, ABAS.DADOS_PESSOAIS);
+  const desafios = lerAbaComoObjetos_(planilhaPortal, ABAS.DESAFIOS);
+  const listaDesafios = lerAbaComoObjetos_(planilhaPortal, ABAS.LISTA_DESAFIOS);
 
   Logger.log('=== TESTE MARKETING DESAFIO GIRO ===');
-  Logger.log('Planilha: ' + ss.getName());
+  Logger.log('Planilha operacional: ' + planilhaOperacional.getName());
+  Logger.log('Planilha Portal: ' + planilhaPortal.getName());
 
   Logger.log('Marketing: ' + marketing.length + ' registros');
   Logger.log('DadosPessoais: ' + dadosPessoais.length + ' registros');
@@ -122,12 +124,13 @@ function extrairIdDesafio_(observacao) {
 
 
 function testarMetricasMarketing() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilhaOperacional = dg_abrirPlanilhaMarketingRelacionamento_();
+  const planilhaPortal = dg_abrirPlanilhaPortal_();
 
-  const marketing = lerAbaComoObjetos_(ss, ABAS.MARKETING);
-  const dadosPessoais = lerAbaComoObjetos_(ss, ABAS.DADOS_PESSOAIS);
-  const desafios = lerAbaComoObjetos_(ss, ABAS.DESAFIOS);
-  const listaDesafios = lerAbaComoObjetos_(ss, ABAS.LISTA_DESAFIOS);
+  const marketing = lerAbaComoObjetos_(planilhaOperacional, ABAS.MARKETING);
+  const dadosPessoais = lerAbaComoObjetos_(planilhaPortal, ABAS.DADOS_PESSOAIS);
+  const desafios = lerAbaComoObjetos_(planilhaPortal, ABAS.DESAFIOS);
+  const listaDesafios = lerAbaComoObjetos_(planilhaPortal, ABAS.LISTA_DESAFIOS);
 
   const pessoasPorId = {};
   dadosPessoais.forEach(item => {
@@ -228,10 +231,10 @@ function testarMetricasMarketing() {
 
 
 function diagnosticarPeriodoMarketing() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilhaPortal = dg_abrirPlanilhaPortal_();
 
-  const lista = lerAbaComoObjetos_(ss, ABAS.LISTA_DESAFIOS);
-  const desafios = lerAbaComoObjetos_(ss, ABAS.DESAFIOS);
+  const lista = lerAbaComoObjetos_(planilhaPortal, ABAS.LISTA_DESAFIOS);
+  const desafios = lerAbaComoObjetos_(planilhaPortal, ABAS.DESAFIOS);
 
   Logger.log('=== DIAGNÓSTICO DE PERÍODO ===');
 
@@ -293,12 +296,13 @@ function include(nomeArquivo) {
 
 
 function obterDadosPainel(periodoSolicitado) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilhaOperacional = dg_abrirPlanilhaMarketingRelacionamento_();
+  const planilhaPortal = dg_abrirPlanilhaPortal_();
 
-  const marketing = lerAbaComoObjetos_(ss, ABAS.MARKETING);
-  const pessoas = lerAbaComoObjetos_(ss, ABAS.DADOS_PESSOAIS);
-  const desafios = lerAbaComoObjetos_(ss, ABAS.DESAFIOS);
-  const lista = lerAbaComoObjetos_(ss, ABAS.LISTA_DESAFIOS);
+  const marketing = lerAbaComoObjetos_(planilhaOperacional, ABAS.MARKETING);
+  const pessoas = lerAbaComoObjetos_(planilhaPortal, ABAS.DADOS_PESSOAIS);
+  const desafios = lerAbaComoObjetos_(planilhaPortal, ABAS.DESAFIOS);
+  const lista = lerAbaComoObjetos_(planilhaPortal, ABAS.LISTA_DESAFIOS);
 
   const pessoasPorId = {};
   pessoas.forEach(item => {
@@ -509,10 +513,10 @@ function buscarPessoasMarketing(termoBusca) {
     };
   }
 
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilhaPortal = dg_abrirPlanilhaPortal_();
 
   const pessoas = lerAbaComoObjetos_(
-    ss,
+    planilhaPortal,
     ABAS.DADOS_PESSOAIS
   );
 
@@ -615,10 +619,10 @@ function salvarDivulgadorMarketing(dados) {
     };
   }
 
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilhaPortal = dg_abrirPlanilhaPortal_();
 
   const pessoas = lerAbaComoObjetos_(
-    ss,
+    planilhaPortal,
     ABAS.DADOS_PESSOAIS
   );
 
@@ -633,7 +637,8 @@ function salvarDivulgadorMarketing(dados) {
     };
   }
 
-  const sheet = ss.getSheetByName(ABAS.MARKETING);
+  const planilhaOperacional = dg_abrirPlanilhaMarketingRelacionamento_();
+  const sheet = planilhaOperacional.getSheetByName(ABAS.MARKETING);
 
   if (!sheet) {
     return {
@@ -643,7 +648,7 @@ function salvarDivulgadorMarketing(dados) {
   }
 
   const registros = lerAbaComoObjetos_(
-    ss,
+    planilhaOperacional,
     ABAS.MARKETING
   );
 
@@ -696,8 +701,8 @@ function alterarStatusOrigemMarketing(ref, novoStatus) {
     };
   }
 
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName(ABAS.MARKETING);
+  const planilhaOperacional = dg_abrirPlanilhaMarketingRelacionamento_();
+  const sheet = planilhaOperacional.getSheetByName(ABAS.MARKETING);
 
   if (!sheet) {
     return {
