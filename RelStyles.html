@@ -85,6 +85,23 @@
   }
 
   .rel-analysis-card, .rel-import-card { margin-bottom: 20px; }
+  .rel-contacts-card { margin-bottom: 20px; border-top: 4px solid #1d4ed8 !important; }
+  .rel-contact-filters { display: grid; grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(150px, 1fr)) auto; gap: 12px; align-items: end; margin: 24px 0; }
+  .rel-contact-list { display: grid; gap: 10px; }
+  .rel-contact-row { display: grid; grid-template-columns: minmax(220px, 1.25fr) minmax(220px, 1.4fr) minmax(170px, .9fr) auto; gap: 18px; align-items: center; padding: 16px; border: 1px solid #e1e6ed; border-radius: 9px; background: #fafbfc; }
+  .rel-contact-identity, .rel-contact-meta, .rel-contact-stage, .rel-contact-actions { display: grid; gap: 6px; min-width: 0; }
+  .rel-contact-identity strong { font-size: 16px; overflow-wrap: anywhere; }
+  .rel-contact-identity span, .rel-contact-meta { color: #566273; font-size: 13px; }
+  .rel-contact-identity b { color: #111827; font-size: 18px; letter-spacing: .02em; }
+  .rel-contact-badge { width: fit-content; padding: 4px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-weight: 700; }
+  .rel-contact-badge.is-portal { background: #dcfce7; color: #166534; }
+  .rel-contact-return { color: #9a3412; font-weight: 700; }
+  .rel-contact-stage input, .rel-contact-stage select { padding: 8px; }
+  .rel-contact-actions .rel-button { white-space: nowrap; }
+  .rel-copy-button { border-color: #1d4ed8; color: #1d4ed8; }
+  .rel-pagination { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 22px; color: #566273; font-size: 14px; }
+  .rel-contact-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .rel-new-city { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 10px; }
   .rel-analysis-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin: 20px 0 0; }
   .rel-analysis-metric { padding: 12px; border-radius: 7px; background: #f3f5f8; }
   .rel-analysis-metric dt { color: #566273; font-size: 12px; font-weight: 700; }
@@ -213,6 +230,9 @@
       padding: 24px;
     }
     .rel-import-form, .rel-import-metrics, .rel-analysis-metrics { grid-template-columns: 1fr; }
+    .rel-contact-filters, .rel-contact-row, .rel-contact-form-grid, .rel-new-city { grid-template-columns: 1fr; }
+    .rel-contact-actions { grid-template-columns: 1fr 1fr; }
+    .rel-pagination { flex-wrap: wrap; gap: 10px; }
     .rel-import-actions .rel-button { width: 100%; }
     .rel-import-confirm { align-items: stretch; flex-direction: column; }
     .rel-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }

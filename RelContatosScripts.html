@@ -1,0 +1,135 @@
+<script>
+  const relContatos = (() => {
+    'use strict';
+    const etapas = { PARA_CONTATAR: 'Para contatar', AGUARDANDO_RESPOSTA: 'Aguardando resposta', EM_CONVERSA: 'Em conversa', RETORNAR_DEPOIS: 'Retornar depois', FINALIZADO: 'Finalizado' };
+    const regioes = { PARA: 'Pará', IMPERATRIZ: 'Imperatriz', SAO_LUIS: 'São Luís', PINHEIRO: 'Pinheiro', CURURUPU: 'Cururupu', SANTA_INES: 'Santa Inês', BR: 'BR' };
+    const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+    const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {} };
+    const e = {};
+
+    function textoSeguro(valor) { const span = document.createElement('span'); span.textContent = valor || ''; return span.innerHTML; }
+    function mensagem(texto, erro) { e.aviso.textContent = texto || ''; e.aviso.hidden = !texto; e.aviso.classList.toggle('rel-alert-error', !!erro); }
+    function filtros() { return { busca: e.busca.value, classificacao: e.classificacao.value, etapa: e.etapa.value, idOrigem: e.origem.value, pagina: estado.pagina, porPagina: 50 }; }
+    function dataCurta(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? valor : data.toLocaleDateString('pt-BR'); }
+    function valorData(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10); }
+
+    async function carregar() {
+      mensagem('Carregando contatos...');
+      try {
+        const resposta = await relApiClient.executar('rel_listarContatos', filtros());
+        if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Não foi possível listar os contatos.');
+        renderizar(resposta.dados);
+        mensagem('');
+      } catch (erro) { mensagem(erro.message, true); }
+    }
+
+    function renderizar(dados) {
+      estado.pagina = dados.pagina; estado.totalPaginas = dados.totalPaginas; estado.contatos = {};
+      if (!estado.origensCarregadas) {
+        (dados.origens || []).forEach(origem => e.origem.add(new Option(origem.nomeOrigem, origem.idOrigem)));
+        estado.origensCarregadas = true;
+      }
+      e.lista.innerHTML = (dados.contatos || []).map(contato => {
+        estado.contatos[contato.telefoneNormalizado] = contato;
+        const identificado = contato.classificacao === 'IDENTIFICADO_PORTAL';
+        const retorno = contato.proximoRetorno ? '<span class="rel-contact-return">Retorno: ' + textoSeguro(dataCurta(contato.proximoRetorno)) + '</span>' : '';
+        const opcoes = Object.keys(etapas).map(etapa => '<option value="' + etapa + '"' + (etapa === contato.etapa ? ' selected' : '') + '>' + etapas[etapa] + '</option>').join('');
+        return '<article class="rel-contact-row" data-telefone="' + textoSeguro(contato.telefoneNormalizado) + '">' +
+          '<div class="rel-contact-identity"><strong>' + textoSeguro(contato.nomeExibicao) + '</strong><span>' + textoSeguro(contato.cidadeUfExibicao) + '</span><b>' + textoSeguro(contato.telefoneExibicao) + '</b></div>' +
+          '<div class="rel-contact-meta"><span class="rel-contact-badge ' + (identificado ? 'is-portal' : '') + '">' + (identificado ? 'Identificado no Portal' : 'Contato novo') + '</span><span>' + textoSeguro((contato.origens.length > 1 ? 'Origens: ' : 'Origem: ') + (contato.origens.join(', ') || 'Não informada')) + '</span>' + retorno + '</div>' +
+          '<div class="rel-contact-stage"><select data-etapa aria-label="Etapa">' + opcoes + '</select><input data-retorno type="date" value="' + valorData(contato.proximoRetorno) + '" aria-label="Próximo retorno"></div>' +
+          '<div class="rel-contact-actions"><button class="rel-button rel-copy-button" type="button" data-copiar>Copiar contato</button>' + (!identificado ? '<button class="rel-button" type="button" data-editar>Informar dados</button>' : '') + '</div></article>';
+      }).join('');
+      e.vazio.hidden = dados.total !== 0; e.lista.hidden = dados.total === 0;
+      e.pagina.textContent = 'Página ' + dados.pagina + ' de ' + dados.totalPaginas + ' · ' + dados.total + ' resultados';
+      e.anterior.disabled = dados.pagina <= 1; e.proxima.disabled = dados.pagina >= dados.totalPaginas;
+    }
+
+    function textoCopiar(contato) {
+      return [contato.telefoneExibicao, contato.nomeExibicao === 'Nome não informado' ? '' : contato.nomeExibicao,
+        contato.cidadeUfExibicao === 'Cidade não informada' ? '' : contato.cidadeUfExibicao].filter(Boolean).join(' | ');
+    }
+    async function copiar(contato, botao) {
+      const texto = textoCopiar(contato);
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(texto);
+        else { const area = document.createElement('textarea'); area.value = texto; area.setAttribute('readonly', ''); area.style.position = 'fixed'; area.style.opacity = '0'; document.body.appendChild(area); area.select(); if (!document.execCommand('copy')) throw new Error('Cópia indisponível.'); area.remove(); }
+        const original = botao.textContent; botao.textContent = 'Contato copiado'; setTimeout(() => { botao.textContent = original; }, 1600);
+      } catch (erro) { mensagem('Não foi possível copiar o contato.', true); }
+    }
+
+    async function alterarEtapa(linha, select) {
+      const contato = estado.contatos[linha.dataset.telefone]; const retorno = linha.querySelector('[data-retorno]'); const anterior = contato.etapa;
+      if (select.value === 'RETORNAR_DEPOIS' && !retorno.value) { mensagem('Informe a data do próximo retorno.', true); retorno.focus(); select.value = anterior; return; }
+      let limpar = false;
+      if (select.value === 'PARA_CONTATAR' && contato.proximoRetorno) { limpar = window.confirm('Deseja limpar a data do próximo retorno?'); if (!limpar) { select.value = anterior; return; } }
+      select.disabled = true;
+      try {
+        const resposta = await relApiClient.executar('rel_atualizarEtapaContato', { telefoneNormalizado: contato.telefoneNormalizado, etapa: select.value, proximoRetorno: retorno.value, limparProximoRetorno: limpar });
+        if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar.');
+        contato.etapa = resposta.dados.etapa;
+        contato.proximoRetorno = resposta.dados.proximoRetorno || '';
+        retorno.value = valorData(contato.proximoRetorno);
+        const retornoExibido = linha.querySelector('.rel-contact-return');
+        if (retornoExibido && !contato.proximoRetorno) retornoExibido.remove();
+        if (retornoExibido && contato.proximoRetorno) retornoExibido.textContent = 'Retorno: ' + dataCurta(contato.proximoRetorno);
+        if (!retornoExibido && contato.proximoRetorno) {
+          const novoRetorno = document.createElement('span');
+          novoRetorno.className = 'rel-contact-return';
+          novoRetorno.textContent = 'Retorno: ' + dataCurta(contato.proximoRetorno);
+          linha.querySelector('.rel-contact-meta').appendChild(novoRetorno);
+        }
+        mensagem('Etapa atualizada.');
+        if (select.value === 'FINALIZADO' && e.etapa.value === 'PADRAO') carregar();
+      } catch (erro) { select.value = anterior; mensagem(erro.message, true); } finally { select.disabled = false; }
+    }
+
+    async function abrirEdicao(contato) {
+      e.form.reset(); e.telefone.value = contato.telefoneNormalizado; e.nome.value = contato.nomeContato || ''; e.uf.value = contato.uf || '';
+      e.regiao.value = contato.regiao || '';
+      await carregarCidades();
+      if (contato.cidade && !Array.from(e.cidade.options).some(opcao => opcao.value === contato.cidade)) {
+        e.cidade.add(new Option(contato.cidade, contato.cidade), e.cidade.options[e.cidade.options.length - 1]);
+      }
+      e.cidade.value = contato.cidade || '';
+      e.ciclista.value = contato.eCiclista || 'NAO_CONFIRMADO'; e.modalidade.value = contato.modalidade || 'NAO_INFORMADO'; e.observacao.value = contato.observacao || '';
+      e.formAviso.hidden = true; e.modal.showModal();
+    }
+    async function carregarCidades() {
+      e.cidade.innerHTML = '<option value="">Selecione</option><option value="__NOVA__">Nova cidade</option>';
+      if (!e.uf.value || !e.regiao.value) return;
+      const resposta = await relApiClient.executar('rel_listarOpcoesCidades', { uf: e.uf.value, regiao: e.regiao.value });
+      if (resposta && resposta.status === 'OK') resposta.dados.cidades.forEach(item => e.cidade.add(new Option(item.cidade, item.cidade), e.cidade.options[e.cidade.options.length - 1]));
+    }
+    function avisoForm(texto, erro) { e.formAviso.textContent = texto || ''; e.formAviso.hidden = !texto; e.formAviso.classList.toggle('rel-alert-error', !!erro); }
+    async function cadastrarCidade() {
+      const cidade = e.novaCidade.value.trim(); if (!e.uf.value || !e.regiao.value || !cidade) { avisoForm('Informe UF, região e nova cidade.', true); return; }
+      const resposta = await relApiClient.executar('rel_cadastrarCidade', { uf: e.uf.value, regiao: e.regiao.value, cidade: cidade });
+      if (!resposta || resposta.status !== 'OK') { avisoForm(resposta && resposta.mensagem || 'Falha ao cadastrar cidade.', true); return; }
+      await carregarCidades(); e.cidade.value = cidade; e.novaCidadeCampos.hidden = true; avisoForm('Cidade cadastrada.');
+    }
+    async function salvar(evento) {
+      evento.preventDefault(); const cidade = e.cidade.value === '__NOVA__' ? '' : e.cidade.value;
+      if (e.cidade.value === '__NOVA__') { avisoForm('Cadastre a nova cidade antes de salvar.', true); return; }
+      e.salvar.disabled = true;
+      try {
+        const resposta = await relApiClient.executar('rel_salvarDadosContato', { telefoneNormalizado: e.telefone.value, nomeContato: e.nome.value, uf: e.uf.value, regiao: e.regiao.value, cidade: cidade, eCiclista: e.ciclista.value, modalidade: e.modalidade.value, observacao: e.observacao.value });
+        if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao salvar.');
+        e.modal.close(); mensagem('Dados do contato salvos.'); carregar();
+      } catch (erro) { avisoForm(erro.message, true); } finally { e.salvar.disabled = false; }
+    }
+
+    function iniciar() {
+      Object.assign(e, { filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), etapa: document.querySelector('#rel-contatos-etapa'), origem: document.querySelector('#rel-contatos-origem'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
+      ufs.forEach(uf => e.uf.add(new Option(uf, uf)));
+      e.filtros.addEventListener('submit', evento => { evento.preventDefault(); estado.pagina = 1; carregar(); });
+      e.anterior.addEventListener('click', () => { estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { estado.pagina++; carregar(); });
+      e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
+      e.lista.addEventListener('change', evento => { if (evento.target.matches('[data-etapa]')) alterarEtapa(evento.target.closest('.rel-contact-row'), evento.target); });
+      e.uf.addEventListener('change', carregarCidades); e.regiao.addEventListener('change', carregarCidades); e.cidade.addEventListener('change', () => { e.novaCidadeCampos.hidden = e.cidade.value !== '__NOVA__'; });
+      e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
+      carregar();
+    }
+    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar });
+  })();
+</script>

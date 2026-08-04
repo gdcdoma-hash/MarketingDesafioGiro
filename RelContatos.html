@@ -1,0 +1,20 @@
+<section class="rel-card rel-contacts-card" aria-labelledby="rel-contatos-title">
+  <div class="rel-section-header">
+    <div><span class="rel-eyebrow">Área operacional</span><h2 id="rel-contatos-title" class="rel-card-title">Para Contatar</h2><p class="rel-message">Consulte, copie e atualize contatos sem sair desta tela.</p></div>
+  </div>
+  <form id="rel-contatos-filtros" class="rel-contact-filters">
+    <label class="rel-contact-search">Busca<input id="rel-contatos-busca" type="search" placeholder="Telefone, nome, cidade ou ID"></label>
+    <label>Classificação<select id="rel-contatos-classificacao"><option value="TODOS">Todos</option><option value="IDENTIFICADO_PORTAL">Identificados no Portal</option><option value="CONTATO_NOVO">Contatos novos</option></select></label>
+    <label>Etapa<select id="rel-contatos-etapa"><option value="PADRAO">Trabalho (sem finalizados)</option><option value="TODOS">Todas</option><option value="PARA_CONTATAR">Para contatar</option><option value="AGUARDANDO_RESPOSTA">Aguardando resposta</option><option value="EM_CONVERSA">Em conversa</option><option value="RETORNAR_DEPOIS">Retornar depois</option><option value="FINALIZADO">Finalizados</option></select></label>
+    <label>Origem<select id="rel-contatos-origem"><option value="">Todas</option></select></label>
+    <button class="rel-button rel-button-primary" type="submit">Filtrar</button>
+  </form>
+  <div id="rel-contatos-aviso" class="rel-alert" role="status" aria-live="polite" hidden></div>
+  <div id="rel-contatos-lista" class="rel-contact-list" aria-live="polite"></div>
+  <p id="rel-contatos-vazio" class="rel-empty" hidden>Nenhum contato encontrado.</p>
+  <nav class="rel-pagination" aria-label="Paginação dos contatos">
+    <button id="rel-contatos-anterior" class="rel-button" type="button">Anterior</button>
+    <span id="rel-contatos-pagina">Página 1 de 1 · 0 resultados</span>
+    <button id="rel-contatos-proxima" class="rel-button" type="button">Próxima</button>
+  </nav>
+</section>
