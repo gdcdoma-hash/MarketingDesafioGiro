@@ -2,10 +2,13 @@
   const relImportacao = (() => {
     'use strict';
 
+    const LIMITE_REGISTROS = 5000;
+    const LIMITE_NOME = 120;
     const estado = { analisando: false, importando: false, selecaoAnalisada: null };
     const elementos = {};
     const rotulosResumo = Object.freeze({
       linhasLidas: 'Linhas lidas', telefonesValidos: 'Telefones válidos únicos',
+      nomesAproveitaveis: 'Nomes aproveitáveis',
       vazios: 'Células vazias', invalidos: 'Telefones inválidos',
       duplicadosNaFonte: 'Duplicados na fonte', contatosNovos: 'Novos contatos',
       contatosExistentes: 'Contatos existentes', vinculosNovos: 'Novos vínculos',
@@ -28,12 +31,93 @@
 
     function invalidarAnalise() {
       estado.selecaoAnalisada = null;
+      estado.registros = null;
       elementos.preview.hidden = true;
       mensagem('');
     }
 
+    function exibirArquivo(nomeArquivo, nomeAba) {
+      elementos.nomeArquivo.textContent = nomeArquivo || 'Nenhum arquivo selecionado';
+      elementos.nomeAba.textContent = nomeAba || '—';
+    }
+
+    function sanitizarNome(valor) {
+      return String(valor || '')
+        .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+        .replace(/\s+/g, ' ').trim().slice(0, LIMITE_NOME);
+    }
+
     function obterSelecao() {
-      return { idOrigem: elementos.origem.value };
+      return {
+        idOrigem: elementos.origem.value,
+        nomeArquivo: estado.nomeArquivo || '',
+        nomeAbaArquivo: estado.nomeAbaArquivo || '',
+        registros: estado.registros || []
+      };
+    }
+
+    function normalizarCabecalho(valor) {
+      return String(valor || '').trim().toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    }
+
+    function localizarColuna(cabecalhos, alternativas) {
+      const normalizados = cabecalhos.map(normalizarCabecalho);
+      return alternativas.reduce((encontrado, nome) =>
+        encontrado >= 0 ? encontrado : normalizados.indexOf(nome), -1);
+    }
+
+    async function lerArquivo() {
+      const arquivo = elementos.arquivo.files[0];
+      if (!arquivo) throw new Error('Selecione um arquivo de contatos.');
+      if (!/\.(xlsx|xls|csv)$/i.test(arquivo.name)) {
+        throw new Error('Selecione um arquivo Excel ou CSV válido.');
+      }
+      if (typeof XLSX === 'undefined') {
+        throw new Error('Não foi possível carregar o leitor de arquivos Excel.');
+      }
+      const pasta = XLSX.read(await arquivo.arrayBuffer(), { type: 'array' });
+      let nomeAba = '';
+      let linhas = [];
+      let indiceTelefone = -1;
+      let indiceNome = -1;
+      pasta.SheetNames.some(nome => {
+        const linhasAba = XLSX.utils.sheet_to_json(pasta.Sheets[nome], {
+          header: 1, defval: '', raw: false, blankrows: true
+        });
+        while (linhasAba.length && !linhasAba[linhasAba.length - 1]
+          .some(valor => String(valor || '').trim())) linhasAba.pop();
+        if (!linhasAba.length) return false;
+        const telefone = localizarColuna(linhasAba[0], [
+          'phone_number', 'formatted_phone', 'phone', 'telefone', 'numero', 'número', 'whatsapp'
+        ]);
+        if (telefone < 0 || !linhasAba.slice(1)
+          .some(linha => linha.some(valor => String(valor || '').trim()))) return false;
+        nomeAba = nome;
+        linhas = linhasAba;
+        indiceTelefone = telefone;
+        indiceNome = localizarColuna(linhasAba[0], [
+          'saved_name', 'public_name', 'name', 'nome'
+        ]);
+        return true;
+      });
+      if (!linhas.length) {
+        throw new Error('O arquivo selecionado não possui uma aba válida para importação.');
+      }
+      const registros = linhas.slice(1);
+      if (registros.length > LIMITE_REGISTROS) {
+        throw new Error('O arquivo possui mais de 5.000 registros. Divida-o em arquivos menores.');
+      }
+      return {
+        nomeArquivo: arquivo.name,
+        nomeAba: nomeAba,
+        registros: registros.map((linha, indice) => ({
+          telefoneOriginal: linha[indiceTelefone],
+          nomeOriginal: sanitizarNome(indiceNome >= 0 ? linha[indiceNome] : ''),
+          linhaArquivo: indice + 2
+        }))
+      };
     }
 
     function renderizarResumo(resumo, titulo) {
@@ -79,8 +163,6 @@
         const resposta = await relApiClient.executar('rel_obterOpcoesImportacao');
         if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
         preencherSelect(elementos.origem, resposta.dados.origens, 'idOrigem', 'nomeOrigem', 'Selecione');
-        elementos.abrirAba.href = resposta.dados.urlAbaImportacao;
-        elementos.abrirAba.hidden = !resposta.dados.urlAbaImportacao;
       } catch (erro) {
         mensagem(erro.message || 'Não foi possível carregar as opções de importação.', 'erro');
       }
@@ -93,6 +175,11 @@
       elementos.preAnalisar.disabled = true;
       invalidarAnalise();
       try {
+        const leitura = await lerArquivo();
+        estado.registros = leitura.registros;
+        estado.nomeArquivo = leitura.nomeArquivo;
+        estado.nomeAbaArquivo = leitura.nomeAba;
+        exibirArquivo(leitura.nomeArquivo, leitura.nomeAba);
         const selecao = obterSelecao();
         const resposta = await relApiClient.executar('rel_preAnalisarImportacao', selecao);
         if (resposta.dados && resposta.dados.resumo) {
@@ -137,7 +224,9 @@
     function inicializar() {
       Object.assign(elementos, {
         form: document.querySelector('#rel-form-importacao'), origem: document.querySelector('#rel-import-origem'),
-        abrirAba: document.querySelector('#rel-abrir-aba-importacao'),
+        arquivo: document.querySelector('#rel-import-arquivo'),
+        nomeArquivo: document.querySelector('#rel-import-nome-arquivo'),
+        nomeAba: document.querySelector('#rel-import-nome-aba'),
         preAnalisar: document.querySelector('#rel-pre-analisar'), aviso: document.querySelector('#rel-import-aviso'),
         preview: document.querySelector('#rel-import-preview'), resumo: document.querySelector('#rel-import-resumo'),
         invalidos: document.querySelector('#rel-import-invalidos'),
@@ -145,6 +234,10 @@
       });
       elementos.form.addEventListener('submit', preAnalisar);
       elementos.origem.addEventListener('change', invalidarAnalise);
+      elementos.arquivo.addEventListener('change', () => {
+        invalidarAnalise();
+        exibirArquivo(elementos.arquivo.files[0] && elementos.arquivo.files[0].name, '—');
+      });
       elementos.confirmar.addEventListener('click', confirmar);
       carregarOpcoes();
     }

@@ -1,9 +1,5 @@
 const REL_CONFIG = Object.freeze({
   ABAS: Object.freeze({
-    ENTRADA_CONTATOS: Object.freeze({
-      NOME: 'Rel_EntradaContatos',
-      CABECALHOS: Object.freeze(['TELEFONE'])
-    }),
     CONTATOS: Object.freeze({
       NOME: 'Relacionamento_Contatos',
       CABECALHOS: Object.freeze([

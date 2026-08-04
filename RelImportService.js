@@ -2,14 +2,24 @@ function rel_importacao_resposta_(status, mensagem, dados) {
   return { status: status, mensagem: mensagem || '', dados: dados || {} };
 }
 
+function rel_importacao_sanitizarNome_(valor) {
+  return String(valor || '')
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+    .replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
 function rel_importacao_validarSelecao_(dados) {
   const entrada = dados || {};
   const idOrigem = String(entrada.idOrigem || '').trim();
   if (!idOrigem) return { erro: 'Selecione uma origem.' };
+  const nomeArquivo = String(entrada.nomeArquivo || '').trim();
+  if (!nomeArquivo) return { erro: 'O nome do arquivo não foi informado.' };
+  const nomeAbaArquivo = String(entrada.nomeAbaArquivo || '').trim();
+  if (!nomeAbaArquivo) return { erro: 'O nome da aba do arquivo não foi informado.' };
   const origem = rel_origem_listarRegistros_()
     .find(item => item.idOrigem === idOrigem && item.status === 'ATIVO');
   if (!origem) return { erro: 'A origem selecionada não existe ou está inativa.' };
-  return { origem: origem };
+  return { origem: origem, nomeArquivo: nomeArquivo, nomeAbaArquivo: nomeAbaArquivo };
 }
 
 function rel_importacao_obterOpcoes_() {
@@ -17,8 +27,7 @@ function rel_importacao_obterOpcoes_() {
     .filter(origem => origem.status === 'ATIVO')
     .map(origem => ({ idOrigem: origem.idOrigem, nomeOrigem: origem.nomeOrigem }));
   return rel_importacao_resposta_('OK', '', {
-    origens: origens,
-    urlAbaImportacao: rel_importacao_obterUrlAba_()
+    origens: origens
   });
 }
 
@@ -27,19 +36,28 @@ function rel_importacao_analisar_(dados) {
   if (selecao.erro) {
     return { erro: rel_importacao_resposta_('ERRO_VALIDACAO', selecao.erro, {}) };
   }
-  const valores = rel_importacao_lerTelefonesEntrada_();
+  const valores = Array.isArray(dados && dados.registros) ? dados.registros : [];
+  if (valores.length > 5000) {
+    return { erro: rel_importacao_resposta_(
+      'ERRO_VALIDACAO',
+      'O limite por importação é de 5.000 registros. Divida o arquivo e tente novamente.',
+      {}
+    ) };
+  }
   const porTelefone = {};
   let vazios = 0;
   let invalidos = 0;
   const amostraInvalidos = [];
-  valores.forEach((valor, indice) => {
+  valores.forEach((registro, indice) => {
+    const valor = registro && registro.telefoneOriginal;
+    const linhaArquivo = Number(registro && registro.linhaArquivo) || indice + 2;
     if (!String(valor || '').trim()) { vazios++; return; }
     const normalizado = rel_telefone_normalizar_(valor);
     if (!normalizado.valido) {
       invalidos++;
       if (amostraInvalidos.length < 20) {
         amostraInvalidos.push({
-          linha: 2 + indice,
+          linha: linhaArquivo,
           valorOriginal: String(valor),
           motivo: normalizado.motivo
         });
@@ -51,14 +69,18 @@ function rel_importacao_analisar_(dados) {
       porTelefone[telefone] = {
         telefone: telefone,
         telefoneExibicao: normalizado.telefoneExibicao,
+        nome: rel_importacao_sanitizarNome_(registro.nomeOriginal),
         ocorrencias: 0
       };
     }
     porTelefone[telefone].ocorrencias++;
+    if (!porTelefone[telefone].nome) {
+      porTelefone[telefone].nome = rel_importacao_sanitizarNome_(registro.nomeOriginal);
+    }
   });
 
   const contatosTabela = rel_importacao_obterTabela_(REL_CONFIG.ABAS.CONTATOS, [
-    'TELEFONE_NORMALIZADO', 'TELEFONE_EXIBICAO', 'ETAPA', 'RESULTADO', 'VALIDADE',
+    'TELEFONE_NORMALIZADO', 'TELEFONE_EXIBICAO', 'NOME_CONTATO', 'ETAPA', 'RESULTADO', 'VALIDADE',
     'E_CICLISTA', 'MODALIDADE', 'DATA_PRIMEIRA_IMPORTACAO', 'DATA_ULTIMA_IMPORTACAO',
     'QUANTIDADE_TENTATIVAS', 'EXPORTACAO_GOOGLE_STATUS', 'ATUALIZADO_EM'
   ]);
@@ -67,7 +89,7 @@ function rel_importacao_analisar_(dados) {
     'DATA_ULTIMA_IDENTIFICACAO', 'QUANTIDADE_OCORRENCIAS'
   ]);
   const contatos = rel_importacao_lerRegistros_(contatosTabela, [
-    'TELEFONE_NORMALIZADO', 'TELEFONE_EXIBICAO'
+    'TELEFONE_NORMALIZADO', 'TELEFONE_EXIBICAO', 'NOME_CONTATO'
   ]);
   const vinculos = rel_importacao_lerRegistros_(vinculosTabela, [
     'TELEFONE_NORMALIZADO', 'ID_ORIGEM', 'QUANTIDADE_OCORRENCIAS'
@@ -90,6 +112,7 @@ function rel_importacao_analisar_(dados) {
     resumo: {
       linhasLidas: valores.length,
       telefonesValidos: telefones.length,
+      nomesAproveitaveis: telefones.filter(telefone => porTelefone[telefone].nome).length,
       vazios: vazios,
       invalidos: invalidos,
       duplicadosNaFonte: telefones.reduce((total, telefone) => total + porTelefone[telefone].ocorrencias - 1, 0),
@@ -105,14 +128,13 @@ function rel_importacao_preAnalisar_(dados) {
   const analise = rel_importacao_analisar_(dados);
   if (analise.erro) return analise.erro;
   if (!analise.resumo.telefonesValidos) {
-    return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado na aba Rel_EntradaContatos.', {
+    return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado no arquivo selecionado.', {
       resumo: analise.resumo,
       amostraInvalidos: analise.amostraInvalidos
     });
   }
   return rel_importacao_resposta_('OK', 'Pré-análise concluída.', {
     origem: { idOrigem: analise.selecao.origem.idOrigem, nomeOrigem: analise.selecao.origem.nomeOrigem },
-    nomeAba: REL_CONFIG.ABAS.ENTRADA_CONTATOS.NOME,
     resumo: analise.resumo,
     amostraInvalidos: analise.amostraInvalidos
   });
@@ -125,7 +147,7 @@ function rel_importacao_confirmar_(dados) {
     const analise = rel_importacao_analisar_(dados);
     if (analise.erro) return analise.erro;
     if (!analise.resumo.telefonesValidos) {
-      return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado na aba Rel_EntradaContatos.', {
+      return rel_importacao_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado no arquivo selecionado.', {
         resumo: analise.resumo,
         amostraInvalidos: analise.amostraInvalidos
       });
@@ -141,11 +163,13 @@ function rel_importacao_confirmar_(dados) {
       const contato = analise.contatosPorTelefone[telefone];
       if (contato) {
         contato.telefoneExibicao = item.telefoneExibicao;
+        contato.nome = item.nome;
         contatosExistentes.push(contato);
       }
       else novosContatos.push({
         TELEFONE_NORMALIZADO: telefone,
         TELEFONE_EXIBICAO: item.telefoneExibicao,
+        NOME_CONTATO: item.nome,
         ETAPA: 'PARA_CONTATAR', RESULTADO: 'NAO_DEFINIDO', VALIDADE: 'VALIDO',
         E_CICLISTA: 'NAO_CONFIRMADO', MODALIDADE: 'NAO_INFORMADO',
         DATA_PRIMEIRA_IMPORTACAO: agora, DATA_ULTIMA_IMPORTACAO: agora,
