@@ -2,12 +2,6 @@ function rel_importacao_resposta_(status, mensagem, dados) {
   return { status: status, mensagem: mensagem || '', dados: dados || {} };
 }
 
-function rel_importacao_sanitizarNome_(valor) {
-  return String(valor || '')
-    .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
-    .replace(/\s+/g, ' ').trim().slice(0, 120);
-}
-
 function rel_importacao_validarSelecao_(dados) {
   const entrada = dados || {};
   const idOrigem = String(entrada.idOrigem || '').trim();
@@ -69,14 +63,10 @@ function rel_importacao_analisar_(dados) {
       porTelefone[telefone] = {
         telefone: telefone,
         telefoneExibicao: normalizado.telefoneExibicao,
-        nome: rel_importacao_sanitizarNome_(registro.nomeOriginal),
         ocorrencias: 0
       };
     }
     porTelefone[telefone].ocorrencias++;
-    if (!porTelefone[telefone].nome) {
-      porTelefone[telefone].nome = rel_importacao_sanitizarNome_(registro.nomeOriginal);
-    }
   });
 
   const contatosTabela = rel_importacao_obterTabela_(REL_CONFIG.ABAS.CONTATOS, [
@@ -112,7 +102,6 @@ function rel_importacao_analisar_(dados) {
     resumo: {
       linhasLidas: valores.length,
       telefonesValidos: telefones.length,
-      nomesAproveitaveis: telefones.filter(telefone => porTelefone[telefone].nome).length,
       vazios: vazios,
       invalidos: invalidos,
       duplicadosNaFonte: telefones.reduce((total, telefone) => total + porTelefone[telefone].ocorrencias - 1, 0),
@@ -163,13 +152,13 @@ function rel_importacao_confirmar_(dados) {
       const contato = analise.contatosPorTelefone[telefone];
       if (contato) {
         contato.telefoneExibicao = item.telefoneExibicao;
-        contato.nome = item.nome;
         contatosExistentes.push(contato);
       }
       else novosContatos.push({
         TELEFONE_NORMALIZADO: telefone,
         TELEFONE_EXIBICAO: item.telefoneExibicao,
-        NOME_CONTATO: item.nome,
+        ID_DGMB: '', NOME_PORTAL: '', NOME_CONTATO: '', CIDADE_UF_PORTAL: '',
+        CIDADE: '', UF: '',
         ETAPA: 'PARA_CONTATAR', RESULTADO: 'NAO_DEFINIDO', VALIDADE: 'VALIDO',
         E_CICLISTA: 'NAO_CONFIRMADO', MODALIDADE: 'NAO_INFORMADO',
         DATA_PRIMEIRA_IMPORTACAO: agora, DATA_ULTIMA_IMPORTACAO: agora,
