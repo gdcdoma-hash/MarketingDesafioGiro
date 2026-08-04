@@ -33,6 +33,18 @@
         <article class="rel-summary-card rel-summary-card-wide"><span>Última importação</span><strong id="rel-ultima-importacao">—</strong></article>
       </section>
 
+      <section class="rel-card rel-analysis-card" aria-labelledby="rel-analise-title">
+        <div class="rel-section-header">
+          <div>
+            <h2 id="rel-analise-title" class="rel-card-title">Análise dos contatos</h2>
+            <p class="rel-message">Compare os telefones importados com os cadastros do Portal Giro.</p>
+          </div>
+          <button id="rel-analisar-contatos" class="rel-button rel-button-primary" type="button">Analisar contatos</button>
+        </div>
+        <div id="rel-analise-aviso" class="rel-alert" role="status" aria-live="polite" hidden></div>
+        <dl id="rel-analise-resumo" class="rel-analysis-metrics" aria-live="polite" hidden></dl>
+      </section>
+
       <section class="rel-card rel-import-card" aria-labelledby="rel-importacao-title">
         <div class="rel-section-header"><div><h2 id="rel-importacao-title" class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione o arquivo gerado pela extensão de contatos do WhatsApp.</p></div></div>
         <form id="rel-form-importacao" class="rel-import-form">
@@ -84,6 +96,7 @@
   <?!= include('RelApi'); ?>
   <?!= include('RelUI'); ?>
   <?!= include('RelResumo'); ?>
+  <?!= include('RelAnalise'); ?>
   <?!= include('RelImport'); ?>
   <?!= include('RelOrigens'); ?>
   <?!= include('RelScripts'); ?>
