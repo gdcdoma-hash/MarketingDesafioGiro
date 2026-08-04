@@ -2,30 +2,6 @@ function rel_importacao_obterPlanilha_() {
   return dg_abrirPlanilhaMarketingRelacionamento_();
 }
 
-function rel_importacao_obterAbaEntrada_() {
-  const configuracao = REL_CONFIG.ABAS.ENTRADA_CONTATOS;
-  const aba = rel_importacao_obterPlanilha_().getSheetByName(configuracao.NOME);
-  if (!aba) throw new Error('A aba ' + configuracao.NOME + ' não foi encontrada.');
-  const cabecalho = String(aba.getRange(1, 1).getDisplayValue() || '').trim();
-  if (cabecalho !== configuracao.CABECALHOS[0]) {
-    throw new Error('Cabeçalho obrigatório ausente: TELEFONE');
-  }
-  return aba;
-}
-
-function rel_importacao_lerTelefonesEntrada_() {
-  const aba = rel_importacao_obterAbaEntrada_();
-  const ultimaLinha = aba.getLastRow();
-  if (ultimaLinha < 2) return [];
-  return aba.getRange(2, 1, ultimaLinha - 1, 1).getDisplayValues().map(linha => linha[0]);
-}
-
-function rel_importacao_obterUrlAba_() {
-  const aba = rel_importacao_obterAbaEntrada_();
-  return 'https://docs.google.com/spreadsheets/d/' +
-    DG_PLANILHA_MARKETING_RELACIONAMENTO_ID + '/edit#gid=' + aba.getSheetId();
-}
-
 function rel_importacao_obterTabela_(configuracao, obrigatorios) {
   const aba = rel_importacao_obterPlanilha_().getSheetByName(configuracao.NOME);
   if (!aba) throw new Error('A aba ' + configuracao.NOME + ' não foi encontrada.');
@@ -79,12 +55,17 @@ function rel_importacao_atualizarContatos_(tabela, contatos, data) {
     .getRange(2, tabela.mapa.ATUALIZADO_EM + 1, quantidade, 1).getValues();
   const exibicoes = tabela.aba
     .getRange(2, tabela.mapa.TELEFONE_EXIBICAO + 1, quantidade, 1).getValues();
+  const nomes = tabela.aba
+    .getRange(2, tabela.mapa.NOME_CONTATO + 1, quantidade, 1).getValues();
   contatos.forEach(contato => {
     const indice = contato.linha - 2;
     ultimaImportacao[indice][0] = data;
     atualizadoEm[indice][0] = data;
     if (!String(exibicoes[indice][0] || '').trim()) {
       exibicoes[indice][0] = contato.telefoneExibicao;
+    }
+    if (!String(nomes[indice][0] || '').trim() && contato.nome) {
+      nomes[indice][0] = contato.nome;
     }
   });
   tabela.aba.getRange(2, tabela.mapa.DATA_ULTIMA_IMPORTACAO + 1, quantidade, 1)
@@ -93,6 +74,8 @@ function rel_importacao_atualizarContatos_(tabela, contatos, data) {
     .setValues(atualizadoEm);
   tabela.aba.getRange(2, tabela.mapa.TELEFONE_EXIBICAO + 1, quantidade, 1)
     .setValues(exibicoes);
+  tabela.aba.getRange(2, tabela.mapa.NOME_CONTATO + 1, quantidade, 1)
+    .setValues(nomes);
 }
 
 function rel_importacao_atualizarVinculos_(tabela, vinculos, data) {

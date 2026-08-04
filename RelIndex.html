@@ -3,6 +3,7 @@
 <head>
   <base target="_top">
   <?!= include('RelStyles'); ?>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div id="rel-app" class="rel-app">
@@ -33,14 +34,16 @@
       </section>
 
       <section class="rel-card rel-import-card" aria-labelledby="rel-importacao-title">
-        <div class="rel-section-header">
-          <div><h2 id="rel-importacao-title" class="rel-card-title">Importar contatos</h2><p class="rel-message">Cole os telefones na aba Rel_EntradaContatos antes de iniciar.</p></div>
-          <a id="rel-abrir-aba-importacao" class="rel-button rel-button-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir aba de importação</a>
-        </div>
+        <div class="rel-section-header"><div><h2 id="rel-importacao-title" class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione o arquivo gerado pela extensão de contatos do WhatsApp.</p></div></div>
         <form id="rel-form-importacao" class="rel-import-form">
           <label>Origem ativa<select id="rel-import-origem" required><option value="">Selecione</option></select></label>
+          <label>Arquivo de contatos<input id="rel-import-arquivo" type="file" accept=".xlsx,.xls,.csv" required></label>
           <div class="rel-import-actions"><button id="rel-pre-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
         </form>
+        <dl class="rel-import-file-info" aria-live="polite">
+          <div><dt>Arquivo selecionado</dt><dd id="rel-import-nome-arquivo">Nenhum arquivo selecionado</dd></div>
+          <div><dt>Aba utilizada</dt><dd id="rel-import-nome-aba">—</dd></div>
+        </dl>
         <div id="rel-import-aviso" class="rel-alert" role="status" hidden></div>
         <section id="rel-import-preview" class="rel-import-preview" aria-live="polite" hidden>
           <h3>Resumo da pré-análise</h3>
