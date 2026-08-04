@@ -15,6 +15,12 @@ function rel_origem_resposta_(status, mensagem, dados) {
   };
 }
 
+function rel_origem_serializarData_(valor) {
+  if (!valor) return '';
+  if (!(valor instanceof Date)) return String(valor);
+  return Number.isNaN(valor.getTime()) ? '' : valor.toISOString();
+}
+
 function rel_origem_listar_(filtros) {
   const opcoes = filtros || {};
   const status = String(opcoes.status || 'ATIVO').trim().toUpperCase();
@@ -33,7 +39,9 @@ function rel_origem_listar_(filtros) {
       nomeOrigem: origem.nomeOrigem,
       tipoOrigem: origem.tipoOrigem,
       status: origem.status,
-      dataCadastro: origem.dataCadastro,
+      // google.script.run não aceita Date como valor de retorno. Um Date aninhado
+      // invalida a resposta inteira e o success handler recebe null.
+      dataCadastro: rel_origem_serializarData_(origem.dataCadastro),
       observacao: origem.observacao
     }));
 
