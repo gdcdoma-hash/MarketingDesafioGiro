@@ -34,13 +34,11 @@
 
       <section class="rel-card rel-import-card" aria-labelledby="rel-importacao-title">
         <div class="rel-section-header">
-          <div><h2 id="rel-importacao-title" class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione uma origem, uma aba e a coluna que contém os telefones.</p></div>
+          <div><h2 id="rel-importacao-title" class="rel-card-title">Importar contatos</h2><p class="rel-message">Cole os telefones na aba Rel_EntradaContatos antes de iniciar.</p></div>
+          <a id="rel-abrir-aba-importacao" class="rel-button rel-button-link" href="#" target="_blank" rel="noopener noreferrer" hidden>Abrir aba de importação</a>
         </div>
         <form id="rel-form-importacao" class="rel-import-form">
           <label>Origem ativa<select id="rel-import-origem" required><option value="">Selecione</option></select></label>
-          <label>Aba da planilha<select id="rel-import-aba" required><option value="">Selecione</option></select></label>
-          <label>Coluna do telefone<select id="rel-import-coluna" required disabled><option value="">Selecione uma aba</option></select></label>
-          <label>Primeira linha de dados<input id="rel-import-primeira-linha" type="number" min="1" step="1" value="2" required></label>
           <div class="rel-import-actions"><button id="rel-pre-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
         </form>
         <div id="rel-import-aviso" class="rel-alert" role="status" hidden></div>

@@ -1,56 +1,29 @@
-const REL_IMPORTACAO_ABAS_PROIBIDAS = Object.freeze([
-  'DadosPessoais',
-  'Marketing',
-  'dgmbDesafios',
-  'ListaDesafios',
-  'Relacionamento_Contatos',
-  'Relacionamento_Origens',
-  'Relacionamento_ContatoOrigens',
-  'Relacionamento_Historico',
-  'Relacionamento_Cidades'
-]);
-
 function rel_importacao_obterPlanilha_() {
   return dg_abrirPlanilhaMarketingRelacionamento_();
 }
 
-function rel_importacao_obterAbaPorId_(idAba) {
-  const id = Number(idAba);
-  return rel_importacao_obterPlanilha_().getSheets()
-    .find(item => item.getSheetId() === id);
+function rel_importacao_obterAbaEntrada_() {
+  const configuracao = REL_CONFIG.ABAS.ENTRADA_CONTATOS;
+  const aba = rel_importacao_obterPlanilha_().getSheetByName(configuracao.NOME);
+  if (!aba) throw new Error('A aba ' + configuracao.NOME + ' não foi encontrada.');
+  const cabecalho = String(aba.getRange(1, 1).getDisplayValue() || '').trim();
+  if (cabecalho !== configuracao.CABECALHOS[0]) {
+    throw new Error('Cabeçalho obrigatório ausente: TELEFONE');
+  }
+  return aba;
 }
 
-function rel_importacao_listarAbasFonte_() {
-  return rel_importacao_obterPlanilha_().getSheets()
-    .filter(aba => !rel_importacao_abaProibida_(aba))
-    .map(aba => ({ idAba: String(aba.getSheetId()), nomeAba: aba.getName() }));
-}
-
-function rel_importacao_abaProibida_(aba) {
-  return aba.getName().indexOf('Relacionamento_') === 0 ||
-    REL_IMPORTACAO_ABAS_PROIBIDAS.indexOf(aba.getName()) !== -1;
-}
-
-function rel_importacao_lerCabecalhosFonte_(aba) {
-  const ultimaColuna = aba.getLastColumn();
-  if (!ultimaColuna) return [];
-  return aba.getRange(1, 1, 1, ultimaColuna).getDisplayValues()[0]
-    .map((valor, indice) => ({
-      indiceColuna: indice + 1,
-      nomeColuna: String(valor || '').trim() || 'Coluna ' + (indice + 1)
-    }));
-}
-
-function rel_importacao_lerColunaFonte_(aba, indiceColuna, primeiraLinhaDados) {
+function rel_importacao_lerTelefonesEntrada_() {
+  const aba = rel_importacao_obterAbaEntrada_();
   const ultimaLinha = aba.getLastRow();
-  if (ultimaLinha < primeiraLinhaDados) return [];
-  return aba.getRange(
-    primeiraLinhaDados,
-    indiceColuna,
-    ultimaLinha - primeiraLinhaDados + 1,
-    1
-  )
-    .getDisplayValues().map(linha => linha[0]);
+  if (ultimaLinha < 2) return [];
+  return aba.getRange(2, 1, ultimaLinha - 1, 1).getDisplayValues().map(linha => linha[0]);
+}
+
+function rel_importacao_obterUrlAba_() {
+  const aba = rel_importacao_obterAbaEntrada_();
+  return 'https://docs.google.com/spreadsheets/d/' +
+    DG_PLANILHA_MARKETING_RELACIONAMENTO_ID + '/edit#gid=' + aba.getSheetId();
 }
 
 function rel_importacao_obterTabela_(configuracao, obrigatorios) {
