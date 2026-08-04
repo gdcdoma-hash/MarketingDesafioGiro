@@ -11,7 +11,7 @@ const REL_IMPORTACAO_ABAS_PROIBIDAS = Object.freeze([
 ]);
 
 function rel_importacao_obterPlanilha_() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  return dg_abrirPlanilhaMarketingRelacionamento_();
 }
 
 function rel_importacao_obterAbaPorId_(idAba) {
@@ -27,7 +27,8 @@ function rel_importacao_listarAbasFonte_() {
 }
 
 function rel_importacao_abaProibida_(aba) {
-  return REL_IMPORTACAO_ABAS_PROIBIDAS.indexOf(aba.getName()) !== -1;
+  return aba.getName().indexOf('Relacionamento_') === 0 ||
+    REL_IMPORTACAO_ABAS_PROIBIDAS.indexOf(aba.getName()) !== -1;
 }
 
 function rel_importacao_lerCabecalhosFonte_(aba) {

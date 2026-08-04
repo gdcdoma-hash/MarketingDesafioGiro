@@ -85,6 +85,12 @@
         if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
         preencherSelect(elementos.origem, resposta.dados.origens, 'idOrigem', 'nomeOrigem', 'Selecione');
         preencherSelect(elementos.aba, resposta.dados.abas, 'idAba', 'nomeAba', 'Selecione');
+        if (!resposta.dados.abas.length) {
+          elementos.aba.disabled = true;
+          mensagem('Nenhuma aba de importação disponível.');
+        } else {
+          elementos.aba.disabled = false;
+        }
       } catch (erro) {
         mensagem(erro.message || 'Não foi possível carregar as opções de importação.', 'erro');
       }

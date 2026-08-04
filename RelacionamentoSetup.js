@@ -3,7 +3,7 @@
  * Abas existentes são auditadas, mas nunca alteradas.
  */
 function rel_configurarEstruturaInicial() {
-  const planilha = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilha = dg_abrirPlanilhaMarketingRelacionamento_();
   const resumo = rel_listarEstruturas_().map(estrutura => {
     const abaExistente = planilha.getSheetByName(estrutura.NOME);
 
@@ -31,7 +31,7 @@ function rel_configurarEstruturaInicial() {
  * Audita apenas a presença das abas e a estrutura da primeira linha.
  */
 function rel_auditarEstrutura() {
-  const planilha = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const planilha = dg_abrirPlanilhaMarketingRelacionamento_();
   const relatorio = rel_listarEstruturas_().map(estrutura => {
     const aba = planilha.getSheetByName(estrutura.NOME);
 
