@@ -36,7 +36,7 @@ function dg_router_criarPaginaDivulgadores_() {
 
 
 function rel_criarPaginaContatos_() {
-  const template = HtmlService.createTemplateFromFile('RelacionamentoIndex');
+  const template = HtmlService.createTemplateFromFile('RelIndex');
   template.webAppUrl = ScriptApp.getService().getUrl();
 
   return template
