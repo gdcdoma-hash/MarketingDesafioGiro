@@ -1,0 +1,38 @@
+<script>
+  const relResumoOperacional = (() => {
+    'use strict';
+
+    const elementos = {};
+
+    function inicializar() {
+      Object.assign(elementos, {
+        paraContatar: document.querySelector('#rel-op-para-contatar'),
+        aguardandoResposta: document.querySelector('#rel-op-aguardando-resposta'),
+        retornarHoje: document.querySelector('#rel-op-retornar-hoje'),
+        emConversa: document.querySelector('#rel-op-em-conversa'),
+        finalizados: document.querySelector('#rel-op-finalizados')
+      });
+      carregar();
+    }
+
+    function renderizar(dados) {
+      elementos.paraContatar.textContent = dados.paraContatar || 0;
+      elementos.aguardandoResposta.textContent = dados.aguardandoResposta || 0;
+      elementos.retornarHoje.textContent = dados.retornarHoje || 0;
+      elementos.emConversa.textContent = dados.emConversa || 0;
+      elementos.finalizados.textContent = dados.finalizados || 0;
+    }
+
+    async function carregar() {
+      try {
+        const resposta = await relApiClient.executar('rel_obterResumoOperacional');
+        if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem);
+        renderizar(resposta.dados || {});
+      } catch (erro) {
+        relUI.exibirMensagemTela(erro.message || 'Não foi possível carregar os indicadores operacionais.', 'erro');
+      }
+    }
+
+    return Object.freeze({ inicializar: inicializar, carregar: carregar });
+  })();
+</script>

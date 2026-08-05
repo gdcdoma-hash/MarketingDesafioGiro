@@ -25,17 +25,35 @@
     </header>
 
     <main class="rel-main">
+      <?!= include('RelResumoOperacional'); ?>
       <?!= include('RelContatos'); ?>
 
-      <section class="rel-summary" aria-label="Resumo operacional">
-        <article class="rel-summary-card"><span>Total de origens</span><strong id="rel-total-origens">—</strong></article>
-        <article class="rel-summary-card"><span>Ativas</span><strong id="rel-origens-ativas">—</strong></article>
-        <article class="rel-summary-card"><span>Inativas</span><strong id="rel-origens-inativas">—</strong></article>
-        <article class="rel-summary-card"><span>Contatos</span><strong id="rel-total-contatos">—</strong></article>
-        <article class="rel-summary-card rel-summary-card-wide"><span>Última importação</span><strong id="rel-ultima-importacao">—</strong></article>
-      </section>
+      <details class="rel-card rel-admin-section rel-import-card">
+        <summary id="rel-importacao-title">Importar contatos</summary>
+        <div class="rel-admin-section-content">
+          <div class="rel-section-header"><div><h2 class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione o arquivo gerado pela extensão de contatos do WhatsApp.</p></div></div>
+          <form id="rel-form-importacao" class="rel-import-form">
+            <label>Origem ativa<select id="rel-import-origem" required><option value="">Selecione</option></select></label>
+            <label>Arquivo de contatos<input id="rel-import-arquivo" type="file" accept=".xlsx,.xls,.csv" required></label>
+            <div class="rel-import-actions"><button id="rel-pre-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
+          </form>
+          <dl class="rel-import-file-info" aria-live="polite">
+            <div><dt>Arquivo selecionado</dt><dd id="rel-import-nome-arquivo">Nenhum arquivo selecionado</dd></div>
+            <div><dt>Aba utilizada</dt><dd id="rel-import-nome-aba">—</dd></div>
+          </dl>
+          <div id="rel-import-aviso" class="rel-alert" role="status" hidden></div>
+          <section id="rel-import-preview" class="rel-import-preview" aria-live="polite" hidden>
+            <h3>Resumo da pré-análise</h3>
+            <dl id="rel-import-resumo" class="rel-import-metrics"></dl>
+            <div id="rel-import-invalidos" class="rel-import-invalidos" hidden></div>
+            <div class="rel-import-confirm"><p>Confira os números antes de gravar os contatos.</p><button id="rel-confirmar-importacao" class="rel-button rel-button-primary" type="button">Confirmar importação</button></div>
+          </section>
+        </div>
+      </details>
 
-      <section class="rel-card rel-analysis-card" aria-labelledby="rel-analise-title">
+      <details class="rel-card rel-admin-section rel-analysis-card">
+        <summary>Análise dos contatos</summary>
+        <div class="rel-admin-section-content">
         <div class="rel-section-header">
           <div>
             <h2 id="rel-analise-title" class="rel-card-title">Análise dos contatos</h2>
@@ -45,29 +63,12 @@
         </div>
         <div id="rel-analise-aviso" class="rel-alert" role="status" aria-live="polite" hidden></div>
         <dl id="rel-analise-resumo" class="rel-analysis-metrics" aria-live="polite" hidden></dl>
-      </section>
+        </div>
+      </details>
 
-      <section class="rel-card rel-import-card" aria-labelledby="rel-importacao-title">
-        <div class="rel-section-header"><div><h2 id="rel-importacao-title" class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione o arquivo gerado pela extensão de contatos do WhatsApp.</p></div></div>
-        <form id="rel-form-importacao" class="rel-import-form">
-          <label>Origem ativa<select id="rel-import-origem" required><option value="">Selecione</option></select></label>
-          <label>Arquivo de contatos<input id="rel-import-arquivo" type="file" accept=".xlsx,.xls,.csv" required></label>
-          <div class="rel-import-actions"><button id="rel-pre-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
-        </form>
-        <dl class="rel-import-file-info" aria-live="polite">
-          <div><dt>Arquivo selecionado</dt><dd id="rel-import-nome-arquivo">Nenhum arquivo selecionado</dd></div>
-          <div><dt>Aba utilizada</dt><dd id="rel-import-nome-aba">—</dd></div>
-        </dl>
-        <div id="rel-import-aviso" class="rel-alert" role="status" hidden></div>
-        <section id="rel-import-preview" class="rel-import-preview" aria-live="polite" hidden>
-          <h3>Resumo da pré-análise</h3>
-          <dl id="rel-import-resumo" class="rel-import-metrics"></dl>
-          <div id="rel-import-invalidos" class="rel-import-invalidos" hidden></div>
-          <div class="rel-import-confirm"><p>Confira os números antes de gravar os contatos.</p><button id="rel-confirmar-importacao" class="rel-button rel-button-primary" type="button">Confirmar importação</button></div>
-        </section>
-      </section>
-
-      <section class="rel-card" aria-labelledby="rel-origens-title">
+      <details class="rel-card rel-admin-section">
+        <summary>Gerenciar origens</summary>
+        <div class="rel-admin-section-content">
         <div class="rel-section-header">
           <div><h2 id="rel-origens-title" class="rel-card-title">Origens</h2><p class="rel-message">Gerencie de onde os contatos foram obtidos.</p></div>
           <button id="rel-nova-origem" class="rel-button rel-button-primary" type="button">Nova origem</button>
@@ -80,8 +81,20 @@
         <div class="rel-table-wrap">
           <table class="rel-table"><thead><tr><th>Nome da origem</th><th>Tipo</th><th>Status</th><th>Cadastro</th><th></th></tr></thead><tbody id="rel-origens-corpo"></tbody></table>
         </div>
-        <p id="rel-vazio" class="rel-empty" hidden>Nenhuma origem encontrada.</p>
-      </section>
+          <p id="rel-vazio" class="rel-empty" hidden>Nenhuma origem encontrada.</p>
+        </div>
+      </details>
+
+      <details class="rel-card rel-admin-section rel-summary-section">
+        <summary>Resumo administrativo</summary>
+        <section class="rel-summary" aria-label="Resumo administrativo">
+          <article class="rel-summary-card"><span>Total de origens</span><strong id="rel-total-origens">—</strong></article>
+          <article class="rel-summary-card"><span>Ativas</span><strong id="rel-origens-ativas">—</strong></article>
+          <article class="rel-summary-card"><span>Inativas</span><strong id="rel-origens-inativas">—</strong></article>
+          <article class="rel-summary-card"><span>Contatos</span><strong id="rel-total-contatos">—</strong></article>
+          <article class="rel-summary-card rel-summary-card-wide"><span>Última importação</span><strong id="rel-ultima-importacao">—</strong></article>
+        </section>
+      </details>
     </main>
     <dialog id="rel-modal" class="rel-modal">
       <form id="rel-form-origem" method="dialog">
@@ -118,6 +131,7 @@
   <?!= include('RelApi'); ?>
   <?!= include('RelUI'); ?>
   <?!= include('RelResumo'); ?>
+  <?!= include('RelResumoOperacionalScripts'); ?>
   <?!= include('RelAnalise'); ?>
   <?!= include('RelImport'); ?>
   <?!= include('RelOrigens'); ?>

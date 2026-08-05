@@ -207,6 +207,7 @@
         elementos.arquivo.value = '';
         exibirArquivo('', '');
         await relResumo.carregar();
+        await relResumoOperacional.carregar();
       } catch (erro) {
         mensagem(erro.message || 'Não foi possível confirmar a importação.', 'erro');
       } finally {
