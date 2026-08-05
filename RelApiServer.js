@@ -14,6 +14,10 @@ function rel_obterResumo() {
   return rel_api_executar_(() => rel_resumo_obter_());
 }
 
+function rel_obterResumoOperacional() {
+  return rel_api_executar_(() => rel_resumoOperacional_obter_());
+}
+
 function rel_obterOpcoesImportacao() {
   return rel_api_executar_(() => rel_importacao_obterOpcoes_());
 }

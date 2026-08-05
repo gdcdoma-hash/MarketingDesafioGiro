@@ -80,6 +80,7 @@
           linha.querySelector('.rel-contact-meta').appendChild(novoRetorno);
         }
         mensagem('Etapa atualizada.');
+        relResumoOperacional.carregar();
         if (select.value === 'FINALIZADO' && e.etapa.value === 'PADRAO') carregar();
       } catch (erro) { select.value = anterior; mensagem(erro.message, true); } finally { select.disabled = false; }
     }
@@ -115,7 +116,7 @@
       try {
         const resposta = await relApiClient.executar('rel_salvarDadosContato', { telefoneNormalizado: e.telefone.value, nomeContato: e.nome.value, uf: e.uf.value, regiao: e.regiao.value, cidade: cidade, eCiclista: e.ciclista.value, modalidade: e.modalidade.value, observacao: e.observacao.value });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao salvar.');
-        e.modal.close(); mensagem('Dados do contato salvos.'); carregar();
+        e.modal.close(); mensagem('Dados do contato salvos.'); relResumoOperacional.carregar(); carregar();
       } catch (erro) { avisoForm(erro.message, true); } finally { e.salvar.disabled = false; }
     }
 
@@ -125,7 +126,14 @@
       e.filtros.addEventListener('submit', evento => { evento.preventDefault(); estado.pagina = 1; carregar(); });
       e.anterior.addEventListener('click', () => { estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { estado.pagina++; carregar(); });
       e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
-      e.lista.addEventListener('change', evento => { if (evento.target.matches('[data-etapa]')) alterarEtapa(evento.target.closest('.rel-contact-row'), evento.target); });
+      e.lista.addEventListener('change', evento => {
+        const linha = evento.target.closest('.rel-contact-row');
+        if (evento.target.matches('[data-etapa]')) alterarEtapa(linha, evento.target);
+        if (evento.target.matches('[data-retorno]')) {
+          const select = linha.querySelector('[data-etapa]');
+          if (select.value === 'RETORNAR_DEPOIS') alterarEtapa(linha, select);
+        }
+      });
       e.uf.addEventListener('change', carregarCidades); e.regiao.addEventListener('change', carregarCidades); e.cidade.addEventListener('change', () => { e.novaCidadeCampos.hidden = e.cidade.value !== '__NOVA__'; });
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
       carregar();
