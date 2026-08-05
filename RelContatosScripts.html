@@ -4,14 +4,18 @@
     const etapas = { PARA_CONTATAR: 'Para contatar', AGUARDANDO_RESPOSTA: 'Aguardando resposta', EM_CONVERSA: 'Em conversa', RETORNAR_DEPOIS: 'Retornar depois', FINALIZADO: 'Finalizado' };
     const regioes = { PARA: 'Pará', IMPERATRIZ: 'Imperatriz', SAO_LUIS: 'São Luís', PINHEIRO: 'Pinheiro', CURURUPU: 'Cururupu', SANTA_INES: 'Santa Inês', BR: 'BR' };
     const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
-    const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {} };
+    const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {}, retornoPendente: false, indicadorAtivo: '' };
     const e = {};
+    let buscaTimer = null;
 
-    function textoSeguro(valor) { const span = document.createElement('span'); span.textContent = valor || ''; return span.innerHTML; }
     function mensagem(texto, erro) { e.aviso.textContent = texto || ''; e.aviso.hidden = !texto; e.aviso.classList.toggle('rel-alert-error', !!erro); }
-    function filtros() { return { busca: e.busca.value, classificacao: e.classificacao.value, etapa: e.etapa.value, idOrigem: e.origem.value, pagina: estado.pagina, porPagina: 50 }; }
+    function filtros() { return { busca: e.busca.value, classificacao: e.classificacao.value, etapa: e.etapa.value, idOrigem: e.origem.value, retornoPendente: estado.retornoPendente, pagina: estado.pagina, porPagina: 50 }; }
     function dataCurta(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? valor : data.toLocaleDateString('pt-BR'); }
     function valorData(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10); }
+    function criar(tag, classe, texto) { const el = document.createElement(tag); if (classe) el.className = classe; if (texto !== undefined) el.textContent = texto; return el; }
+    function atualizarIndicador() { if (typeof relResumoOperacional !== 'undefined' && relResumoOperacional.destacarIndicador) relResumoOperacional.destacarIndicador(estado.indicadorAtivo); }
+    function filtrarAgora() { estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
+    function filtrarBusca() { window.clearTimeout(buscaTimer); buscaTimer = window.setTimeout(filtrarAgora, 400); }
 
     async function carregar() {
       mensagem('Carregando contatos...');
@@ -29,71 +33,79 @@
         (dados.origens || []).forEach(origem => e.origem.add(new Option(origem.nomeOrigem, origem.idOrigem)));
         estado.origensCarregadas = true;
       }
-      e.lista.innerHTML = (dados.contatos || []).map(contato => {
-        estado.contatos[contato.telefoneNormalizado] = contato;
-        const identificado = contato.classificacao === 'IDENTIFICADO_PORTAL';
-        const retorno = contato.proximoRetorno ? '<span class="rel-contact-return">Retorno: ' + textoSeguro(dataCurta(contato.proximoRetorno)) + '</span>' : '';
-        const opcoes = Object.keys(etapas).map(etapa => '<option value="' + etapa + '"' + (etapa === contato.etapa ? ' selected' : '') + '>' + etapas[etapa] + '</option>').join('');
-        return '<article class="rel-contact-row" data-telefone="' + textoSeguro(contato.telefoneNormalizado) + '">' +
-          '<div class="rel-contact-identity"><strong>' + textoSeguro(contato.nomeExibicao) + '</strong><span>' + textoSeguro(contato.cidadeUfExibicao) + '</span><b>' + textoSeguro(contato.telefoneExibicao) + '</b></div>' +
-          '<div class="rel-contact-meta"><span class="rel-contact-badge ' + (identificado ? 'is-portal' : '') + '">' + (identificado ? 'Identificado no Portal' : 'Contato novo') + '</span><span>' + textoSeguro((contato.origens.length > 1 ? 'Origens: ' : 'Origem: ') + (contato.origens.join(', ') || 'Não informada')) + '</span>' + retorno + '</div>' +
-          '<div class="rel-contact-stage"><select data-etapa aria-label="Etapa">' + opcoes + '</select><input data-retorno type="date" value="' + valorData(contato.proximoRetorno) + '" aria-label="Próximo retorno"></div>' +
-          '<div class="rel-contact-actions"><button class="rel-button rel-copy-button" type="button" data-copiar>Copiar contato</button>' + (!identificado ? '<button class="rel-button" type="button" data-editar>Informar dados</button>' : '') + '</div></article>';
-      }).join('');
+      e.lista.replaceChildren();
+      (dados.contatos || []).forEach(contato => e.lista.appendChild(criarCard(contato)));
       e.vazio.hidden = dados.total !== 0; e.lista.hidden = dados.total === 0;
       e.pagina.textContent = 'Página ' + dados.pagina + ' de ' + dados.totalPaginas + ' · ' + dados.total + ' resultados';
       e.anterior.disabled = dados.pagina <= 1; e.proxima.disabled = dados.pagina >= dados.totalPaginas;
+      atualizarIndicador();
     }
 
-    function textoCopiar(contato) {
-      return [contato.telefoneExibicao, contato.nomeExibicao === 'Nome não informado' ? '' : contato.nomeExibicao,
-        contato.cidadeUfExibicao === 'Cidade não informada' ? '' : contato.cidadeUfExibicao].filter(Boolean).join(' | ');
+    function criarCard(contato) {
+      estado.contatos[contato.telefoneNormalizado] = contato;
+      const identificado = contato.classificacao === 'IDENTIFICADO_PORTAL';
+      const artigo = criar('article', 'rel-contact-row etapa-' + contato.etapa.toLowerCase());
+      artigo.dataset.telefone = contato.telefoneNormalizado;
+
+      const identidade = criar('div', 'rel-contact-identity');
+      const topo = criar('div', 'rel-contact-phone-line');
+      topo.appendChild(criar('b', 'rel-contact-phone', contato.telefoneExibicao));
+      const copiarBtn = criar('button', 'rel-button rel-copy-button', 'Copiar');
+      copiarBtn.type = 'button'; copiarBtn.dataset.copiar = ''; copiarBtn.setAttribute('aria-label', 'Copiar contato ' + contato.telefoneExibicao);
+      topo.appendChild(copiarBtn); identidade.appendChild(topo);
+      identidade.appendChild(criar('strong', contato.nomeExibicao === 'Nome não informado' ? 'rel-contact-name is-empty' : 'rel-contact-name', contato.nomeExibicao));
+      identidade.appendChild(criar('span', contato.cidadeUfExibicao === 'Cidade não informada' ? 'rel-contact-city is-empty' : 'rel-contact-city', contato.cidadeUfExibicao));
+      const chips = criar('div', 'rel-contact-chips');
+      chips.appendChild(criar('span', 'rel-contact-chip rel-contact-badge ' + (identificado ? 'is-portal' : ''), identificado ? 'Identificado no Portal' : 'Contato novo'));
+      const origens = contato.origens && contato.origens.length ? contato.origens : ['Origem não informada'];
+      origens.forEach(origem => chips.appendChild(criar('span', 'rel-contact-chip', origem)));
+      identidade.appendChild(chips);
+
+      const acoes = criar('div', 'rel-contact-actions');
+      const select = criar('select'); select.dataset.etapa = ''; select.setAttribute('aria-label', 'Etapa');
+      Object.keys(etapas).forEach(etapa => { const opt = new Option(etapas[etapa], etapa); opt.selected = etapa === contato.etapa; select.add(opt); });
+      acoes.appendChild(select);
+      const retornoWrap = criar('label', 'rel-contact-return-field');
+      retornoWrap.hidden = contato.etapa !== 'RETORNAR_DEPOIS'; retornoWrap.appendChild(criar('span', '', 'Retorno'));
+      const retorno = criar('input'); retorno.dataset.retorno = ''; retorno.type = 'date'; retorno.value = valorData(contato.proximoRetorno); retorno.setAttribute('aria-label', 'Próximo retorno');
+      retornoWrap.appendChild(retorno); acoes.appendChild(retornoWrap);
+      const editar = criar('button', 'rel-button', 'Informar dados'); editar.type = 'button'; editar.dataset.editar = ''; acoes.appendChild(editar);
+      artigo.appendChild(identidade); artigo.appendChild(acoes);
+      return artigo;
     }
+
+    function textoCopiar(contato) { return [contato.telefoneExibicao, contato.nomeExibicao === 'Nome não informado' ? '' : contato.nomeExibicao, contato.cidadeUfExibicao === 'Cidade não informada' ? '' : contato.cidadeUfExibicao].filter(Boolean).join(' | '); }
     async function copiar(contato, botao) {
       const texto = textoCopiar(contato);
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(texto);
         else { const area = document.createElement('textarea'); area.value = texto; area.setAttribute('readonly', ''); area.style.position = 'fixed'; area.style.opacity = '0'; document.body.appendChild(area); area.select(); if (!document.execCommand('copy')) throw new Error('Cópia indisponível.'); area.remove(); }
-        const original = botao.textContent; botao.textContent = 'Contato copiado'; setTimeout(() => { botao.textContent = original; }, 1600);
+        const original = botao.textContent; botao.textContent = 'Copiado'; setTimeout(() => { botao.textContent = original; }, 1600);
       } catch (erro) { mensagem('Não foi possível copiar o contato.', true); }
     }
 
     async function alterarEtapa(linha, select) {
-      const contato = estado.contatos[linha.dataset.telefone]; const retorno = linha.querySelector('[data-retorno]'); const anterior = contato.etapa;
-      if (select.value === 'RETORNAR_DEPOIS' && !retorno.value) { mensagem('Informe a data do próximo retorno.', true); retorno.focus(); select.value = anterior; return; }
+      const contato = estado.contatos[linha.dataset.telefone]; const retorno = linha.querySelector('[data-retorno]'); const retornoWrap = linha.querySelector('.rel-contact-return-field'); const anterior = contato.etapa;
+      retornoWrap.hidden = select.value !== 'RETORNAR_DEPOIS';
+      if (select.value === 'RETORNAR_DEPOIS' && !retorno.value) { mensagem('Informe a data do próximo retorno.', true); retorno.focus(); return; }
       let limpar = false;
-      if (select.value === 'PARA_CONTATAR' && contato.proximoRetorno) { limpar = window.confirm('Deseja limpar a data do próximo retorno?'); if (!limpar) { select.value = anterior; return; } }
+      if (select.value === 'PARA_CONTATAR' && contato.proximoRetorno) { limpar = window.confirm('Deseja limpar a data do próximo retorno?'); if (!limpar) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; return; } }
       select.disabled = true;
       try {
         const resposta = await relApiClient.executar('rel_atualizarEtapaContato', { telefoneNormalizado: contato.telefoneNormalizado, etapa: select.value, proximoRetorno: retorno.value, limparProximoRetorno: limpar });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar.');
-        contato.etapa = resposta.dados.etapa;
-        contato.proximoRetorno = resposta.dados.proximoRetorno || '';
-        retorno.value = valorData(contato.proximoRetorno);
-        const retornoExibido = linha.querySelector('.rel-contact-return');
-        if (retornoExibido && !contato.proximoRetorno) retornoExibido.remove();
-        if (retornoExibido && contato.proximoRetorno) retornoExibido.textContent = 'Retorno: ' + dataCurta(contato.proximoRetorno);
-        if (!retornoExibido && contato.proximoRetorno) {
-          const novoRetorno = document.createElement('span');
-          novoRetorno.className = 'rel-contact-return';
-          novoRetorno.textContent = 'Retorno: ' + dataCurta(contato.proximoRetorno);
-          linha.querySelector('.rel-contact-meta').appendChild(novoRetorno);
-        }
-        mensagem('Etapa atualizada.');
-        relResumoOperacional.carregar();
-        if (select.value === 'FINALIZADO' && e.etapa.value === 'PADRAO') carregar();
-      } catch (erro) { select.value = anterior; mensagem(erro.message, true); } finally { select.disabled = false; }
+        contato.etapa = resposta.dados.etapa; contato.proximoRetorno = resposta.dados.proximoRetorno || ''; retorno.value = valorData(contato.proximoRetorno);
+        linha.className = 'rel-contact-row etapa-' + contato.etapa.toLowerCase(); retornoWrap.hidden = contato.etapa !== 'RETORNAR_DEPOIS';
+        mensagem('Etapa atualizada.'); relResumoOperacional.carregar(); if ((select.value === 'FINALIZADO' && e.etapa.value === 'PADRAO') || estado.retornoPendente) carregar();
+      } catch (erro) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; mensagem(erro.message, true); } finally { select.disabled = false; }
     }
 
     async function abrirEdicao(contato) {
       e.form.reset(); e.telefone.value = contato.telefoneNormalizado; e.nome.value = contato.nomeContato || ''; e.uf.value = contato.uf || '';
       e.regiao.value = contato.regiao || '';
       await carregarCidades();
-      if (contato.cidade && !Array.from(e.cidade.options).some(opcao => opcao.value === contato.cidade)) {
-        e.cidade.add(new Option(contato.cidade, contato.cidade), e.cidade.options[e.cidade.options.length - 1]);
-      }
-      e.cidade.value = contato.cidade || '';
-      e.ciclista.value = contato.eCiclista || 'NAO_CONFIRMADO'; e.modalidade.value = contato.modalidade || 'NAO_INFORMADO'; e.observacao.value = contato.observacao || '';
+      if (contato.cidade && !Array.from(e.cidade.options).some(opcao => opcao.value === contato.cidade)) e.cidade.add(new Option(contato.cidade, contato.cidade), e.cidade.options[e.cidade.options.length - 1]);
+      e.cidade.value = contato.cidade || ''; e.ciclista.value = contato.eCiclista || 'NAO_CONFIRMADO'; e.modalidade.value = contato.modalidade || 'NAO_INFORMADO'; e.observacao.value = contato.observacao || '';
       e.formAviso.hidden = true; e.modal.showModal();
     }
     async function carregarCidades() {
@@ -119,25 +131,24 @@
         e.modal.close(); mensagem('Dados do contato salvos.'); relResumoOperacional.carregar(); carregar();
       } catch (erro) { avisoForm(erro.message, true); } finally { e.salvar.disabled = false; }
     }
+    function limparFiltros() { e.busca.value = ''; e.classificacao.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.origem.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
+    function aplicarIndicador(indicador) {
+      e.busca.value = ''; e.classificacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.indicadorAtivo = indicador;
+      estado.retornoPendente = indicador === 'RETORNAR_HOJE'; e.etapa.value = estado.retornoPendente ? 'TODOS' : indicador;
+      atualizarIndicador(); carregar();
+    }
 
     function iniciar() {
-      Object.assign(e, { filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), etapa: document.querySelector('#rel-contatos-etapa'), origem: document.querySelector('#rel-contatos-origem'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
+      Object.assign(e, { filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), etapa: document.querySelector('#rel-contatos-etapa'), origem: document.querySelector('#rel-contatos-origem'), limpar: document.querySelector('#rel-contatos-limpar'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
       ufs.forEach(uf => e.uf.add(new Option(uf, uf)));
-      e.filtros.addEventListener('submit', evento => { evento.preventDefault(); estado.pagina = 1; carregar(); });
+      e.filtros.addEventListener('submit', evento => evento.preventDefault()); e.busca.addEventListener('input', filtrarBusca); [e.classificacao, e.etapa, e.origem].forEach(campo => campo.addEventListener('change', filtrarAgora)); e.limpar.addEventListener('click', limparFiltros);
       e.anterior.addEventListener('click', () => { estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { estado.pagina++; carregar(); });
       e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
-      e.lista.addEventListener('change', evento => {
-        const linha = evento.target.closest('.rel-contact-row');
-        if (evento.target.matches('[data-etapa]')) alterarEtapa(linha, evento.target);
-        if (evento.target.matches('[data-retorno]')) {
-          const select = linha.querySelector('[data-etapa]');
-          if (select.value === 'RETORNAR_DEPOIS') alterarEtapa(linha, select);
-        }
-      });
+      e.lista.addEventListener('change', evento => { const linha = evento.target.closest('.rel-contact-row'); if (evento.target.matches('[data-etapa]')) alterarEtapa(linha, evento.target); if (evento.target.matches('[data-retorno]')) { const select = linha.querySelector('[data-etapa]'); if (select.value === 'RETORNAR_DEPOIS') alterarEtapa(linha, select); } });
       e.uf.addEventListener('change', carregarCidades); e.regiao.addEventListener('change', carregarCidades); e.cidade.addEventListener('change', () => { e.novaCidadeCampos.hidden = e.cidade.value !== '__NOVA__'; });
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
       carregar();
     }
-    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar });
+    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
   })();
 </script>
