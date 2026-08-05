@@ -20,6 +20,16 @@ function rel_contatos_dataIso_(valor) {
   return Number.isNaN(data.getTime()) ? rel_contatos_texto_(valor) : data.toISOString();
 }
 
+function rel_contatos_dataLocalChave_(valor) {
+  if (!valor) return '';
+  const data = valor instanceof Date ? valor : new Date(valor);
+  if (Number.isNaN(data.getTime())) return '';
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return ano + '-' + mes + '-' + dia;
+}
+
 function rel_contatos_listar_(filtros) {
   const entrada = filtros || {};
   const pagina = Math.max(1, Number(entrada.pagina) || 1);
@@ -28,6 +38,7 @@ function rel_contatos_listar_(filtros) {
   const etapa = rel_contatos_texto_(entrada.etapa || 'PADRAO').toUpperCase();
   const idOrigem = rel_contatos_texto_(entrada.idOrigem);
   const busca = rel_contatos_normalizar_(entrada.busca);
+  const retornoPendente = entrada.retornoPendente === true || rel_contatos_texto_(entrada.retornoPendente).toLowerCase() === 'true';
   if (['TODOS', 'IDENTIFICADO_PORTAL', 'CONTATO_NOVO'].indexOf(classificacao) < 0) {
     return rel_contatos_resposta_('ERRO_VALIDACAO', 'Classificação inválida.');
   }
@@ -70,6 +81,7 @@ function rel_contatos_listar_(filtros) {
   });
 
   const hoje = new Date(); hoje.setHours(23, 59, 59, 999);
+  const hojeLocal = rel_contatos_dataLocalChave_(new Date());
   const contatos = base.contatos.valores.map((linha, indice) => {
     const valor = nome => mc[nome] === undefined ? '' : linha[mc[nome]];
     const telefoneNormalizado = rel_contatos_texto_(valor('TELEFONE_NORMALIZADO'));
@@ -105,8 +117,12 @@ function rel_contatos_listar_(filtros) {
     };
   }).filter(contato => {
     if (classificacao !== 'TODOS' && contato.classificacao !== classificacao) return false;
-    if (etapa === 'PADRAO' && contato.etapa === 'FINALIZADO') return false;
-    if (etapa !== 'PADRAO' && etapa !== 'TODOS' && contato.etapa !== etapa) return false;
+    if (retornoPendente) {
+      const retornoLocal = rel_contatos_dataLocalChave_(contato.proximoRetorno);
+      if (contato.etapa !== 'RETORNAR_DEPOIS' || !retornoLocal || retornoLocal > hojeLocal) return false;
+    }
+    if (!retornoPendente && etapa === 'PADRAO' && contato.etapa === 'FINALIZADO') return false;
+    if (!retornoPendente && etapa !== 'PADRAO' && etapa !== 'TODOS' && contato.etapa !== etapa) return false;
     if (idOrigem && contato.idsOrigens.indexOf(idOrigem) < 0) return false;
     if (!busca) return true;
     return [contato.telefoneNormalizado, contato.telefoneExibicao, contato.idDgmb, contato.nomePortal,

@@ -10,8 +10,14 @@
         aguardandoResposta: document.querySelector('#rel-op-aguardando-resposta'),
         retornarHoje: document.querySelector('#rel-op-retornar-hoje'),
         emConversa: document.querySelector('#rel-op-em-conversa'),
-        finalizados: document.querySelector('#rel-op-finalizados')
+        finalizados: document.querySelector('#rel-op-finalizados'),
+        indicadores: Array.from(document.querySelectorAll('[data-contato-indicador]'))
       });
+      elementos.indicadores.forEach(botao => botao.addEventListener('click', () => {
+        if (typeof relContatos !== 'undefined' && typeof relContatos.aplicarIndicador === 'function') {
+          relContatos.aplicarIndicador(botao.dataset.contatoIndicador);
+        }
+      }));
       carregar();
     }
 
@@ -21,6 +27,14 @@
       elementos.retornarHoje.textContent = dados.retornarHoje || 0;
       elementos.emConversa.textContent = dados.emConversa || 0;
       elementos.finalizados.textContent = dados.finalizados || 0;
+    }
+
+    function destacarIndicador(ativo) {
+      (elementos.indicadores || []).forEach(botao => {
+        const selecionado = botao.dataset.contatoIndicador === ativo;
+        botao.classList.toggle('is-active', selecionado);
+        botao.setAttribute('aria-pressed', selecionado ? 'true' : 'false');
+      });
     }
 
     async function carregar() {
@@ -33,6 +47,6 @@
       }
     }
 
-    return Object.freeze({ inicializar: inicializar, carregar: carregar });
+    return Object.freeze({ inicializar: inicializar, carregar: carregar, destacarIndicador: destacarIndicador });
   })();
 </script>
