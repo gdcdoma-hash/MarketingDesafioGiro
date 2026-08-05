@@ -57,7 +57,9 @@ function rel_importacao_atualizarContatos_(tabela, contatos, data) {
     .getRange(2, tabela.mapa.TELEFONE_EXIBICAO + 1, quantidade, 1).getValues();
   contatos.forEach(contato => {
     const indice = contato.linha - 2;
+    const naoContatar = String(contato.ETAPA || '').trim().toUpperCase() === 'NAO_CONTATAR';
     ultimaImportacao[indice][0] = data;
+    if (naoContatar) return;
     atualizadoEm[indice][0] = data;
     if (!String(exibicoes[indice][0] || '').trim()) {
       exibicoes[indice][0] = contato.telefoneExibicao;

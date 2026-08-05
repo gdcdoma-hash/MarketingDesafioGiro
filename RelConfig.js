@@ -82,7 +82,8 @@ const REL_CONFIG = Object.freeze({
       'AGUARDANDO_RESPOSTA',
       'EM_CONVERSA',
       'RETORNAR_DEPOIS',
-      'FINALIZADO'
+      'FINALIZADO',
+      'NAO_CONTATAR'
     ]),
     RESULTADO: Object.freeze([
       'NAO_DEFINIDO',

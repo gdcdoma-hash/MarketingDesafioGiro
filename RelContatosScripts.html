@@ -1,7 +1,7 @@
 <script>
   const relContatos = (() => {
     'use strict';
-    const etapas = { PARA_CONTATAR: 'Para contatar', AGUARDANDO_RESPOSTA: 'Aguardando resposta', EM_CONVERSA: 'Em conversa', RETORNAR_DEPOIS: 'Retornar depois', FINALIZADO: 'Finalizado' };
+    const etapas = { PARA_CONTATAR: 'Para contatar', AGUARDANDO_RESPOSTA: 'Aguardando resposta', EM_CONVERSA: 'Em conversa', RETORNAR_DEPOIS: 'Retornar depois', FINALIZADO: 'Finalizado', NAO_CONTATAR: 'Não contatar' };
     const regioes = { PARA: 'Pará', IMPERATRIZ: 'Imperatriz', SAO_LUIS: 'São Luís', PINHEIRO: 'Pinheiro', CURURUPU: 'Cururupu', SANTA_INES: 'Santa Inês', BR: 'BR' };
     const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
     const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {}, retornoPendente: false, indicadorAtivo: '' };
@@ -96,7 +96,7 @@
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar.');
         contato.etapa = resposta.dados.etapa; contato.proximoRetorno = resposta.dados.proximoRetorno || ''; retorno.value = valorData(contato.proximoRetorno);
         linha.className = 'rel-contact-row etapa-' + contato.etapa.toLowerCase(); retornoWrap.hidden = contato.etapa !== 'RETORNAR_DEPOIS';
-        mensagem('Etapa atualizada.'); relResumoOperacional.carregar(); if ((select.value === 'FINALIZADO' && e.etapa.value === 'PADRAO') || estado.retornoPendente) carregar();
+        mensagem('Etapa atualizada.'); relResumoOperacional.carregar(); if (((select.value === 'FINALIZADO' || select.value === 'NAO_CONTATAR') && e.etapa.value === 'PADRAO') || estado.retornoPendente) carregar();
       } catch (erro) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; mensagem(erro.message, true); } finally { select.disabled = false; }
     }
 
