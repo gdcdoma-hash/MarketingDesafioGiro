@@ -676,9 +676,14 @@ function buscarNovoDivulgador() {
         mostrarMensagemDivulgador(
           res && res.mensagem
             ? res.mensagem
-            : 'Nenhum participante encontrado.'
+            : 'Nenhum participante foi encontrado com esse código.'
         );
 
+        return;
+      }
+
+      if (res.tipoResultado === 'DIVULGADOR' && res.divulgador) {
+        mostrarResumoDivulgador(res.divulgador, 'Divulgador já cadastrado');
         return;
       }
 
@@ -707,7 +712,10 @@ function buscarNovoDivulgador() {
         'Não foi possível realizar a busca.'
       );
     })
-    .buscarPessoasMarketing(termo);
+    .buscarDivulgadorOuPessoaMarketing(
+      termo,
+      dadosAtuais ? dadosAtuais.periodoSelecionado : ''
+    );
 }
 
 function salvarNovoDivulgador() {
@@ -777,7 +785,10 @@ function confirmarNovoDivulgador() {
         return;
       }
 
-      mostrarSucessoNovoDivulgador(res);
+      mostrarResumoDivulgador(
+        res.divulgador || res,
+        'Novo divulgador cadastrado'
+      );
 
       carregarDados(
         dadosAtuais
@@ -797,22 +808,31 @@ function confirmarNovoDivulgador() {
     })
     .salvarDivulgadorMarketing({
       idDgmb: novoDivulgadorAtual.idDgmb,
-      tipo: tipo
+      tipo: tipo,
+      periodo: dadosAtuais ? dadosAtuais.periodoSelecionado : ''
     });
 }
 
 
-function mostrarSucessoNovoDivulgador(res) {
-  document.getElementById('sucesso-nome').textContent = res.nome || '';
-  document.getElementById('sucesso-cidade').textContent = res.cidadeUf || '';
-  document.getElementById('sucesso-tipo').textContent = res.tipo || '';
+function mostrarResumoDivulgador(divulgador, titulo) {
+  document.getElementById('sucesso-titulo').textContent = titulo;
+  document.getElementById('sucesso-nome').textContent = divulgador.nome || '';
+  document.getElementById('sucesso-codigo').textContent =
+    divulgador.idDgmb || divulgador.ref || '';
+  document.getElementById('sucesso-cidade').textContent = divulgador.cidadeUf || '-';
+  document.getElementById('sucesso-tipo').textContent = divulgador.tipo || '-';
+  document.getElementById('sucesso-status').textContent = divulgador.status || '-';
+  document.getElementById('sucesso-inscricoes').textContent =
+    Number(divulgador.inscricoes || 0);
+  document.getElementById('sucesso-link').textContent = divulgador.link || '';
 
   const botaoCopiar = document.getElementById('btn-copiar-novo-link');
-  botaoCopiar.onclick = () => copiarLink(res.link, botaoCopiar);
+  botaoCopiar.onclick = () => copiarLink(divulgador.link, botaoCopiar);
 
   document
-    .getElementById('etapa-revisar-divulgador')
-    .classList.add('hidden');
+    .querySelectorAll('#modal-divulgador [id^="etapa-"]')
+    .forEach(etapa => etapa.classList.add('hidden'));
+
   document
     .getElementById('etapa-sucesso-divulgador')
     .classList.remove('hidden');

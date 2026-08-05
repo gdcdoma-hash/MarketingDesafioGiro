@@ -503,6 +503,139 @@ function chavePeriodo_(periodo) {
   return (ano * 100) + mes;
 }
 
+
+function buscarDivulgadorOuPessoaMarketing(termoBusca, periodoSolicitado) {
+  const termo = normalizarBuscaMarketing_(termoBusca);
+
+  if (!termo) {
+    return {
+      status: 'ERRO',
+      mensagem: 'Informe um nome ou código.'
+    };
+  }
+
+  const planilhaOperacional = dg_abrirPlanilhaMarketingRelacionamento_();
+  const marketing = lerAbaComoObjetos_(
+    planilhaOperacional,
+    ABAS.MARKETING
+  );
+
+  const cadastro = marketing.find(item => {
+    const ref = normalizarBuscaMarketing_(item.REF);
+    const idDgmb = normalizarBuscaMarketing_(item.ID_DGMB);
+
+    return ref === termo || idDgmb === termo;
+  });
+
+  if (cadastro) {
+    return {
+      status: 'OK',
+      tipoResultado: 'DIVULGADOR',
+      divulgador: montarResumoDivulgadorMarketing_(
+        cadastro,
+        periodoSolicitado
+      )
+    };
+  }
+
+  return buscarPessoasMarketing(termoBusca);
+}
+
+
+function montarResumoDivulgadorMarketing_(cadastro, periodoSolicitado) {
+  const ref = String(cadastro.REF || '').trim();
+  const idDgmb = String(cadastro.ID_DGMB || '').trim();
+
+  const planilhaPortal = dg_abrirPlanilhaPortal_();
+  const pessoas = lerAbaComoObjetos_(
+    planilhaPortal,
+    ABAS.DADOS_PESSOAIS
+  );
+  const pessoa = idDgmb
+    ? pessoas.find(item =>
+      String(item.ID_DGMB || '').trim() === idDgmb
+    )
+    : null;
+
+  return {
+    ref,
+    idDgmb,
+    nome: pessoa
+      ? String(pessoa.nome || '').trim()
+      : String(cadastro.NOME_ORIGEM || ref).trim(),
+    cidadeUf: pessoa
+      ? String(pessoa['Cidade-UF'] || '').trim()
+      : '',
+    tipo: String(cadastro.TIPO || '').trim(),
+    status: String(cadastro.STATUS || '').trim(),
+    inscricoes: contarInscricoesMarketing_(
+      ref,
+      periodoSolicitado,
+      planilhaPortal
+    ),
+    link: PORTAL_INSCRICAO_URL + '?ref=' + encodeURIComponent(ref)
+  };
+}
+
+
+function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal) {
+  const refNormalizada = String(ref || '').trim();
+
+  if (!refNormalizada) return 0;
+
+  const desafios = lerAbaComoObjetos_(
+    planilhaPortal,
+    ABAS.DESAFIOS
+  );
+  const lista = lerAbaComoObjetos_(
+    planilhaPortal,
+    ABAS.LISTA_DESAFIOS
+  );
+
+  const periodoPorDesafio = {};
+  const periodosSet = new Set();
+
+  lista.forEach(item => {
+    const id = String(item.id_Desafio_lista || '').trim();
+    const periodo = String(item.Periodo || '').trim();
+
+    if (id && periodo) {
+      periodoPorDesafio[id] = periodo;
+      periodosSet.add(periodo);
+    }
+  });
+
+  const periodos = Array.from(periodosSet).sort((a, b) => {
+    return chavePeriodo_(b) - chavePeriodo_(a);
+  });
+
+  const periodoSelecionado =
+    String(periodoSolicitado || '').trim() ||
+    periodos[0] ||
+    '';
+
+  return desafios.filter(inscricao => {
+    const status = String(
+      inscricao.Status_Usuario_Desafio ||
+      inscricao.Status_Desafio ||
+      ''
+    ).toUpperCase();
+
+    if (status.includes('CANCEL')) return false;
+
+    const refInscricao = String(
+      inscricao.REF_MARKETING || ''
+    ).trim();
+
+    if (refInscricao !== refNormalizada) return false;
+
+    const idDesafio = extrairIdDesafio_(inscricao.Observacao);
+    const periodo = periodoPorDesafio[idDesafio] || '';
+
+    return periodo === periodoSelecionado;
+  }).length;
+}
+
 function buscarPessoasMarketing(termoBusca) {
   const termo = normalizarBuscaMarketing_(termoBusca);
 
@@ -658,9 +791,18 @@ function salvarDivulgadorMarketing(dados) {
   );
 
   if (jaExiste) {
+    const cadastroExistente = registros.find(item =>
+      String(item.REF || '').trim() === idDgmb ||
+      String(item.ID_DGMB || '').trim() === idDgmb
+    );
+
     return {
-      status: 'DUPLICADO',
-      mensagem: 'Este divulgador já está cadastrado.'
+      status: 'OK',
+      mensagem: 'Este divulgador já está cadastrado.',
+      divulgador: montarResumoDivulgadorMarketing_(
+        cadastroExistente,
+        dados && dados.periodo
+      )
     };
   }
 
@@ -675,10 +817,16 @@ function salvarDivulgadorMarketing(dados) {
   return {
     status: 'OK',
     mensagem: 'Divulgador cadastrado.',
-    nome: String(pessoa.nome || '').trim(),
-    cidadeUf: String(pessoa['Cidade-UF'] || '').trim(),
-    tipo: tipo,
-    link: PORTAL_INSCRICAO_URL + '?ref=' + encodeURIComponent(idDgmb)
+    divulgador: montarResumoDivulgadorMarketing_(
+      {
+        REF: idDgmb,
+        ID_DGMB: idDgmb,
+        NOME_ORIGEM: '',
+        TIPO: tipo,
+        STATUS: 'ATIVO'
+      },
+      dados && dados.periodo
+    )
   };
 }
 
