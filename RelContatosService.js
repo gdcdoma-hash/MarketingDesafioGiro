@@ -121,7 +121,7 @@ function rel_contatos_listar_(filtros) {
       const retornoLocal = rel_contatos_dataLocalChave_(contato.proximoRetorno);
       if (contato.etapa !== 'RETORNAR_DEPOIS' || !retornoLocal || retornoLocal > hojeLocal) return false;
     }
-    if (!retornoPendente && etapa === 'PADRAO' && contato.etapa === 'FINALIZADO') return false;
+    if (!retornoPendente && etapa === 'PADRAO' && (contato.etapa === 'FINALIZADO' || contato.etapa === 'NAO_CONTATAR')) return false;
     if (!retornoPendente && etapa !== 'PADRAO' && etapa !== 'TODOS' && contato.etapa !== etapa) return false;
     if (idOrigem && contato.idsOrigens.indexOf(idOrigem) < 0) return false;
     if (!busca) return true;
@@ -133,7 +133,7 @@ function rel_contatos_listar_(filtros) {
   contatos.sort((a, b) => {
     const vencidoA = a.etapa === 'RETORNAR_DEPOIS' && a.proximoRetorno && new Date(a.proximoRetorno) <= hoje;
     const vencidoB = b.etapa === 'RETORNAR_DEPOIS' && b.proximoRetorno && new Date(b.proximoRetorno) <= hoje;
-    const pesos = { PARA_CONTATAR: 1, AGUARDANDO_RESPOSTA: 2, EM_CONVERSA: 3, RETORNAR_DEPOIS: 4, FINALIZADO: 5 };
+    const pesos = { PARA_CONTATAR: 1, AGUARDANDO_RESPOSTA: 2, EM_CONVERSA: 3, RETORNAR_DEPOIS: 4, FINALIZADO: 5, NAO_CONTATAR: 6 };
     const pesoA = vencidoA ? 0 : (pesos[a.etapa] || 4);
     const pesoB = vencidoB ? 0 : (pesos[b.etapa] || 4);
     return pesoA - pesoB || a.ordemAntiguidade.localeCompare(b.ordemAntiguidade);
@@ -169,6 +169,9 @@ function rel_contatos_atualizarEtapa_(dados) {
     if (etapa === 'RETORNAR_DEPOIS') {
       campos.DATA_PROXIMO_RETORNO = new Date(retorno + 'T12:00:00');
       proximoRetornoFinal = rel_contatos_dataIso_(campos.DATA_PROXIMO_RETORNO);
+    } else if (etapa === 'NAO_CONTATAR') {
+      campos.DATA_PROXIMO_RETORNO = '';
+      proximoRetornoFinal = '';
     } else if (etapa === 'PARA_CONTATAR') {
       if (entrada.limparProximoRetorno === true) campos.DATA_PROXIMO_RETORNO = '';
       else proximoRetornoFinal = rel_contatos_dataIso_(retornoAtual);
@@ -176,7 +179,7 @@ function rel_contatos_atualizarEtapa_(dados) {
       campos.DATA_PROXIMO_RETORNO = '';
     }
     rel_contatos_atualizarCampos_(registro, campos);
-    return rel_contatos_resposta_('OK', 'Etapa atualizada.', {
+    return rel_contatos_resposta_('OK', etapa === 'NAO_CONTATAR' ? '' : 'Etapa atualizada.', {
       etapa: etapa,
       proximoRetorno: proximoRetornoFinal
     });
