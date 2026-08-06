@@ -1,4 +1,7 @@
 const SPREADSHEET_ID = '18UCv96cqQMShaSabAhnX0AOLILAOcujCj-yBLUT1eJs';
+const URL_PUBLICA_DESAFIO_GIRO =
+  'https://desafiogiro.giromotosbikes.com.br';
+const CHAVE_URL_GAS_PORTAL = 'URL_GAS_PORTAL';
 
 const ABAS = {
   MARKETING: 'Marketing',
@@ -269,24 +272,28 @@ function diagnosticarPeriodoMarketing() {
 
 const META_MARKETING = 200;
 
-const PORTAL_INSCRICAO_URL =
-  'https://script.google.com/macros/s/AKfycby5Z_ogTZ9HtpXU66RyClIAPZn7LD1njpMWg0xLfdkMzOB01wLk70wN6HHime6J1eQHmA/exec';
 
+function obterUrlGasPortal_() {
+  const urlConfigurada = PropertiesService
+    .getScriptProperties()
+    .getProperty(CHAVE_URL_GAS_PORTAL);
+  const url = String(urlConfigurada || '').trim();
 
-function doGet() {
-  const output = HtmlService
-    .createTemplateFromFile('Index')
-    .evaluate()
-    .setTitle('Marketing — Desafio Giro')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  if (url) {
+    return url.replace(/\/+$/, '');
+  }
 
-  output.addMetaTag(
-    'viewport',
-    'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
-  );
-
-  return output;
+  return String(ScriptApp.getService().getUrl() || '')
+    .trim()
+    .replace(/\/+$/, '');
 }
+
+
+function montarLinkDivulgacao_(ref) {
+  return URL_PUBLICA_DESAFIO_GIRO +
+    '?ref=' + encodeURIComponent(String(ref || '').trim());
+}
+
 
 function include(nomeArquivo) {
   return HtmlService
@@ -357,7 +364,7 @@ function obterDadosPainel(periodoSolicitado) {
       status: String(item.STATUS || '').trim(),
       inscricoes: 0,
       totalHistorico: 0,
-      link: PORTAL_INSCRICAO_URL + '?ref=' + encodeURIComponent(ref)
+      link: montarLinkDivulgacao_(ref)
     };
   });
 
@@ -573,7 +580,7 @@ function montarResumoDivulgadorMarketing_(cadastro, periodoSolicitado) {
       periodoSolicitado,
       planilhaPortal
     ),
-    link: PORTAL_INSCRICAO_URL + '?ref=' + encodeURIComponent(ref)
+    link: montarLinkDivulgacao_(ref)
   };
 }
 
