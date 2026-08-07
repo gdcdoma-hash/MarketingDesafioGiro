@@ -1,0 +1,8 @@
+# Enviar somente os arquivos executáveis do Apps Script na raiz do projeto.
+
+**/**
+
+!/*.js
+!/*.gs
+!/*.html
+!/appsscript.json
