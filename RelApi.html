@@ -1,6 +1,6 @@
 <script>
   const relAcessoChave = <?!= JSON.stringify(acesso) ?>;
-  const relApiClient = (() => {
+  window.relApiClient = (() => {
     'use strict';
 
     function executar(nomeFuncao, ...argumentos) {

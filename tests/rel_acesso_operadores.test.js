@@ -83,6 +83,16 @@ vm.runInContext(fs.readFileSync('RelApiServer.js', 'utf8'), contexto);
 igual(contexto.rel_api_executar_(() => ({ status: 'OK' }), '').status, 'ERRO_ACESSO');
 igual(contexto.rel_api_executar_(operador => ({ status: 'OK', dados: { id: operador.id } }), chaveNova).dados.id, 'operador_001');
 
+// O cliente RPC precisa estar exposto no escopo global para todos os scripts incluídos na página.
+const contextoCliente = { Object };
+contextoCliente.window = contextoCliente;
+vm.createContext(contextoCliente);
+const relApiHtml = fs.readFileSync('RelApi.html', 'utf8')
+  .replace(/^<script>|<\/script>$/gm, '')
+  .replace('<?!= JSON.stringify(acesso) ?>', JSON.stringify(chaveNova));
+vm.runInContext(relApiHtml, contextoCliente);
+igual(typeof contextoCliente.relApiClient.executar, 'function');
+
 // Rota de Relacionamento protegida; Divulgadores continua independente.
 contexto.HtmlService = {}; contexto.ScriptApp = {};
 vm.runInContext(fs.readFileSync('Router.js', 'utf8'), contexto);
