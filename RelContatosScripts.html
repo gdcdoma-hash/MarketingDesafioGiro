@@ -51,7 +51,7 @@
     async function carregar() {
       mensagem('Carregando contatos...');
       try {
-        const resposta = await relApiClient.executar('rel_listarContatos', filtros());
+        const resposta = await window.relApiClient.executar('rel_listarContatos', filtros());
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Não foi possível listar os contatos.');
         renderizar(resposta.dados);
         mensagem('');
@@ -143,7 +143,7 @@
       if (select.value === 'PARA_CONTATAR' && contato.proximoRetorno) { limpar = window.confirm('Deseja limpar a data do próximo retorno?'); if (!limpar) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; return; } }
       select.disabled = true;
       try {
-        const resposta = await relApiClient.executar('rel_atualizarEtapaContato', { telefoneNormalizado: contato.telefoneNormalizado, etapa: select.value, proximoRetorno: retorno.value, limparProximoRetorno: limpar, motivoNaoContatar: decisao && decisao.motivo, motivoNaoContatarOutro: decisao && decisao.outro });
+        const resposta = await window.relApiClient.executar('rel_atualizarEtapaContato', { telefoneNormalizado: contato.telefoneNormalizado, etapa: select.value, proximoRetorno: retorno.value, limparProximoRetorno: limpar, motivoNaoContatar: decisao && decisao.motivo, motivoNaoContatarOutro: decisao && decisao.outro });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar.');
         contato.etapa = resposta.dados.etapa; contato.proximoRetorno = resposta.dados.proximoRetorno || ''; retorno.value = valorData(contato.proximoRetorno);
         linha.className = 'rel-contact-row etapa-' + contato.etapa.toLowerCase(); retornoWrap.hidden = contato.etapa !== 'RETORNAR_DEPOIS';
@@ -163,13 +163,13 @@
     async function carregarCidades() {
       e.cidade.innerHTML = '<option value="">Selecione</option><option value="__NOVA__">Nova cidade</option>';
       if (!e.uf.value || !e.regiao.value) return;
-      const resposta = await relApiClient.executar('rel_listarOpcoesCidades', { uf: e.uf.value, regiao: e.regiao.value });
+      const resposta = await window.relApiClient.executar('rel_listarOpcoesCidades', { uf: e.uf.value, regiao: e.regiao.value });
       if (resposta && resposta.status === 'OK') resposta.dados.cidades.forEach(item => e.cidade.add(new Option(item.cidade, item.cidade), e.cidade.options[e.cidade.options.length - 1]));
     }
     function avisoForm(texto, erro) { e.formAviso.textContent = texto || ''; e.formAviso.hidden = !texto; e.formAviso.classList.toggle('rel-alert-error', !!erro); }
     async function cadastrarCidade() {
       const cidade = e.novaCidade.value.trim(); if (!e.uf.value || !e.regiao.value || !cidade) { avisoForm('Informe UF, região e nova cidade.', true); return; }
-      const resposta = await relApiClient.executar('rel_cadastrarCidade', { uf: e.uf.value, regiao: e.regiao.value, cidade: cidade });
+      const resposta = await window.relApiClient.executar('rel_cadastrarCidade', { uf: e.uf.value, regiao: e.regiao.value, cidade: cidade });
       if (!resposta || resposta.status !== 'OK') { avisoForm(resposta && resposta.mensagem || 'Falha ao cadastrar cidade.', true); return; }
       await carregarCidades(); e.cidade.value = cidade; e.novaCidadeCampos.hidden = true; avisoForm('Cidade cadastrada.');
     }
@@ -178,7 +178,7 @@
       if (e.cidade.value === '__NOVA__') { avisoForm('Cadastre a nova cidade antes de salvar.', true); return; }
       e.salvar.disabled = true;
       try {
-        const resposta = await relApiClient.executar('rel_salvarDadosContato', { telefoneNormalizado: e.telefone.value, nomeContato: e.nome.value, uf: e.uf.value, regiao: e.regiao.value, cidade: cidade, eCiclista: e.ciclista.value, modalidade: e.modalidade.value, observacao: e.observacao.value });
+        const resposta = await window.relApiClient.executar('rel_salvarDadosContato', { telefoneNormalizado: e.telefone.value, nomeContato: e.nome.value, uf: e.uf.value, regiao: e.regiao.value, cidade: cidade, eCiclista: e.ciclista.value, modalidade: e.modalidade.value, observacao: e.observacao.value });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao salvar.');
         e.modal.close(); mensagem('Dados do contato salvos.'); relResumoOperacional.carregar(); carregar();
       } catch (erro) { avisoForm(erro.message, true); } finally { e.salvar.disabled = false; }
@@ -202,7 +202,7 @@
       controleNaoContatar = criarControleNaoContatar({ modal: e.naoContatarModal, form: e.naoContatarForm, motivo: e.naoContatarMotivo, outro: e.naoContatarOutro, outroWrap: e.naoContatarOutroWrap, aviso: e.naoContatarAviso, fechar: Array.from(document.querySelectorAll('[data-nao-contatar-fechar]')) }, (pendente, decisao) => alterarEtapa(pendente.linha, pendente.select, decisao));
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
       try {
-        const preparacao = await relApiClient.executar('rel_prepararEstruturaContatos');
+        const preparacao = await window.relApiClient.executar('rel_prepararEstruturaContatos');
         if (!preparacao || preparacao.status !== 'OK') throw new Error(preparacao && preparacao.mensagem || 'Falha ao preparar a estrutura.');
         carregar();
       } catch (erro) { mensagem(erro.message, true); }

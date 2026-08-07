@@ -149,7 +149,7 @@
 
     async function carregarOpcoes() {
       try {
-        const resposta = await relApiClient.executar('rel_obterOpcoesImportacao');
+        const resposta = await window.relApiClient.executar('rel_obterOpcoesImportacao');
         if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
         preencherSelect(elementos.origem, resposta.dados.origens, 'idOrigem', 'nomeOrigem', 'Selecione');
       } catch (erro) {
@@ -170,7 +170,7 @@
         estado.nomeAbaArquivo = leitura.nomeAba;
         exibirArquivo(leitura.nomeArquivo, leitura.nomeAba);
         const selecao = obterSelecao();
-        const resposta = await relApiClient.executar('rel_preAnalisarImportacao', selecao);
+        const resposta = await window.relApiClient.executar('rel_preAnalisarImportacao', selecao);
         if (resposta.dados && resposta.dados.resumo) {
           renderizarResumo(resposta.dados.resumo, 'Resumo da pré-análise');
           renderizarInvalidos(resposta.dados.amostraInvalidos);
@@ -195,7 +195,7 @@
       estado.importando = true;
       elementos.confirmar.disabled = true;
       try {
-        const resposta = await relApiClient.executar('rel_confirmarImportacao', estado.selecaoAnalisada);
+        const resposta = await window.relApiClient.executar('rel_confirmarImportacao', estado.selecaoAnalisada);
         if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
         renderizarResumo(resposta.dados.resumo, 'Resultado da importação');
         renderizarInvalidos(resposta.dados.amostraInvalidos);

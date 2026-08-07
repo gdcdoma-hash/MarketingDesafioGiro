@@ -80,7 +80,7 @@
       estado.carregandoLista = true;
       renderizarCarregamento();
       try {
-        const resposta = await relApiClient.executar('rel_listarOrigens', {
+        const resposta = await window.relApiClient.executar('rel_listarOrigens', {
           busca: elementos.busca.value,
           status: elementos.status.value
         });
@@ -105,7 +105,7 @@
       relUI.definirSalvandoOrigem(true);
       relUI.limparMensagemFormulario();
       try {
-        const resposta = await relApiClient.executar('rel_cadastrarOrigem', {
+        const resposta = await window.relApiClient.executar('rel_cadastrarOrigem', {
           nomeOrigem: elementos.nome.value,
           tipoOrigem: elementos.tipo.value,
           observacao: elementos.observacao.value
@@ -132,7 +132,7 @@
       estado.alterandoStatusIds.add(idOrigem);
       botao.disabled = true;
       try {
-        const resposta = await relApiClient.executar(
+        const resposta = await window.relApiClient.executar(
           'rel_alterarStatusOrigem',
           idOrigem,
           botao.dataset.status

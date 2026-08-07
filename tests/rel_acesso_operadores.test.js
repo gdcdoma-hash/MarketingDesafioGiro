@@ -12,12 +12,43 @@ const router = ler('Router.js');
 const servidor = ler('RelApiServer.js');
 const setup = ler('RelSetup.js');
 const google = ler('RelGoogleContatosService.js');
+const consumidores = [
+  'RelResumo.html',
+  'RelResumoOperacionalScripts.html',
+  'RelAnalise.html',
+  'RelImport.html',
+  'RelGoogleContatos.html',
+  'RelOrigens.html',
+  'RelContatosScripts.html'
+];
+const codigoConsumidores = consumidores.map(ler).join('\n');
 igual(index.includes('window.relAcessoChave'), false);
 igual(api.includes('relAcessoChave'), false);
 ok(api.includes('[nomeFuncao](...argumentos);'));
 ok(index.indexOf("include('RelApi')") < index.indexOf("include('RelUI')"));
 ok(index.indexOf("include('RelApi')") < index.indexOf("include('RelContatosScripts')"));
+[
+  'RelResumo', 'RelResumoOperacionalScripts', 'RelAnalise', 'RelImport',
+  'RelGoogleContatos', 'RelOrigens', 'RelContatosScripts'
+].forEach(nome => ok(index.indexOf("include('RelApi')") < index.indexOf("include('" + nome + "')"), 'RelApi deve vir antes de ' + nome));
 ok(api.includes('window.relApiClient ='));
+igual((api.match(/window\.relApiClient\s*=/g) || []).length, 1);
+igual((codigoConsumidores.match(/(^|[^.\w])relApiClient\.executar/gm) || []).length, 0);
+igual((codigoConsumidores.match(/window\.relApiClient\.executar/g) || []).length, 18);
+[
+  'rel_obterResumo', 'rel_obterResumoOperacional', 'rel_analisarContatosPortal',
+  'rel_obterOpcoesImportacao', 'rel_preAnalisarImportacao', 'rel_confirmarImportacao',
+  'rel_cancelarPreviaGoogleContatos', 'rel_preAnalisarGoogleContatos',
+  'rel_confirmarGoogleContatos', 'rel_listarOrigens', 'rel_cadastrarOrigem',
+  'rel_alterarStatusOrigem', 'rel_listarContatos', 'rel_atualizarEtapaContato',
+  'rel_listarOpcoesCidades', 'rel_cadastrarCidade', 'rel_salvarDadosContato',
+  'rel_prepararEstruturaContatos'
+].forEach(nome => ok(new RegExp("window\\.relApiClient\\.executar\\(\\s*'" + nome + "'").test(codigoConsumidores), nome + ' deve usar o cliente oficial'));
+ok(ler('RelContatosScripts.html').includes("window.relApiClient.executar('rel_listarContatos', filtros())"));
+ok(ler('RelImport.html').includes("window.relApiClient.executar('rel_preAnalisarImportacao', selecao)"));
+ok(ler('RelImport.html').includes("window.relApiClient.executar('rel_confirmarImportacao', estado.selecaoAnalisada)"));
+ok(ler('RelGoogleContatos.html').includes("window.relApiClient.executar('rel_preAnalisarGoogleContatos', leitura)"));
+ok(ler('RelGoogleContatos.html').includes("window.relApiClient.executar('rel_confirmarGoogleContatos', { token: token })"));
 ok(api.includes('google.script.run'));
 ok(api.includes('withSuccessHandler') && api.includes('withFailureHandler'));
 ok(router.includes("return rel_criarPaginaContatos_();"));

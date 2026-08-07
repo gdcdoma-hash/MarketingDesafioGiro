@@ -39,7 +39,7 @@
 
     async function carregar() {
       try {
-        const resposta = await relApiClient.executar('rel_obterResumoOperacional');
+        const resposta = await window.relApiClient.executar('rel_obterResumoOperacional');
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem);
         renderizar(resposta.dados || {});
       } catch (erro) {
