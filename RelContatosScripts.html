@@ -50,9 +50,14 @@
       const identidade = criar('div', 'rel-contact-identity');
       const topo = criar('div', 'rel-contact-phone-line');
       topo.appendChild(criar('b', 'rel-contact-phone', contato.telefoneExibicao));
-      const copiarBtn = criar('button', 'rel-button rel-copy-button', 'Copiar');
+      const botoesContato = criar('div', 'rel-contact-phone-actions');
+      const copiarBtn = criar('button', 'rel-button rel-copy-button', '📋 Copiar');
       copiarBtn.type = 'button'; copiarBtn.dataset.copiar = ''; copiarBtn.setAttribute('aria-label', 'Copiar contato ' + contato.telefoneExibicao);
-      topo.appendChild(copiarBtn); identidade.appendChild(topo);
+      botoesContato.appendChild(copiarBtn);
+      const whatsappBtn = criar('button', 'rel-button rel-whatsapp-button', '💬 WhatsApp');
+      whatsappBtn.type = 'button'; whatsappBtn.dataset.whatsapp = ''; whatsappBtn.setAttribute('aria-label', 'Abrir WhatsApp para ' + contato.telefoneExibicao);
+      whatsappBtn.disabled = !normalizarTelefoneWhatsApp(contato.telefoneNormalizado || contato.telefoneExibicao);
+      botoesContato.appendChild(whatsappBtn); topo.appendChild(botoesContato); identidade.appendChild(topo);
       identidade.appendChild(criar('strong', contato.nomeExibicao === 'Nome não informado' ? 'rel-contact-name is-empty' : 'rel-contact-name', contato.nomeExibicao));
       identidade.appendChild(criar('span', contato.cidadeUfExibicao === 'Cidade não informada' ? 'rel-contact-city is-empty' : 'rel-contact-city', contato.cidadeUfExibicao));
       const chips = criar('div', 'rel-contact-chips');
@@ -75,6 +80,17 @@
     }
 
     function textoCopiar(contato) { return [contato.telefoneExibicao, contato.nomeExibicao === 'Nome não informado' ? '' : contato.nomeExibicao, contato.cidadeUfExibicao === 'Cidade não informada' ? '' : contato.cidadeUfExibicao].filter(Boolean).join(' | '); }
+    function normalizarTelefoneWhatsApp(telefone) {
+      let numero = String(telefone || '').replace(/\D/g, '');
+      if (!numero.startsWith('55')) numero = '55' + numero;
+      return /^55\d{10,11}$/.test(numero) ? numero : '';
+    }
+    function abrirWhatsApp(telefone) {
+      const numero = normalizarTelefoneWhatsApp(telefone);
+      if (!numero) return false;
+      window.location.href = 'whatsapp://send?phone=' + numero;
+      return true;
+    }
     async function copiar(contato, botao) {
       const texto = textoCopiar(contato);
       try {
@@ -143,12 +159,12 @@
       ufs.forEach(uf => e.uf.add(new Option(uf, uf)));
       e.filtros.addEventListener('submit', evento => evento.preventDefault()); e.busca.addEventListener('input', filtrarBusca); [e.classificacao, e.etapa, e.origem].forEach(campo => campo.addEventListener('change', filtrarAgora)); e.limpar.addEventListener('click', limparFiltros);
       e.anterior.addEventListener('click', () => { estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { estado.pagina++; carregar(); });
-      e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
+      e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-whatsapp]')) abrirWhatsApp(contato.telefoneNormalizado || contato.telefoneExibicao); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
       e.lista.addEventListener('change', evento => { const linha = evento.target.closest('.rel-contact-row'); if (evento.target.matches('[data-etapa]')) alterarEtapa(linha, evento.target); if (evento.target.matches('[data-retorno]')) { const select = linha.querySelector('[data-etapa]'); if (select.value === 'RETORNAR_DEPOIS') alterarEtapa(linha, select); } });
       e.uf.addEventListener('change', carregarCidades); e.regiao.addEventListener('change', carregarCidades); e.cidade.addEventListener('change', () => { e.novaCidadeCampos.hidden = e.cidade.value !== '__NOVA__'; });
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
       carregar();
     }
-    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
+    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar, normalizarTelefoneWhatsApp: normalizarTelefoneWhatsApp, abrirWhatsApp: abrirWhatsApp, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
   })();
 </script>
