@@ -26,6 +26,8 @@ const REL_CONFIG = Object.freeze({
         'EXPORTACAO_GOOGLE_STATUS',
         'DATA_ULTIMA_EXPORTACAO',
         'OBSERVACAO',
+        'MOTIVO_NAO_CONTATAR',
+        'MOTIVO_NAO_CONTATAR_OUTRO',
         'ATUALIZADO_EM'
       ])
     }),
@@ -74,6 +76,13 @@ const REL_CONFIG = Object.freeze({
         'STATUS',
         'DATA_CADASTRO'
       ])
+    }),
+    GOOGLE_CONTATOS: Object.freeze({
+      NOME: 'GoogleContatos',
+      CABECALHOS: Object.freeze([
+        'TELEFONE_NORMALIZADO', 'NOME_GOOGLE', 'TELEFONE_ORIGINAL',
+        'EMAIL', 'DATA_IMPORTACAO', 'ATIVO'
+      ])
     })
   }),
   ENUMS: Object.freeze({
@@ -116,6 +125,11 @@ const REL_CONFIG = Object.freeze({
       'LISTA_MANUAL',
       'OUTRO'
     ]),
-    STATUS: Object.freeze(['ATIVO', 'INATIVO'])
+    STATUS: Object.freeze(['ATIVO', 'INATIVO']),
+    MOTIVO_NAO_CONTATAR: Object.freeze([
+      'PARTICIPANTE_DESAFIO_GIRO', 'NAO_PARTICIPA_DESAFIOS', 'NAO_RECEBER_MENSAGENS',
+      'CONTATO_COMERCIAL_EMPRESA', 'FAMILIAR_CONTATO_PESSOAL', 'FORA_DO_PUBLICO',
+      'NUMERO_INCORRETO_INVALIDO', 'OUTRO'
+    ])
   })
 });

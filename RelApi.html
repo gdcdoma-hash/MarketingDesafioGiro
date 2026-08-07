@@ -1,4 +1,5 @@
 <script>
+  const relAcessoChave = <?!= JSON.stringify(acesso) ?>;
   const relApiClient = (() => {
     'use strict';
 
@@ -11,7 +12,7 @@
               ? erro.message
               : String(erro || 'Falha na comunicação com o servidor.');
             reject(erro instanceof Error ? erro : new Error(mensagem));
-          })[nomeFuncao](...argumentos);
+          })[nomeFuncao](...argumentos, relAcessoChave);
       });
     }
 

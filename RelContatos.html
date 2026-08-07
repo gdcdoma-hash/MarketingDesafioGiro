@@ -4,9 +4,13 @@
   </div>
   <form id="rel-contatos-filtros" class="rel-contact-filters">
     <label class="rel-contact-search">Busca<input id="rel-contatos-busca" type="search" placeholder="Telefone, nome, cidade ou ID"></label>
-    <label>Classificação<select id="rel-contatos-classificacao"><option value="TODOS">Todos</option><option value="IDENTIFICADO_PORTAL">Identificados no Portal</option><option value="CONTATO_NOVO">Contatos novos</option></select></label>
+    <label>Identificação<select id="rel-contatos-classificacao"><option value="TODOS">Todos</option><option value="PARTICIPANTE_GIRO">Participante do Desafio Giro</option><option value="GOOGLE_CONTATOS">Somente Google Contatos</option><option value="NAO_IDENTIFICADO">Não identificado</option></select></label>
     <label>Etapa<select id="rel-contatos-etapa"><option value="PADRAO">Trabalho</option><option value="TODOS">Todas</option><option value="PARA_CONTATAR">Para contatar</option><option value="AGUARDANDO_RESPOSTA">Aguardando resposta</option><option value="EM_CONVERSA">Em conversa</option><option value="RETORNAR_DEPOIS">Retornar depois</option><option value="FINALIZADO">Finalizados</option><option value="NAO_CONTATAR">Não contatar</option></select></label>
     <label>Origem<select id="rel-contatos-origem"><option value="">Todas</option></select></label>
+    <label>Motivo de não contato<select id="rel-contatos-motivo"><option value="TODOS">Todos</option></select></label>
+    <label>Região<select id="rel-contatos-regiao-filtro"><option value="">Todas</option><option value="PARA">Pará</option><option value="IMPERATRIZ">Imperatriz</option><option value="SAO_LUIS">São Luís</option><option value="PINHEIRO">Pinheiro</option><option value="CURURUPU">Cururupu</option><option value="SANTA_INES">Santa Inês</option><option value="BR">BR</option></select></label>
+    <label>UF<input id="rel-contatos-uf-filtro" maxlength="2" placeholder="Ex.: MA"></label>
+    <label>Cidade<input id="rel-contatos-cidade-filtro" placeholder="Cidade exata"></label>
     <button id="rel-contatos-limpar" class="rel-button" type="button">Limpar filtros</button>
   </form>
   <div id="rel-contatos-aviso" class="rel-alert" role="status" aria-live="polite" hidden></div>

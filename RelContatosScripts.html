@@ -2,20 +2,51 @@
   const relContatos = (() => {
     'use strict';
     const etapas = { PARA_CONTATAR: 'Para contatar', AGUARDANDO_RESPOSTA: 'Aguardando resposta', EM_CONVERSA: 'Em conversa', RETORNAR_DEPOIS: 'Retornar depois', FINALIZADO: 'Finalizado', NAO_CONTATAR: 'Não contatar' };
+    const ROTULOS_MOTIVOS_NAO_CONTATAR = Object.freeze({ PARTICIPANTE_DESAFIO_GIRO: 'Participante do Desafio Giro', NAO_PARTICIPA_DESAFIOS: 'Informou que não participa de desafios', NAO_RECEBER_MENSAGENS: 'Pediu para não receber mensagens', CONTATO_COMERCIAL_EMPRESA: 'Contato comercial ou empresa', FAMILIAR_CONTATO_PESSOAL: 'Familiar ou contato pessoal', FORA_DO_PUBLICO: 'Não pertence ao público do desafio', NUMERO_INCORRETO_INVALIDO: 'Número incorreto ou inválido', OUTRO: 'Outro motivo', CONTATO_COMERCIAL: 'Contato comercial ou empresa', FAMILIAR_PESSOAL: 'Familiar ou contato pessoal', NUMERO_INVALIDO: 'Número incorreto ou inválido' });
     const regioes = { PARA: 'Pará', IMPERATRIZ: 'Imperatriz', SAO_LUIS: 'São Luís', PINHEIRO: 'Pinheiro', CURURUPU: 'Cururupu', SANTA_INES: 'Santa Inês', BR: 'BR' };
     const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
     const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {}, retornoPendente: false, indicadorAtivo: '' };
     const e = {};
+    let controleNaoContatar;
     let buscaTimer = null;
 
     function mensagem(texto, erro) { e.aviso.textContent = texto || ''; e.aviso.hidden = !texto; e.aviso.classList.toggle('rel-alert-error', !!erro); }
-    function filtros() { return { busca: e.busca.value, classificacao: e.classificacao.value, etapa: e.etapa.value, idOrigem: e.origem.value, retornoPendente: estado.retornoPendente, pagina: estado.pagina, porPagina: 50 }; }
+    function filtros() { return { busca: e.busca.value, classificacao: e.classificacao.value, etapa: e.etapa.value, idOrigem: e.origem.value, motivoNaoContatar: e.motivo.value, regiao: e.regiaoFiltro.value, uf: e.ufFiltro.value, cidade: e.cidadeFiltro.value, retornoPendente: estado.retornoPendente, pagina: estado.pagina, porPagina: 50 }; }
     function dataCurta(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? valor : data.toLocaleDateString('pt-BR'); }
     function valorData(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10); }
     function criar(tag, classe, texto) { const el = document.createElement(tag); if (classe) el.className = classe; if (texto !== undefined) el.textContent = texto; return el; }
     function atualizarIndicador() { if (typeof relResumoOperacional !== 'undefined' && relResumoOperacional.destacarIndicador) relResumoOperacional.destacarIndicador(estado.indicadorAtivo); }
     function filtrarAgora() { estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
     function filtrarBusca() { window.clearTimeout(buscaTimer); buscaTimer = window.setTimeout(filtrarAgora, 400); }
+
+    function criarControleNaoContatar(elementos, salvar) {
+      let pendente = null, salvando = false;
+      function cancelar() {
+        if (pendente) pendente.select.value = pendente.anterior;
+        pendente = null;
+        if (elementos.modal.open) elementos.modal.close();
+      }
+      async function confirmar(evento) {
+        evento.preventDefault();
+        if (!pendente || salvando) return;
+        const motivo = elementos.motivo.value, outro = elementos.outro.value.trim();
+        if (!motivo || (motivo === 'OUTRO' && !outro)) {
+          elementos.aviso.textContent = motivo ? 'Informe a justificativa.' : 'Selecione um motivo.';
+          elementos.aviso.hidden = false; return;
+        }
+        salvando = true; const atual = pendente;
+        const salvo = await salvar(atual, { motivo: motivo, outro: outro });
+        salvando = false; pendente = null;
+        if (!salvo) atual.select.value = atual.anterior;
+        if (elementos.modal.open) elementos.modal.close();
+      }
+      elementos.motivo.addEventListener('change', () => { elementos.outroWrap.hidden = elementos.motivo.value !== 'OUTRO'; });
+      elementos.form.addEventListener('submit', confirmar);
+      elementos.fechar.forEach(botao => botao.addEventListener('click', cancelar));
+      elementos.modal.addEventListener('cancel', evento => { evento.preventDefault(); cancelar(); });
+      elementos.modal.addEventListener('click', evento => { const r = elementos.modal.getBoundingClientRect(); if (evento.clientX < r.left || evento.clientX > r.right || evento.clientY < r.top || evento.clientY > r.bottom) cancelar(); });
+      return { abrir: dados => { pendente = dados; elementos.form.reset(); elementos.outroWrap.hidden = true; elementos.aviso.hidden = true; elementos.modal.showModal(); }, cancelar: cancelar };
+    }
 
     async function carregar() {
       mensagem('Carregando contatos...');
@@ -43,7 +74,7 @@
 
     function criarCard(contato) {
       estado.contatos[contato.telefoneNormalizado] = contato;
-      const identificado = contato.classificacao === 'IDENTIFICADO_PORTAL';
+      const identificado = contato.classificacao === 'PARTICIPANTE_GIRO';
       const artigo = criar('article', 'rel-contact-row etapa-' + contato.etapa.toLowerCase());
       artigo.dataset.telefone = contato.telefoneNormalizado;
 
@@ -58,10 +89,13 @@
       whatsappBtn.type = 'button'; whatsappBtn.dataset.whatsapp = ''; whatsappBtn.setAttribute('aria-label', 'Abrir WhatsApp para ' + contato.telefoneExibicao);
       whatsappBtn.disabled = !normalizarTelefoneWhatsApp(contato.telefoneNormalizado || contato.telefoneExibicao);
       botoesContato.appendChild(whatsappBtn); topo.appendChild(botoesContato); identidade.appendChild(topo);
-      identidade.appendChild(criar('strong', contato.nomeExibicao === 'Nome não informado' ? 'rel-contact-name is-empty' : 'rel-contact-name', contato.nomeExibicao));
+      identidade.appendChild(criar('strong', 'rel-contact-name', contato.nomeExibicao));
+      if (contato.nomeGoogle && contato.nomeGoogle !== contato.nomeExibicao) identidade.appendChild(criar('span', 'rel-contact-city', 'Nome na agenda: ' + contato.nomeGoogle));
       identidade.appendChild(criar('span', contato.cidadeUfExibicao === 'Cidade não informada' ? 'rel-contact-city is-empty' : 'rel-contact-city', contato.cidadeUfExibicao));
       const chips = criar('div', 'rel-contact-chips');
-      chips.appendChild(criar('span', 'rel-contact-chip rel-contact-badge ' + (identificado ? 'is-portal' : ''), identificado ? 'Identificado no Portal' : 'Contato novo'));
+      const identificacoes = { PARTICIPANTE_GIRO: 'Participante do Desafio Giro', GOOGLE_CONTATOS: 'Identificado nos Google Contatos', NAO_IDENTIFICADO: 'Não identificado' };
+      chips.appendChild(criar('span', 'rel-contact-chip rel-contact-badge ' + (identificado ? 'is-portal' : ''), identificacoes[contato.classificacao] || 'Não identificado'));
+      if (contato.motivoNaoContatar) chips.appendChild(criar('span', 'rel-contact-chip', 'Motivo: ' + (ROTULOS_MOTIVOS_NAO_CONTATAR[contato.motivoNaoContatar] || contato.motivoNaoContatar)));
       const origens = contato.origens && contato.origens.length ? contato.origens : ['Origem não informada'];
       origens.forEach(origem => chips.appendChild(criar('span', 'rel-contact-chip', origem)));
       identidade.appendChild(chips);
@@ -100,20 +134,22 @@
       } catch (erro) { mensagem('Não foi possível copiar o contato.', true); }
     }
 
-    async function alterarEtapa(linha, select) {
+    async function alterarEtapa(linha, select, decisao) {
       const contato = estado.contatos[linha.dataset.telefone]; const retorno = linha.querySelector('[data-retorno]'); const retornoWrap = linha.querySelector('.rel-contact-return-field'); const anterior = contato.etapa;
       retornoWrap.hidden = select.value !== 'RETORNAR_DEPOIS';
+      if (select.value === 'NAO_CONTATAR' && !decisao) { controleNaoContatar.abrir({ linha: linha, select: select, anterior: anterior }); return; }
       if (select.value === 'RETORNAR_DEPOIS' && !retorno.value) { mensagem('Informe a data do próximo retorno.', true); retorno.focus(); return; }
       let limpar = false;
       if (select.value === 'PARA_CONTATAR' && contato.proximoRetorno) { limpar = window.confirm('Deseja limpar a data do próximo retorno?'); if (!limpar) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; return; } }
       select.disabled = true;
       try {
-        const resposta = await relApiClient.executar('rel_atualizarEtapaContato', { telefoneNormalizado: contato.telefoneNormalizado, etapa: select.value, proximoRetorno: retorno.value, limparProximoRetorno: limpar });
+        const resposta = await relApiClient.executar('rel_atualizarEtapaContato', { telefoneNormalizado: contato.telefoneNormalizado, etapa: select.value, proximoRetorno: retorno.value, limparProximoRetorno: limpar, motivoNaoContatar: decisao && decisao.motivo, motivoNaoContatarOutro: decisao && decisao.outro });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar.');
         contato.etapa = resposta.dados.etapa; contato.proximoRetorno = resposta.dados.proximoRetorno || ''; retorno.value = valorData(contato.proximoRetorno);
         linha.className = 'rel-contact-row etapa-' + contato.etapa.toLowerCase(); retornoWrap.hidden = contato.etapa !== 'RETORNAR_DEPOIS';
         mensagem('Etapa atualizada.'); relResumoOperacional.carregar(); if (((select.value === 'FINALIZADO' || select.value === 'NAO_CONTATAR') && e.etapa.value === 'PADRAO') || estado.retornoPendente) carregar();
-      } catch (erro) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; mensagem(erro.message, true); } finally { select.disabled = false; }
+        return true;
+      } catch (erro) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; mensagem(erro.message, true); return false; } finally { select.disabled = false; }
     }
 
     async function abrirEdicao(contato) {
@@ -147,24 +183,30 @@
         e.modal.close(); mensagem('Dados do contato salvos.'); relResumoOperacional.carregar(); carregar();
       } catch (erro) { avisoForm(erro.message, true); } finally { e.salvar.disabled = false; }
     }
-    function limparFiltros() { e.busca.value = ''; e.classificacao.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.origem.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
+    function limparFiltros() { e.busca.value = ''; e.classificacao.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.origem.value = ''; e.motivo.value = 'TODOS'; e.regiaoFiltro.value = ''; e.ufFiltro.value = ''; e.cidadeFiltro.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
     function aplicarIndicador(indicador) {
       e.busca.value = ''; e.classificacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.indicadorAtivo = indicador;
       estado.retornoPendente = indicador === 'RETORNAR_HOJE'; e.etapa.value = estado.retornoPendente ? 'TODOS' : indicador;
       atualizarIndicador(); carregar();
     }
 
-    function iniciar() {
-      Object.assign(e, { filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), etapa: document.querySelector('#rel-contatos-etapa'), origem: document.querySelector('#rel-contatos-origem'), limpar: document.querySelector('#rel-contatos-limpar'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
+    async function iniciar() {
+      Object.assign(e, { motivo: document.querySelector('#rel-contatos-motivo'), regiaoFiltro: document.querySelector('#rel-contatos-regiao-filtro'), ufFiltro: document.querySelector('#rel-contatos-uf-filtro'), cidadeFiltro: document.querySelector('#rel-contatos-cidade-filtro'), naoContatarModal: document.querySelector('#rel-nao-contatar-modal'), naoContatarForm: document.querySelector('#rel-nao-contatar-form'), naoContatarMotivo: document.querySelector('#rel-nao-contatar-motivo'), naoContatarOutroWrap: document.querySelector('#rel-nao-contatar-outro-wrap'), naoContatarOutro: document.querySelector('#rel-nao-contatar-outro'), naoContatarAviso: document.querySelector('#rel-nao-contatar-aviso'), filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), etapa: document.querySelector('#rel-contatos-etapa'), origem: document.querySelector('#rel-contatos-origem'), limpar: document.querySelector('#rel-contatos-limpar'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
       ufs.forEach(uf => e.uf.add(new Option(uf, uf)));
-      e.filtros.addEventListener('submit', evento => evento.preventDefault()); e.busca.addEventListener('input', filtrarBusca); [e.classificacao, e.etapa, e.origem].forEach(campo => campo.addEventListener('change', filtrarAgora)); e.limpar.addEventListener('click', limparFiltros);
+      Object.keys(ROTULOS_MOTIVOS_NAO_CONTATAR).filter(codigo => ['CONTATO_COMERCIAL', 'FAMILIAR_PESSOAL', 'NUMERO_INVALIDO'].indexOf(codigo) < 0).forEach(codigo => { e.motivo.add(new Option(ROTULOS_MOTIVOS_NAO_CONTATAR[codigo], codigo)); e.naoContatarMotivo.add(new Option(ROTULOS_MOTIVOS_NAO_CONTATAR[codigo], codigo)); });
+      e.filtros.addEventListener('submit', evento => evento.preventDefault()); e.busca.addEventListener('input', filtrarBusca); [e.classificacao, e.etapa, e.origem, e.motivo, e.regiaoFiltro].forEach(campo => campo.addEventListener('change', filtrarAgora)); e.limpar.addEventListener('click', limparFiltros); [e.ufFiltro, e.cidadeFiltro].forEach(campo => campo.addEventListener('input', filtrarBusca));
       e.anterior.addEventListener('click', () => { estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { estado.pagina++; carregar(); });
       e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-whatsapp]')) abrirWhatsApp(contato.telefoneNormalizado || contato.telefoneExibicao); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
       e.lista.addEventListener('change', evento => { const linha = evento.target.closest('.rel-contact-row'); if (evento.target.matches('[data-etapa]')) alterarEtapa(linha, evento.target); if (evento.target.matches('[data-retorno]')) { const select = linha.querySelector('[data-etapa]'); if (select.value === 'RETORNAR_DEPOIS') alterarEtapa(linha, select); } });
       e.uf.addEventListener('change', carregarCidades); e.regiao.addEventListener('change', carregarCidades); e.cidade.addEventListener('change', () => { e.novaCidadeCampos.hidden = e.cidade.value !== '__NOVA__'; });
+      controleNaoContatar = criarControleNaoContatar({ modal: e.naoContatarModal, form: e.naoContatarForm, motivo: e.naoContatarMotivo, outro: e.naoContatarOutro, outroWrap: e.naoContatarOutroWrap, aviso: e.naoContatarAviso, fechar: Array.from(document.querySelectorAll('[data-nao-contatar-fechar]')) }, (pendente, decisao) => alterarEtapa(pendente.linha, pendente.select, decisao));
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
-      carregar();
+      try {
+        const preparacao = await relApiClient.executar('rel_prepararEstruturaContatos');
+        if (!preparacao || preparacao.status !== 'OK') throw new Error(preparacao && preparacao.mensagem || 'Falha ao preparar a estrutura.');
+        carregar();
+      } catch (erro) { mensagem(erro.message, true); }
     }
-    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar, normalizarTelefoneWhatsApp: normalizarTelefoneWhatsApp, abrirWhatsApp: abrirWhatsApp, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
+    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar, normalizarTelefoneWhatsApp: normalizarTelefoneWhatsApp, abrirWhatsApp: abrirWhatsApp, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros, criarControleNaoContatar: criarControleNaoContatar });
   })();
 </script>

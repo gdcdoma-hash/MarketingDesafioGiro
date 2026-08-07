@@ -1,0 +1,60 @@
+<script>
+  const relGoogleContatos = (() => {
+    'use strict';
+    const LIMITE_BYTES = 750 * 1024;
+    const e = {}, estado = { token: '', expiraEm: '' };
+    const rotulos = { contatosLidos: 'Contatos lidos', telefonesValidos: 'Telefones válidos', ignoradosSemTelefone: 'Registros ignorados', duplicidadesSimples: 'Duplicidades simples', conflitosIdentificacao: 'Conflitos de identificação', registrosIncluir: 'Serão incluídos', registrosAtualizar: 'Serão atualizados' };
+    function aviso(texto, erro) { e.aviso.textContent = texto || ''; e.aviso.hidden = !texto; e.aviso.classList.toggle('rel-alert-error', !!erro); }
+    function normalizarCabecalho(valor) { return String(valor || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' '); }
+    function detectarColunas(cabecalhos) {
+      const h = cabecalhos.map(normalizarCabecalho);
+      const indices = alternativas => alternativas.reduce((i, nome) => i >= 0 ? i : h.indexOf(nome), -1);
+      return {
+        nome: indices(['name', 'nome']), primeiroNome: indices(['given name', 'first name', 'primeiro nome']), sobrenome: indices(['family name', 'last name', 'sobrenome']),
+        telefones: h.reduce((lista, valor, i) => /^(phone|telefone)\s+\d+\s*-\s*(value|valor)$/.test(valor) ? lista.concat(i) : lista, []),
+        emails: h.reduce((lista, valor, i) => /^(e-mail|email)\s+\d+\s*-\s*(value|valor)$/.test(valor) ? lista.concat(i) : lista, [])
+      };
+    }
+    function extrairRegistros(linhas) {
+      if (!linhas || linhas.length < 2) throw new Error('O CSV não contém contatos.');
+      const colunas = detectarColunas(linhas[0]);
+      if (!colunas.telefones.length) throw new Error('Nenhuma coluna de telefone compatível com o Google Contatos foi encontrada.');
+      return linhas.slice(1).filter(linha => linha.some(valor => String(valor || '').trim())).map(linha => ({
+        nome: (colunas.nome >= 0 ? linha[colunas.nome] : '') || [colunas.primeiroNome >= 0 ? linha[colunas.primeiroNome] : '', colunas.sobrenome >= 0 ? linha[colunas.sobrenome] : ''].filter(Boolean).join(' '),
+        telefones: colunas.telefones.map(i => linha[i]).filter(Boolean), email: colunas.emails.map(i => linha[i]).find(Boolean) || ''
+      }));
+    }
+    function interpretarCsv(texto) {
+      const linhas = [[]]; let campo = '', entreAspas = false;
+      for (let i = 0; i < String(texto || '').length; i++) {
+        const caractere = texto[i], proximo = texto[i + 1];
+        if (caractere === '"' && entreAspas && proximo === '"') { campo += '"'; i++; }
+        else if (caractere === '"') entreAspas = !entreAspas;
+        else if (caractere === ',' && !entreAspas) { linhas[linhas.length - 1].push(campo); campo = ''; }
+        else if ((caractere === '\n' || caractere === '\r') && !entreAspas) {
+          if (caractere === '\r' && proximo === '\n') i++;
+          linhas[linhas.length - 1].push(campo); campo = ''; linhas.push([]);
+        } else campo += caractere;
+      }
+      linhas[linhas.length - 1].push(campo);
+      while (linhas.length && linhas[linhas.length - 1].every(valor => !String(valor || '').trim())) linhas.pop();
+      if (entreAspas) throw new Error('O CSV possui um campo entre aspas não finalizado.');
+      return linhas;
+    }
+    async function ler() {
+      const arquivo = e.arquivo.files[0];
+      if (!arquivo || !/\.csv$/i.test(arquivo.name)) throw new Error('Selecione o arquivo CSV original do Google Contatos.');
+      if (!arquivo.size || arquivo.size > LIMITE_BYTES) throw new Error('O CSV deve ter no máximo 750 KB para uma importação segura.');
+      const linhas = interpretarCsv(await arquivo.text());
+      return { registros: extrairRegistros(linhas), tamanhoArquivo: arquivo.size };
+    }
+    function resumo(dados) { const f = document.createDocumentFragment(); Object.keys(rotulos).forEach(chave => { const d = document.createElement('div'); d.className = 'rel-import-metric'; const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = rotulos[chave]; dd.textContent = dados[chave] || 0; d.append(dt, dd); f.appendChild(d); }); e.resumo.replaceChildren(f); e.preview.hidden = false; }
+    function conflitos(itens) { const lista = itens || []; e.conflitos.replaceChildren(); e.conflitos.hidden = !lista.length; if (!lista.length) return; const titulo = document.createElement('h4'); titulo.textContent = 'Conflitos encontrados (até 20)'; const ul = document.createElement('ul'); lista.forEach(item => { const li = document.createElement('li'); li.textContent = item.telefone + ' — nomes: ' + (item.nomes.join(' / ') || 'não informados') + (item.emails.length ? ' — e-mails: ' + item.emails.join(' / ') : ''); ul.appendChild(li); }); e.conflitos.append(titulo, ul); }
+    function invalidar() { estado.token = ''; estado.expiraEm = ''; e.confirmar.disabled = true; }
+    async function cancelarPrevia() { const token = estado.token; invalidar(); if (!token) return; try { await relApiClient.executar('rel_cancelarPreviaGoogleContatos', { token: token }); } catch (erro) { aviso('Não foi possível cancelar a prévia anterior; ela expirará automaticamente.', true); } }
+    async function analisar(ev) { ev.preventDefault(); e.analisar.disabled = true; await cancelarPrevia(); aviso('Lendo arquivo...'); try { const leitura = await ler(); const r = await relApiClient.executar('rel_preAnalisarGoogleContatos', leitura); if (r.dados.resumo) resumo(r.dados.resumo); conflitos(r.dados.conflitos); if (r.status !== 'OK') throw new Error(r.mensagem); estado.token = r.dados.token; estado.expiraEm = r.dados.expiraEm; e.confirmar.disabled = false; aviso(r.mensagem); } catch (erro) { aviso(erro.message, true); } finally { e.analisar.disabled = false; } }
+    async function confirmar() { if (!estado.token) return; e.confirmar.disabled = true; const token = estado.token; try { const r = await relApiClient.executar('rel_confirmarGoogleContatos', { token: token }); if (r.status !== 'OK') throw new Error(r.mensagem); resumo(r.dados.resumo); conflitos(r.dados.conflitos); aviso(r.mensagem); invalidar(); e.arquivo.value = ''; if (typeof relContatos !== 'undefined') relContatos.limparFiltros(); } catch (erro) { invalidar(); aviso(erro.message + ' Faça uma nova pré-análise.', true); } }
+    function iniciar() { Object.assign(e, { form: document.querySelector('#rel-google-form'), arquivo: document.querySelector('#rel-google-arquivo'), analisar: document.querySelector('#rel-google-analisar'), aviso: document.querySelector('#rel-google-aviso'), preview: document.querySelector('#rel-google-preview'), resumo: document.querySelector('#rel-google-resumo'), conflitos: document.querySelector('#rel-google-conflitos'), confirmar: document.querySelector('#rel-google-confirmar') }); invalidar(); e.form.addEventListener('submit', analisar); e.arquivo.addEventListener('change', async () => { await cancelarPrevia(); e.preview.hidden = true; aviso(''); }); e.confirmar.addEventListener('click', confirmar); }
+    return Object.freeze({ iniciar, detectarColunas, extrairRegistros, interpretarCsv });
+  })();
+</script>
