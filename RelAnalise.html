@@ -40,7 +40,7 @@
       elementos.botao.textContent = 'Analisando...';
       mostrarMensagem('Analisando contatos...', false);
       try {
-        const resposta = await relApiClient.executar('rel_analisarContatosPortal');
+        const resposta = await window.relApiClient.executar('rel_analisarContatosPortal');
         if (!resposta || resposta.status !== 'OK') throw new Error(
           resposta && resposta.status === 'ERRO_ESTRUTURA'
             ? 'Não foi possível analisar os contatos porque a estrutura das planilhas está incompleta.'
