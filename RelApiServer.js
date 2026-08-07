@@ -1,79 +1,78 @@
-function rel_listarOrigens(filtros, acesso) {
-  return rel_api_executar_(() => rel_origem_listar_(filtros), acesso);
+function rel_listarOrigens(filtros) {
+  return rel_api_executar_(() => rel_origem_listar_(filtros));
 }
 
-function rel_cadastrarOrigem(dados, acesso) {
-  return rel_api_executar_(() => rel_origem_cadastrar_(dados), acesso);
+function rel_cadastrarOrigem(dados) {
+  return rel_api_executar_(() => rel_origem_cadastrar_(dados));
 }
 
-function rel_alterarStatusOrigem(idOrigem, novoStatus, acesso) {
-  return rel_api_executar_(() => rel_origem_alterarStatus_(idOrigem, novoStatus), acesso);
+function rel_alterarStatusOrigem(idOrigem, novoStatus) {
+  return rel_api_executar_(() => rel_origem_alterarStatus_(idOrigem, novoStatus));
 }
 
-function rel_obterResumo(acesso) {
-  return rel_api_executar_(() => rel_resumo_obter_(), acesso);
+function rel_obterResumo() {
+  return rel_api_executar_(() => rel_resumo_obter_());
 }
 
-function rel_obterResumoOperacional(acesso) {
-  return rel_api_executar_(() => rel_resumoOperacional_obter_(), acesso);
+function rel_obterResumoOperacional() {
+  return rel_api_executar_(() => rel_resumoOperacional_obter_());
 }
 
-function rel_obterOpcoesImportacao(acesso) {
-  return rel_api_executar_(() => rel_importacao_obterOpcoes_(), acesso);
+function rel_obterOpcoesImportacao() {
+  return rel_api_executar_(() => rel_importacao_obterOpcoes_());
 }
 
-function rel_preAnalisarImportacao(dados, acesso) {
-  return rel_api_executar_(() => rel_importacao_preAnalisar_(dados), acesso);
+function rel_preAnalisarImportacao(dados) {
+  return rel_api_executar_(() => rel_importacao_preAnalisar_(dados));
 }
 
-function rel_confirmarImportacao(dados, acesso) {
-  return rel_api_executar_(() => rel_importacao_confirmar_(dados), acesso);
+function rel_confirmarImportacao(dados) {
+  return rel_api_executar_(() => rel_importacao_confirmar_(dados));
 }
 
-function rel_preAnalisarGoogleContatos(dados, acesso) {
-  return rel_api_executar_(operador => rel_google_contatos_preAnalisar_(dados, operador), acesso);
+function rel_preAnalisarGoogleContatos(dados) {
+  return rel_api_executar_(() => rel_google_contatos_preAnalisar_(dados));
 }
 
-function rel_confirmarGoogleContatos(dados, acesso) {
-  return rel_api_executar_(operador => rel_google_contatos_confirmar_(dados, operador), acesso);
+function rel_confirmarGoogleContatos(dados) {
+  return rel_api_executar_(() => rel_google_contatos_confirmar_(dados));
 }
 
-function rel_cancelarPreviaGoogleContatos(dados, acesso) {
-  return rel_api_executar_(operador => rel_google_contatos_cancelarPrevia_(dados, operador), acesso);
+function rel_cancelarPreviaGoogleContatos(dados) {
+  return rel_api_executar_(() => rel_google_contatos_cancelarPrevia_(dados));
 }
 
-function rel_analisarContatosPortal(acesso) {
-  return rel_api_executar_(() => rel_analise_executar_(), acesso);
+function rel_analisarContatosPortal() {
+  return rel_api_executar_(() => rel_analise_executar_());
 }
 
-function rel_listarContatos(filtros, acesso) {
-  return rel_api_executar_(() => rel_contatos_listar_(filtros), acesso);
+function rel_listarContatos(filtros) {
+  return rel_api_executar_(() => rel_contatos_listar_(filtros));
 }
 
-function rel_prepararEstruturaContatos(acesso) {
-  return rel_api_executar_(() => ({ status: 'OK', mensagem: '', dados: rel_garantirEstruturaContatos_() }), acesso);
+function rel_prepararEstruturaContatos() {
+  return rel_api_executar_(() => ({ status: 'OK', mensagem: '', dados: rel_garantirEstruturaContatos_() }));
 }
 
-function rel_atualizarEtapaContato(dados, acesso) {
-  return rel_api_executar_(() => rel_contatos_atualizarEtapa_(dados), acesso);
+function rel_atualizarEtapaContato(dados) {
+  return rel_api_executar_(() => rel_contatos_atualizarEtapa_(dados));
 }
 
-function rel_salvarDadosContato(dados, acesso) {
-  return rel_api_executar_(() => rel_contatos_salvarDados_(dados), acesso);
+function rel_salvarDadosContato(dados) {
+  return rel_api_executar_(() => rel_contatos_salvarDados_(dados));
 }
 
-function rel_listarOpcoesCidades(filtros, acesso) {
-  return rel_api_executar_(() => rel_cidades_listarOpcoes_(filtros), acesso);
+function rel_listarOpcoesCidades(filtros) {
+  return rel_api_executar_(() => rel_cidades_listarOpcoes_(filtros));
 }
 
-function rel_cadastrarCidade(dados, acesso) {
-  return rel_api_executar_(() => rel_cidades_cadastrar_(dados), acesso);
+function rel_cadastrarCidade(dados) {
+  return rel_api_executar_(() => rel_cidades_cadastrar_(dados));
 }
 
-function rel_api_executar_(operacao, acesso) {
+function rel_api_executar_(operacao) {
   try {
-    const operador = rel_acesso_exigirOperador_(acesso);
-    const resposta = operacao(operador);
+    const resposta = operacao();
     if (!resposta || typeof resposta !== 'object' || Array.isArray(resposta) ||
         typeof resposta.status !== 'string') {
       throw new Error('A API retornou uma resposta fora do contrato esperado.');
@@ -84,7 +83,6 @@ function rel_api_executar_(operacao, acesso) {
       dados: resposta.dados || {}
     });
   } catch (erro) {
-    if (erro && erro.message === 'REL_ACESSO_INVALIDO') return { status: 'ERRO_ACESSO', mensagem: REL_ACESSO_MENSAGEM_INVALIDA, dados: {} };
     console.error(erro);
     return {
       status: 'ERRO_INTERNO',

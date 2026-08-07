@@ -9,17 +9,11 @@ const REL_GOOGLE_CONTATOS_MODULO_TEMPORARIO = 'REL_GOOGLE_CONTATOS';
 const REL_GOOGLE_CONTATOS_PREVIA_INDISPONIVEL = 'Esta prévia não está mais disponível para esta operação. Gere uma nova prévia e tente novamente.';
 const REL_GOOGLE_CONTATOS_PREVIA_INCOMPATIVEL = 'Esta prévia não pode ser utilizada. Gere uma nova prévia.';
 const REL_GOOGLE_CONTATOS_VERSAO_PREVIA = 2;
-const REL_GOOGLE_CONTATOS_TIPO_PROPRIETARIO = 'OPERADOR_RELACIONAMENTO';
 
 function rel_google_contatos_resposta_(status, mensagem, dados) {
   return { status: status, mensagem: mensagem || '', dados: dados || {} };
 }
 
-function rel_google_contatos_obterProprietarioId_(operador) {
-  const id = String(operador && operador.id || '').trim();
-  if (!id) throw new Error('OPERADOR_SEM_IDENTIDADE');
-  return id;
-}
 
 function rel_google_contatos_obterTabela_(criar) {
   const config = REL_CONFIG.ABAS.GOOGLE_CONTATOS;
@@ -117,9 +111,8 @@ function rel_google_contatos_limparTemporariosExpirados_() {
   return { removidos: removidos };
 }
 
-function rel_google_contatos_preAnalisar_(dados, operador) {
+function rel_google_contatos_preAnalisar_(dados) {
   try {
-    const proprietarioId = rel_google_contatos_obterProprietarioId_(operador);
     rel_google_contatos_limparTemporariosExpirados_();
     const analise = rel_google_contatos_analisar_(dados);
     if (!Object.keys(analise.porTelefone).length) return rel_google_contatos_resposta_('ERRO_VALIDACAO', 'Nenhum telefone válido foi encontrado.', { resumo: analise.resumo });
@@ -128,41 +121,36 @@ function rel_google_contatos_preAnalisar_(dados, operador) {
     const criadoEm = Date.now();
     const nomeArquivo = REL_GOOGLE_CONTATOS_PREFIXO_TEMPORARIO + token + '.json';
     const conteudo = JSON.stringify({ versao: REL_GOOGLE_CONTATOS_VERSAO_PREVIA,
-      modulo: REL_GOOGLE_CONTATOS_MODULO_TEMPORARIO, proprietarioTipo: REL_GOOGLE_CONTATOS_TIPO_PROPRIETARIO,
-      proprietarioId: proprietarioId, criadoEm: criadoEm, token: token, expiraEm: expiraEm, utilizado: false,
+      modulo: REL_GOOGLE_CONTATOS_MODULO_TEMPORARIO, criadoEm: criadoEm, token: token, expiraEm: expiraEm, utilizado: false,
       porTelefone: analise.porTelefone, resumo: analise.resumo, conflitos: analise.conflitos });
     const arquivo = DriveApp.createFile(nomeArquivo, conteudo, MimeType.PLAIN_TEXT);
     propriedades.setProperty(REL_GOOGLE_CONTATOS_CHAVE_PREVIA + token, JSON.stringify({
       versao: REL_GOOGLE_CONTATOS_VERSAO_PREVIA, modulo: REL_GOOGLE_CONTATOS_MODULO_TEMPORARIO,
-      proprietarioTipo: REL_GOOGLE_CONTATOS_TIPO_PROPRIETARIO, proprietarioId: proprietarioId, criadoEm: criadoEm,
-      token: token, fileId: arquivo.getId(), nomeArquivo: nomeArquivo, expiraEm: expiraEm, utilizado: false
+      criadoEm: criadoEm, token: token, fileId: arquivo.getId(), nomeArquivo: nomeArquivo, expiraEm: expiraEm, utilizado: false
     }));
     return rel_google_contatos_resposta_('OK', 'Prévia pronta e válida por 15 minutos. Confirme para atualizar a agenda auxiliar.', { resumo: analise.resumo, conflitos: analise.conflitos.slice(0, 20), token: token, expiraEm: new Date(expiraEm) });
   } catch (erro) { return rel_google_contatos_resposta_('ERRO_VALIDACAO', erro.message, {}); }
 }
 
-function rel_google_contatos_validarPrevia_(token, operadorId) {
+function rel_google_contatos_validarPrevia_(token) {
   try {
-    if (!token || !operadorId) throw new Error('TOKEN_OU_OPERADOR_AUSENTE');
+    if (!token) throw new Error('TOKEN_AUSENTE');
     const propriedades = PropertiesService.getScriptProperties();
     const metadados = JSON.parse(propriedades.getProperty(REL_GOOGLE_CONTATOS_CHAVE_PREVIA + token) || 'null');
-    if (metadados && (metadados.versao !== REL_GOOGLE_CONTATOS_VERSAO_PREVIA || !metadados.proprietarioId)) {
+    if (metadados && (metadados.versao !== REL_GOOGLE_CONTATOS_VERSAO_PREVIA || metadados.proprietarioTipo || metadados.proprietarioId)) {
       return { valido: false, incompativel: true };
     }
     if (!metadados || metadados.token !== token || metadados.modulo !== REL_GOOGLE_CONTATOS_MODULO_TEMPORARIO ||
-        metadados.proprietarioTipo !== REL_GOOGLE_CONTATOS_TIPO_PROPRIETARIO ||
-        metadados.proprietarioId !== operadorId || metadados.utilizado === true || !metadados.fileId ||
+        metadados.utilizado === true || !metadados.fileId ||
         metadados.nomeArquivo !== REL_GOOGLE_CONTATOS_PREFIXO_TEMPORARIO + token + '.json' ||
         !metadados.expiraEm || Date.now() > metadados.expiraEm) throw new Error('METADADOS_INVALIDOS');
     const arquivo = DriveApp.getFileById(metadados.fileId);
     if (arquivo.getName() !== metadados.nomeArquivo || arquivo.isTrashed()) throw new Error('ARQUIVO_INVALIDO');
     const previa = JSON.parse(arquivo.getBlob().getDataAsString('UTF-8'));
-    if (previa && (previa.versao !== REL_GOOGLE_CONTATOS_VERSAO_PREVIA || !previa.proprietarioId)) {
+    if (previa && (previa.versao !== REL_GOOGLE_CONTATOS_VERSAO_PREVIA || previa.proprietarioTipo || previa.proprietarioId)) {
       return { valido: false, incompativel: true };
     }
     if (!previa || previa.token !== token || previa.modulo !== REL_GOOGLE_CONTATOS_MODULO_TEMPORARIO ||
-        previa.proprietarioTipo !== REL_GOOGLE_CONTATOS_TIPO_PROPRIETARIO ||
-        previa.proprietarioId !== operadorId || previa.proprietarioId !== metadados.proprietarioId ||
         previa.utilizado === true || previa.expiraEm !== metadados.expiraEm ||
         previa.criadoEm !== metadados.criadoEm || Date.now() > previa.expiraEm ||
         !previa.porTelefone || typeof previa.porTelefone !== 'object' || !Array.isArray(previa.conflitos)) throw new Error('CONTEUDO_INVALIDO');
@@ -173,13 +161,12 @@ function rel_google_contatos_validarPrevia_(token, operadorId) {
   }
 }
 
-function rel_google_contatos_confirmar_(dados, operador) {
+function rel_google_contatos_confirmar_(dados) {
   const token = String(dados && dados.token || '');
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   let metadados = null;
   try {
-    const proprietarioId = rel_google_contatos_obterProprietarioId_(operador);
-    const validacao = rel_google_contatos_validarPrevia_(token, proprietarioId);
+    const validacao = rel_google_contatos_validarPrevia_(token);
     if (!validacao.valido) return rel_google_contatos_resposta_(validacao.incompativel ? 'ERRO_PREVIA_INCOMPATIVEL' : 'ERRO_PREVIA_INDISPONIVEL', validacao.incompativel ? REL_GOOGLE_CONTATOS_PREVIA_INCOMPATIVEL : REL_GOOGLE_CONTATOS_PREVIA_INDISPONIVEL, {});
     metadados = validacao.metadados;
     metadados.utilizado = true;
@@ -208,12 +195,11 @@ function rel_google_contatos_confirmar_(dados, operador) {
   }
 }
 
-function rel_google_contatos_cancelarPrevia_(dados, operador) {
+function rel_google_contatos_cancelarPrevia_(dados) {
   const token = String(dados && dados.token || '');
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
-    const proprietarioId = rel_google_contatos_obterProprietarioId_(operador);
-    const validacao = rel_google_contatos_validarPrevia_(token, proprietarioId);
+    const validacao = rel_google_contatos_validarPrevia_(token);
     if (!validacao.valido) return rel_google_contatos_resposta_(validacao.incompativel ? 'ERRO_PREVIA_INCOMPATIVEL' : 'ERRO_PREVIA_INDISPONIVEL', validacao.incompativel ? REL_GOOGLE_CONTATOS_PREVIA_INCOMPATIVEL : REL_GOOGLE_CONTATOS_PREVIA_INDISPONIVEL, {});
     rel_google_contatos_descartarPrevia_(validacao.metadados);
     return rel_google_contatos_resposta_('OK', 'Prévia cancelada.', {});
