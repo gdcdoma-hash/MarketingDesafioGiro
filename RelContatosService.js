@@ -30,16 +30,39 @@ function rel_contatos_dataLocalChave_(valor) {
   return ano + '-' + mes + '-' + dia;
 }
 
+function rel_contatos_classificarIdentificacao_(idDgmb, googlePorTelefone, telefoneNormalizado) {
+  if (idDgmb) return 'PARTICIPANTE_GIRO';
+  return Object.prototype.hasOwnProperty.call(googlePorTelefone, telefoneNormalizado)
+    ? 'GOOGLE_CONTATOS' : 'NAO_IDENTIFICADO';
+}
+
+function rel_contatos_indexarGoogleAtivos_(valores, mapa) {
+  const indice = {};
+  valores.forEach(linha => {
+    if (rel_contatos_texto_(linha[mapa.ATIVO]) !== 'ATIVO') return;
+    const telefone = rel_contatos_texto_(linha[mapa.TELEFONE_NORMALIZADO]);
+    if (telefone) indice[telefone] = {
+      nome: rel_contatos_texto_(linha[mapa.NOME_GOOGLE]),
+      email: rel_contatos_texto_(linha[mapa.EMAIL])
+    };
+  });
+  return indice;
+}
+
 function rel_contatos_listar_(filtros) {
   const entrada = filtros || {};
   const pagina = Math.max(1, Number(entrada.pagina) || 1);
   const porPagina = Math.min(100, Math.max(1, Number(entrada.porPagina) || 50));
   const classificacao = rel_contatos_texto_(entrada.classificacao || 'TODOS').toUpperCase();
   const etapa = rel_contatos_texto_(entrada.etapa || 'PADRAO').toUpperCase();
+  const motivoFiltro = rel_contatos_texto_(entrada.motivoNaoContatar || 'TODOS').toUpperCase();
+  const ufFiltro = rel_contatos_texto_(entrada.uf).toUpperCase();
+  const cidadeFiltro = rel_contatos_normalizar_(entrada.cidade);
+  const regiaoFiltro = rel_contatos_normalizarRegiao_(entrada.regiao);
   const idOrigem = rel_contatos_texto_(entrada.idOrigem);
   const busca = rel_contatos_normalizar_(entrada.busca);
   const retornoPendente = entrada.retornoPendente === true || rel_contatos_texto_(entrada.retornoPendente).toLowerCase() === 'true';
-  if (['TODOS', 'IDENTIFICADO_PORTAL', 'CONTATO_NOVO'].indexOf(classificacao) < 0) {
+  if (['TODOS', 'PARTICIPANTE_GIRO', 'GOOGLE_CONTATOS', 'NAO_IDENTIFICADO'].indexOf(classificacao) < 0) {
     return rel_contatos_resposta_('ERRO_VALIDACAO', 'Classificação inválida.');
   }
   if (etapa !== 'TODOS' && etapa !== 'PADRAO' && REL_CONFIG.ENUMS.ETAPA.indexOf(etapa) < 0) {
@@ -51,6 +74,8 @@ function rel_contatos_listar_(filtros) {
   const mo = base.origens.mapa;
   const mv = base.vinculos.mapa;
   const mci = base.cidades.mapa;
+  const mg = base.googleContatos.mapa;
+  const googlePorTelefone = rel_contatos_indexarGoogleAtivos_(base.googleContatos.valores, mg);
   const origensPorId = {};
   const opcoesOrigem = [];
   base.origens.valores.forEach(linha => {
@@ -92,24 +117,30 @@ function rel_contatos_listar_(filtros) {
     const cidade = rel_contatos_texto_(valor('CIDADE'));
     const uf = rel_contatos_texto_(valor('UF')).toUpperCase();
     const idsOrigens = vinculosPorTelefone[telefoneNormalizado] || [];
+    const google = googlePorTelefone[telefoneNormalizado] || {};
+    const identificacao = rel_contatos_classificarIdentificacao_(idDgmb, googlePorTelefone, telefoneNormalizado);
     const proximo = rel_contatos_dataIso_(valor('DATA_PROXIMO_RETORNO'));
     return {
       telefoneNormalizado: telefoneNormalizado,
       telefoneExibicao: rel_contatos_texto_(valor('TELEFONE_EXIBICAO')) || telefoneNormalizado,
       idDgmb: idDgmb,
-      nomeExibicao: nomePortal || nomeContato || 'Nome não informado',
+      nomeExibicao: nomePortal || google.nome || nomeContato || telefoneNormalizado,
       nomePortal: nomePortal,
+      nomeGoogle: google.nome || '',
+      emailGoogle: google.email || '',
       nomeContato: nomeContato,
       cidadeUfExibicao: cidadePortal || (cidade && uf ? cidade + '-' + uf : cidade) || 'Cidade não informada',
       cidade: cidade,
       uf: uf,
       regiao: cidade && uf ? (regioesPorCidade[uf + '|' + rel_contatos_normalizar_(cidade)] || '') : '',
-      classificacao: idDgmb ? 'IDENTIFICADO_PORTAL' : 'CONTATO_NOVO',
+      classificacao: identificacao,
       etapa: rel_contatos_texto_(valor('ETAPA')) || 'PARA_CONTATAR',
       resultado: rel_contatos_texto_(valor('RESULTADO')),
       eCiclista: rel_contatos_texto_(valor('E_CICLISTA')) || 'NAO_CONFIRMADO',
       modalidade: rel_contatos_texto_(valor('MODALIDADE')) || 'NAO_INFORMADO',
       observacao: rel_contatos_texto_(valor('OBSERVACAO')),
+      motivoNaoContatar: rel_contatos_texto_(valor('MOTIVO_NAO_CONTATAR')),
+      motivoNaoContatarOutro: rel_contatos_texto_(valor('MOTIVO_NAO_CONTATAR_OUTRO')),
       proximoRetorno: proximo,
       origens: idsOrigens.map(id => origensPorId[id]).filter((nome, posicao, lista) => nome && lista.indexOf(nome) === posicao),
       idsOrigens: idsOrigens,
@@ -117,6 +148,10 @@ function rel_contatos_listar_(filtros) {
     };
   }).filter(contato => {
     if (classificacao !== 'TODOS' && contato.classificacao !== classificacao) return false;
+    if (motivoFiltro !== 'TODOS' && contato.motivoNaoContatar !== motivoFiltro) return false;
+    if (ufFiltro && contato.uf !== ufFiltro) return false;
+    if (cidadeFiltro && rel_contatos_normalizar_(contato.cidade) !== cidadeFiltro) return false;
+    if (regiaoFiltro && contato.regiao !== regiaoFiltro) return false;
     if (retornoPendente) {
       const retornoLocal = rel_contatos_dataLocalChave_(contato.proximoRetorno);
       if (contato.etapa !== 'RETORNAR_DEPOIS' || !retornoLocal || retornoLocal > hojeLocal) return false;
@@ -126,7 +161,7 @@ function rel_contatos_listar_(filtros) {
     if (idOrigem && contato.idsOrigens.indexOf(idOrigem) < 0) return false;
     if (!busca) return true;
     return [contato.telefoneNormalizado, contato.telefoneExibicao, contato.idDgmb, contato.nomePortal,
-      contato.nomeContato, contato.cidadeUfExibicao, contato.cidade, contato.uf]
+      contato.nomeGoogle, contato.nomeContato, contato.cidadeUfExibicao, contato.cidade, contato.uf]
       .some(valor => rel_contatos_normalizar_(valor).indexOf(busca) >= 0);
   });
 
@@ -153,10 +188,15 @@ function rel_contatos_atualizarEtapa_(dados) {
   const telefone = rel_contatos_texto_(entrada.telefoneNormalizado);
   const etapa = rel_contatos_texto_(entrada.etapa).toUpperCase();
   const retorno = rel_contatos_texto_(entrada.proximoRetorno);
+  const motivo = rel_contatos_texto_(entrada.motivoNaoContatar).toUpperCase();
+  const motivoOutro = rel_contatos_texto_(entrada.motivoNaoContatarOutro);
   if (!telefone || REL_CONFIG.ENUMS.ETAPA.indexOf(etapa) < 0) return rel_contatos_resposta_('ERRO_VALIDACAO', 'Contato ou etapa inválida.');
   if (etapa === 'RETORNAR_DEPOIS' && !retorno) return rel_contatos_resposta_('ERRO_VALIDACAO', 'Informe a data do próximo retorno.');
+  if (etapa === 'NAO_CONTATAR' && REL_CONFIG.ENUMS.MOTIVO_NAO_CONTATAR.indexOf(motivo) < 0) return rel_contatos_resposta_('ERRO_VALIDACAO', 'Selecione o motivo para não contatar.');
+  if (etapa === 'NAO_CONTATAR' && motivo === 'OUTRO' && !motivoOutro) return rel_contatos_resposta_('ERRO_VALIDACAO', 'Informe a justificativa do outro motivo.');
   const lock = LockService.getScriptLock(); lock.waitLock(30000);
   try {
+    rel_garantirEstruturaContatos_();
     const registro = rel_contatos_localizar_(telefone);
     if (!registro) return rel_contatos_resposta_('NAO_ENCONTRADO', 'Contato não encontrado.');
     const retornoAtual = registro.mapa.DATA_PROXIMO_RETORNO === undefined ? '' : registro.valores[registro.mapa.DATA_PROXIMO_RETORNO];
@@ -164,6 +204,17 @@ function rel_contatos_atualizarEtapa_(dados) {
       return rel_contatos_resposta_('CONFIRMACAO_NECESSARIA', 'Confirme se deseja limpar a data do próximo retorno.');
     }
     const agora = new Date();
+    const anterior = {
+      etapa: rel_contatos_texto_(registro.valores[registro.mapa.ETAPA]) || 'PARA_CONTATAR',
+      motivoNaoContatar: rel_contatos_texto_(registro.valores[registro.mapa.MOTIVO_NAO_CONTATAR]),
+      motivoNaoContatarOutro: rel_contatos_texto_(registro.valores[registro.mapa.MOTIVO_NAO_CONTATAR_OUTRO])
+    };
+    const novo = {
+      etapa: etapa,
+      motivoNaoContatar: etapa === 'NAO_CONTATAR' ? motivo : '',
+      motivoNaoContatarOutro: etapa === 'NAO_CONTATAR' && motivo === 'OUTRO' ? motivoOutro : ''
+    };
+    const valoresAnteriores = registro.valores.slice();
     const campos = { ETAPA: etapa, DATA_ULTIMA_INTERACAO: agora, ATUALIZADO_EM: agora };
     let proximoRetornoFinal = '';
     if (etapa === 'RETORNAR_DEPOIS') {
@@ -171,6 +222,8 @@ function rel_contatos_atualizarEtapa_(dados) {
       proximoRetornoFinal = rel_contatos_dataIso_(campos.DATA_PROXIMO_RETORNO);
     } else if (etapa === 'NAO_CONTATAR') {
       campos.DATA_PROXIMO_RETORNO = '';
+      campos.MOTIVO_NAO_CONTATAR = motivo;
+      campos.MOTIVO_NAO_CONTATAR_OUTRO = motivo === 'OUTRO' ? motivoOutro : '';
       proximoRetornoFinal = '';
     } else if (etapa === 'PARA_CONTATAR') {
       if (entrada.limparProximoRetorno === true) campos.DATA_PROXIMO_RETORNO = '';
@@ -178,10 +231,28 @@ function rel_contatos_atualizarEtapa_(dados) {
     } else {
       campos.DATA_PROXIMO_RETORNO = '';
     }
-    rel_contatos_atualizarCampos_(registro, campos);
+    if (etapa !== 'NAO_CONTATAR') {
+      campos.MOTIVO_NAO_CONTATAR = '';
+      campos.MOTIVO_NAO_CONTATAR_OUTRO = '';
+    }
+    try {
+      rel_contatos_atualizarCampos_(registro, campos);
+      rel_contatos_registrarHistoricoEtapa_(registro, anterior, novo, agora);
+    } catch (erroOperacao) {
+      console.error('Falha ao atualizar contato e histórico.', erroOperacao);
+      try {
+        rel_contatos_restaurarRegistro_(registro, valoresAnteriores);
+        return rel_contatos_resposta_('ERRO_ATUALIZACAO_REVERTIDA', 'Não foi possível salvar a alteração. Os dados anteriores foram restaurados.');
+      } catch (erroReversao) {
+        console.error('FALHA_CRITICA_REVERTER_CONTATO', { telefone: telefone, operacao: erroOperacao, reversao: erroReversao });
+        return rel_contatos_resposta_('ERRO_CRITICO_INCONSISTENCIA', 'Ocorreu uma falha crítica e os dados podem estar inconsistentes. Atualize a tela e solicite verificação.');
+      }
+    }
     return rel_contatos_resposta_('OK', etapa === 'NAO_CONTATAR' ? '' : 'Etapa atualizada.', {
       etapa: etapa,
-      proximoRetorno: proximoRetornoFinal
+      proximoRetorno: proximoRetornoFinal,
+      motivoNaoContatar: etapa === 'NAO_CONTATAR' ? motivo : '',
+      motivoNaoContatarOutro: etapa === 'NAO_CONTATAR' && motivo === 'OUTRO' ? motivoOutro : ''
     });
   } finally { lock.releaseLock(); }
 }

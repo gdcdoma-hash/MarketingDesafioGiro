@@ -29,6 +29,19 @@
       <?!= include('RelContatos'); ?>
 
       <details class="rel-card rel-admin-section rel-import-card">
+        <summary>Importar Google Contatos</summary>
+        <div class="rel-admin-section-content">
+          <div class="rel-section-header"><div><h2 class="rel-card-title">Importar Google Contatos</h2><p class="rel-message">Selecione diretamente o CSV original exportado pelo Google Contatos. A agenda apenas identifica números; não altera a origem nem o histórico.</p></div></div>
+          <form id="rel-google-form" class="rel-import-form">
+            <label>CSV do Google Contatos<input id="rel-google-arquivo" type="file" accept=".csv,text/csv" required></label>
+            <div class="rel-import-actions"><button id="rel-google-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
+          </form>
+          <div id="rel-google-aviso" class="rel-alert" role="status" aria-live="polite" hidden></div>
+          <section id="rel-google-preview" class="rel-import-preview" hidden><h3>Resumo da prévia</h3><dl id="rel-google-resumo" class="rel-import-metrics"></dl><div id="rel-google-conflitos" class="rel-import-invalidos" hidden></div><div class="rel-import-confirm"><p>A gravação só ocorrerá após esta confirmação.</p><button id="rel-google-confirmar" class="rel-button rel-button-primary" type="button">Confirmar importação</button></div></section>
+        </div>
+      </details>
+
+      <details class="rel-card rel-admin-section rel-import-card">
         <summary id="rel-importacao-title">Importar contatos</summary>
         <div class="rel-admin-section-content">
           <div class="rel-section-header"><div><h2 class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione o arquivo gerado pela extensão de contatos do WhatsApp.</p></div></div>
@@ -126,6 +139,15 @@
         <div class="rel-modal-actions"><button class="rel-button" type="button" data-contato-fechar>Cancelar</button><button id="rel-contato-salvar" class="rel-button rel-button-primary" type="submit">Salvar dados</button></div>
       </form>
     </dialog>
+    <dialog id="rel-nao-contatar-modal" class="rel-modal">
+      <form id="rel-nao-contatar-form" method="dialog">
+        <div class="rel-modal-header"><h2>Motivo para não contatar</h2><button class="rel-close" type="button" data-nao-contatar-fechar aria-label="Fechar">×</button></div>
+        <label>Motivo<select id="rel-nao-contatar-motivo" required><option value="">Selecione</option></select></label>
+        <label id="rel-nao-contatar-outro-wrap" hidden>Justificativa<input id="rel-nao-contatar-outro" maxlength="180"></label>
+        <div id="rel-nao-contatar-aviso" class="rel-alert" role="alert" hidden></div>
+        <div class="rel-modal-actions"><button class="rel-button" type="button" data-nao-contatar-fechar>Cancelar</button><button class="rel-button rel-button-primary" type="submit">Salvar decisão</button></div>
+      </form>
+    </dialog>
   </div>
 
   <?!= include('RelApi'); ?>
@@ -134,6 +156,7 @@
   <?!= include('RelResumoOperacionalScripts'); ?>
   <?!= include('RelAnalise'); ?>
   <?!= include('RelImport'); ?>
+  <?!= include('RelGoogleContatos'); ?>
   <?!= include('RelOrigens'); ?>
   <?!= include('RelContatosScripts'); ?>
   <?!= include('RelScripts'); ?>

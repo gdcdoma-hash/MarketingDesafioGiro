@@ -9,7 +9,10 @@ function doGet(e) {
     : 'divulgadores';
 
   if (areaPermitida === 'contatos') {
-    return rel_criarPaginaContatos_();
+    const acesso = String(parametros.acesso || '');
+    return rel_acesso_validarOperador_(acesso)
+      ? rel_criarPaginaContatos_(acesso)
+      : rel_criarPaginaRelacionamentoNegado_();
   }
 
   // A ausência da área, "divulgadores" e áreas desconhecidas mantêm a rota atual.
@@ -35,12 +38,20 @@ function dg_router_criarPaginaDivulgadores_() {
 }
 
 
-function rel_criarPaginaContatos_() {
+function rel_criarPaginaContatos_(acesso) {
   const template = HtmlService.createTemplateFromFile('RelIndex');
   template.webAppUrl = ScriptApp.getService().getUrl();
+  template.acesso = acesso;
 
   return template
     .evaluate()
     .setTitle('Contatos e Relacionamento — Desafio Giro')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function rel_criarPaginaRelacionamentoNegado_() {
+  return HtmlService.createHtmlOutput('<!DOCTYPE html><html lang="pt-BR"><body><main><h1>Acesso não autorizado</h1><p>' +
+    REL_ACESSO_MENSAGEM_INVALIDA + '</p></main></body></html>')
+    .setTitle('Acesso não autorizado')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }

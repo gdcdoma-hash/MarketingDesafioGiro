@@ -29,12 +29,43 @@ function rel_contatos_lerAba_(configuracao, obrigatorios) {
   };
 }
 
+/** Migração controlada e idempotente; nunca é chamada por uma função de leitura. */
+function rel_garantirEstruturaContatos_() {
+  const aba = rel_contatos_obterAba_(REL_CONFIG.ABAS.CONTATOS);
+  const atuais = aba.getLastColumn()
+    ? aba.getRange(1, 1, 1, aba.getLastColumn()).getDisplayValues()[0].map(valor => String(valor || '').trim())
+    : [];
+  const ausentes = ['MOTIVO_NAO_CONTATAR', 'MOTIVO_NAO_CONTATAR_OUTRO']
+    .filter(cabecalho => atuais.indexOf(cabecalho) < 0);
+  if (ausentes.length) aba.getRange(1, aba.getLastColumn() + 1, 1, ausentes.length).setValues([ausentes]).setFontWeight('bold');
+  return { adicionados: ausentes };
+}
+
+function rel_contatos_registrarHistoricoEtapa_(registro, anterior, novo, agora) {
+  const tabela = rel_contatos_lerAba_(REL_CONFIG.ABAS.HISTORICO, REL_CONFIG.ABAS.HISTORICO.CABECALHOS);
+  const linha = new Array(tabela.aba.getLastColumn()).fill('');
+  const valores = {
+    ID_EVENTO: Utilities.getUuid(), TELEFONE_NORMALIZADO: registro.valores[registro.mapa.TELEFONE_NORMALIZADO],
+    TIPO_EVENTO: 'ALTERACAO_ETAPA', DATA_HORA: agora,
+    VALOR_ANTERIOR: JSON.stringify(anterior), VALOR_NOVO: JSON.stringify(novo),
+    DETALHE: 'Alteração realizada no painel de relacionamento.',
+    USUARIO: Session.getActiveUser().getEmail() || ''
+  };
+  Object.keys(valores).forEach(campo => { linha[tabela.mapa[campo]] = valores[campo]; });
+  tabela.aba.getRange(tabela.aba.getLastRow() + 1, 1, 1, linha.length).setValues([linha]);
+}
+
+function rel_contatos_restaurarRegistro_(registro, valoresAnteriores) {
+  registro.aba.getRange(registro.linha, 1, 1, valoresAnteriores.length).setValues([valoresAnteriores]);
+}
+
 function rel_contatos_carregarListagem_() {
   return {
     contatos: rel_contatos_lerAba_(REL_CONFIG.ABAS.CONTATOS, ['TELEFONE_NORMALIZADO']),
     vinculos: rel_contatos_lerAba_(REL_CONFIG.ABAS.CONTATO_ORIGENS, ['TELEFONE_NORMALIZADO', 'ID_ORIGEM']),
     origens: rel_contatos_lerAba_(REL_CONFIG.ABAS.ORIGENS, ['ID_ORIGEM', 'NOME_ORIGEM', 'STATUS']),
-    cidades: rel_contatos_lerAba_(REL_CONFIG.ABAS.CIDADES, ['UF', 'REGIAO', 'CIDADE', 'CIDADE_NORMALIZADA', 'STATUS'])
+    cidades: rel_contatos_lerAba_(REL_CONFIG.ABAS.CIDADES, ['UF', 'REGIAO', 'CIDADE', 'CIDADE_NORMALIZADA', 'STATUS']),
+    googleContatos: rel_google_contatos_obterTabela_(false)
   };
 }
 
