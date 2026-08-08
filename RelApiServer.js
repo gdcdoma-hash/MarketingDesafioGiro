@@ -50,6 +50,10 @@ function rel_atualizarEtapaContato(dados) {
   return rel_api_executar_(() => rel_contatos_atualizarEtapa_(dados));
 }
 
+function rel_atualizarSituacaoContato(dados) {
+  return rel_api_executar_(() => rel_contatos_atualizarSituacao_(dados));
+}
+
 function rel_salvarDadosContato(dados) {
   return rel_api_executar_(() => rel_contatos_salvarDados_(dados));
 }
