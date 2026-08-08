@@ -51,6 +51,36 @@ function rel_auditarEstrutura() {
   return relatorio;
 }
 
+/**
+ * Acrescenta somente os campos desta evolução à aba de contatos existente.
+ * As colunas são anexadas para não mover nem regravar registros anteriores.
+ */
+function rel_migrarEstruturaContatosSituacaoGoogle() {
+  const planilha = dg_abrirPlanilhaMarketingRelacionamento_();
+  const configuracao = REL_CONFIG.ABAS.CONTATOS;
+  const aba = planilha.getSheetByName(configuracao.NOME);
+  if (!aba) throw new Error('A aba ' + configuracao.NOME + ' não foi encontrada.');
+
+  const ultimaColuna = aba.getLastColumn();
+  const encontrados = ultimaColuna
+    ? aba.getRange(1, 1, 1, ultimaColuna).getDisplayValues()[0]
+      .map(valor => String(valor || '').trim())
+    : [];
+  const novos = ['NOME_GOOGLE_CONTATOS', 'SITUACAO']
+    .filter(cabecalho => encontrados.indexOf(cabecalho) < 0);
+
+  if (novos.length) {
+    aba.getRange(1, ultimaColuna + 1, 1, novos.length)
+      .setValues([novos])
+      .setFontWeight('bold');
+  }
+
+  const mensagem = configuracao.NOME + ': ' +
+    (novos.length ? 'adicionados ' + novos.join(', ') : 'estrutura já atualizada');
+  Logger.log(mensagem);
+  return mensagem;
+}
+
 function rel_listarEstruturas_() {
   return Object.keys(REL_CONFIG.ABAS).map(chave => REL_CONFIG.ABAS[chave]);
 }
