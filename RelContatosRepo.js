@@ -55,6 +55,14 @@ function rel_contatos_atualizarCampos_(registro, campos) {
     .setValues([linhaAtualizada]);
 }
 
+function rel_contatos_persistirSituacao_(registro, situacao, atualizadoEm) {
+  ['SITUACAO', 'ATUALIZADO_EM'].forEach(cabecalho => {
+    if (registro.mapa[cabecalho] === undefined) throw new Error('Cabeçalho obrigatório ausente: ' + cabecalho);
+  });
+  registro.aba.getRange(registro.linha, registro.mapa.SITUACAO + 1).setValue(situacao);
+  registro.aba.getRange(registro.linha, registro.mapa.ATUALIZADO_EM + 1).setValue(atualizadoEm);
+}
+
 function rel_cidades_ler_() {
   return rel_contatos_lerAba_(REL_CONFIG.ABAS.CIDADES, ['UF', 'REGIAO', 'CIDADE', 'CIDADE_NORMALIZADA', 'STATUS']);
 }

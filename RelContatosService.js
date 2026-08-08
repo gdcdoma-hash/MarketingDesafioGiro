@@ -41,6 +41,7 @@ function rel_contatos_listar_(filtros) {
   const porPagina = Math.min(100, Math.max(1, Number(entrada.porPagina) || 50));
   const classificacao = rel_contatos_texto_(entrada.classificacao || 'TODOS').toUpperCase();
   const etapa = rel_contatos_texto_(entrada.etapa || 'PADRAO').toUpperCase();
+  const situacao = rel_contatos_texto_(entrada.situacao || 'TODOS').toUpperCase();
   const idOrigem = rel_contatos_texto_(entrada.idOrigem);
   const busca = rel_contatos_normalizar_(entrada.busca);
   const retornoPendente = entrada.retornoPendente === true || rel_contatos_texto_(entrada.retornoPendente).toLowerCase() === 'true';
@@ -49,6 +50,9 @@ function rel_contatos_listar_(filtros) {
   }
   if (etapa !== 'TODOS' && etapa !== 'PADRAO' && REL_CONFIG.ENUMS.ETAPA.indexOf(etapa) < 0) {
     return rel_contatos_resposta_('ERRO_VALIDACAO', 'Etapa inválida.');
+  }
+  if (situacao !== 'TODOS' && REL_CONFIG.ENUMS.SITUACAO.indexOf(situacao) < 0) {
+    return rel_contatos_resposta_('ERRO_VALIDACAO', 'Situação inválida.');
   }
 
   const base = rel_contatos_carregarListagem_();
@@ -132,6 +136,7 @@ function rel_contatos_listar_(filtros) {
     }
     if (!retornoPendente && etapa === 'PADRAO' && (contato.etapa === 'FINALIZADO' || contato.etapa === 'NAO_CONTATAR')) return false;
     if (!retornoPendente && etapa !== 'PADRAO' && etapa !== 'TODOS' && contato.etapa !== etapa) return false;
+    if (situacao !== 'TODOS' && contato.situacao !== situacao) return false;
     if (idOrigem && contato.idsOrigens.indexOf(idOrigem) < 0) return false;
     if (!busca) return true;
     return [contato.telefoneNormalizado, contato.telefoneExibicao, contato.idDgmb, contato.nomePortal,
@@ -155,6 +160,22 @@ function rel_contatos_listar_(filtros) {
     contatos: contatos.slice(inicio, inicio + porPagina).map(contato => { delete contato.idsOrigens; delete contato.ordemAntiguidade; return contato; }),
     pagina: paginaValida, porPagina: porPagina, total: total, totalPaginas: totalPaginas, origens: opcoesOrigem
   });
+}
+
+function rel_contatos_atualizarSituacao_(dados) {
+  const entrada = dados || {};
+  const telefone = rel_contatos_texto_(entrada.telefoneNormalizado);
+  const situacao = rel_contatos_texto_(entrada.situacao).toUpperCase();
+  if (!telefone || REL_CONFIG.ENUMS.SITUACAO.indexOf(situacao) < 0) {
+    return rel_contatos_resposta_('ERRO_VALIDACAO', 'Contato ou situação inválida.');
+  }
+  const lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    const registro = rel_contatos_localizar_(telefone);
+    if (!registro) return rel_contatos_resposta_('NAO_ENCONTRADO', 'Contato não encontrado.');
+    rel_contatos_persistirSituacao_(registro, situacao, new Date());
+    return rel_contatos_resposta_('OK', 'Situação atualizada.', { situacao: situacao });
+  } finally { lock.releaseLock(); }
 }
 
 function rel_contatos_atualizarEtapa_(dados) {
