@@ -87,7 +87,13 @@
     function abrirWhatsApp(telefone) {
       const numero = normalizarTelefoneWhatsApp(telefone);
       if (!numero) return;
-      window.location.href = 'whatsapp://send?phone=' + numero;
+      const link = document.createElement('a');
+      link.href = 'whatsapp://send?phone=' + numero;
+      link.target = '_blank';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
     }
     async function copiar(contato, botao) {
       const texto = textoCopiar(contato);
