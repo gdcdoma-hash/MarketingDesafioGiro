@@ -30,6 +30,14 @@ function rel_confirmarImportacao(dados) {
   return rel_api_executar_(() => rel_importacao_confirmar_(dados));
 }
 
+function rel_preAnalisarAgendaGoogle(dados) {
+  return rel_api_executar_(() => rel_agendaGoogle_preAnalisar_(dados));
+}
+
+function rel_confirmarAgendaGoogle(dados) {
+  return rel_api_executar_(() => rel_agendaGoogle_confirmar_(dados));
+}
+
 function rel_analisarContatosPortal() {
   return rel_api_executar_(() => rel_analise_executar_());
 }

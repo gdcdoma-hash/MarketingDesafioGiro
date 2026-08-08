@@ -1,0 +1,121 @@
+<script>
+  const relAgendaGoogle = (() => {
+    'use strict';
+    const estado = { analisando: false, confirmando: false, dados: null };
+    const e = {};
+    const rotulos = {
+      linhasLidas: 'Linhas lidas', telefonesValidos: 'Telefones válidos únicos',
+      telefonesInvalidos: 'Telefones inválidos', duplicadosEquivalentes: 'Duplicados equivalentes',
+      conflitos: 'Conflitos', contatosEncontrados: 'Contatos encontrados',
+      contatosNaoEncontrados: 'Contatos do sistema não encontrados', nomesNovos: 'Nomes novos',
+      nomesAtualizados: 'Nomes a atualizar', nomesIguais: 'Nomes já iguais', nomesGravados: 'Nomes gravados'
+    };
+
+    function normalizarCabecalho(valor) {
+      return String(valor || '').trim().toLowerCase().normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    }
+
+    function ehTelefone(cabecalho) {
+      return /^(phone(_\d+)?(_value)?|telefone(_\d+)?(_valor)?|numero(_\d+)?|celular(_\d+)?|whatsapp)$/.test(cabecalho) ||
+        /^phone_\d+_value$/.test(cabecalho);
+    }
+
+    function indicePrimeiro(cabecalhos, alternativas) {
+      for (let i = 0; i < alternativas.length; i++) {
+        const indice = cabecalhos.indexOf(alternativas[i]);
+        if (indice >= 0) return indice;
+      }
+      return -1;
+    }
+
+    async function lerArquivo() {
+      const arquivo = e.arquivo.files[0];
+      if (!arquivo || !/\.csv$/i.test(arquivo.name)) throw new Error('Selecione uma exportação CSV do Google Contatos.');
+      if (typeof XLSX === 'undefined') throw new Error('Não foi possível carregar o leitor do arquivo.');
+      const pasta = XLSX.read(await arquivo.arrayBuffer(), { type: 'array' });
+      const linhas = XLSX.utils.sheet_to_json(pasta.Sheets[pasta.SheetNames[0]], {
+        header: 1, defval: '', raw: false, blankrows: false
+      });
+      if (linhas.length < 2) throw new Error('O arquivo não possui contatos para analisar.');
+      const cabecalhos = linhas[0].map(normalizarCabecalho);
+      const telefones = cabecalhos.map((item, indice) => ehTelefone(item) ? indice : -1).filter(indice => indice >= 0);
+      if (!telefones.length) throw new Error('Nenhuma coluna de telefone foi reconhecida no arquivo.');
+      const nomeCompleto = indicePrimeiro(cabecalhos, ['name', 'full_name', 'display_name', 'nome_completo', 'nome']);
+      const primeiroNome = indicePrimeiro(cabecalhos, ['given_name', 'first_name', 'nome']);
+      const sobrenome = indicePrimeiro(cabecalhos, ['family_name', 'last_name', 'sobrenome']);
+      if (nomeCompleto < 0 && primeiroNome < 0 && sobrenome < 0) throw new Error('Nenhuma coluna de nome foi reconhecida no arquivo.');
+      const registros = [];
+      linhas.slice(1).forEach((linha, indice) => {
+        const completo = nomeCompleto >= 0 ? String(linha[nomeCompleto] || '') : '';
+        const montado = [primeiroNome >= 0 ? linha[primeiroNome] : '', sobrenome >= 0 ? linha[sobrenome] : ''].join(' ');
+        const nome = (completo || montado).trim().replace(/\s+/g, ' ');
+        telefones.forEach(coluna => {
+          const valor = String(linha[coluna] || '').trim();
+          if (valor) registros.push({ nome: nome, telefoneOriginal: valor, linhaArquivo: indice + 2 });
+        });
+      });
+      return { linhasLidas: linhas.length - 1, registros: registros };
+    }
+
+    function mensagem(texto, erro) {
+      e.aviso.textContent = texto || ''; e.aviso.hidden = !texto;
+      e.aviso.classList.toggle('rel-alert-error', !!erro);
+    }
+
+    function renderizar(resposta, titulo) {
+      const fragmento = document.createDocumentFragment();
+      Object.keys(resposta.resumo || {}).forEach(chave => {
+        if (!rotulos[chave]) return;
+        const grupo = document.createElement('div'); grupo.className = 'rel-import-metric';
+        const dt = document.createElement('dt'); dt.textContent = rotulos[chave];
+        const dd = document.createElement('dd'); dd.textContent = resposta.resumo[chave];
+        grupo.append(dt, dd); fragmento.appendChild(grupo);
+      });
+      e.resumo.replaceChildren(fragmento); e.preview.querySelector('h3').textContent = titulo; e.preview.hidden = false;
+      const conflitos = resposta.amostraConflitos || []; e.conflitos.replaceChildren(); e.conflitos.hidden = !conflitos.length;
+      if (conflitos.length) {
+        const h = document.createElement('h4'); h.textContent = 'Amostra de conflitos não atualizados';
+        const ul = document.createElement('ul');
+        conflitos.forEach(item => { const li = document.createElement('li'); li.textContent = item.telefoneNormalizado + ': ' + item.nomes.join(' / '); ul.appendChild(li); });
+        e.conflitos.append(h, ul);
+      }
+    }
+
+    function invalidar() { estado.dados = null; e.preview.hidden = true; e.confirmar.hidden = true; mensagem(''); }
+
+    async function analisar(evento) {
+      evento.preventDefault(); if (estado.analisando || estado.confirmando) return;
+      estado.analisando = true; e.analisar.disabled = true; invalidar();
+      try {
+        const dados = await lerArquivo();
+        const resposta = await relApiClient.executar('rel_preAnalisarAgendaGoogle', dados);
+        if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha na pré-análise.');
+        estado.dados = dados; renderizar(resposta.dados, 'Resumo da pré-análise'); e.confirmar.hidden = false; mensagem(resposta.mensagem);
+      } catch (erro) { mensagem(erro.message || 'Não foi possível analisar a agenda.', true); }
+      finally { estado.analisando = false; e.analisar.disabled = false; }
+    }
+
+    async function confirmar() {
+      if (!estado.dados || estado.confirmando) return;
+      estado.confirmando = true; e.confirmar.disabled = true;
+      try {
+        const resposta = await relApiClient.executar('rel_confirmarAgendaGoogle', estado.dados);
+        if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha na atualização.');
+        renderizar(resposta.dados, 'Resultado da atualização'); mensagem(resposta.mensagem);
+        estado.dados = null; e.confirmar.hidden = true; e.arquivo.value = '';
+        await relContatos.carregar();
+      } catch (erro) { mensagem(erro.message || 'Não foi possível atualizar os nomes.', true); }
+      finally { estado.confirmando = false; e.confirmar.disabled = false; }
+    }
+
+    function inicializar() {
+      Object.assign(e, { form: document.querySelector('#rel-form-agenda-google'), arquivo: document.querySelector('#rel-agenda-google-arquivo'),
+        analisar: document.querySelector('#rel-agenda-google-analisar'), aviso: document.querySelector('#rel-agenda-google-aviso'),
+        preview: document.querySelector('#rel-agenda-google-preview'), resumo: document.querySelector('#rel-agenda-google-resumo'),
+        conflitos: document.querySelector('#rel-agenda-google-conflitos'), confirmar: document.querySelector('#rel-agenda-google-confirmar') });
+      e.confirmar.hidden = true; e.form.addEventListener('submit', analisar); e.arquivo.addEventListener('change', invalidar); e.confirmar.addEventListener('click', confirmar);
+    }
+    return Object.freeze({ inicializar: inicializar });
+  })();
+</script>
