@@ -2,12 +2,22 @@ function rel_agendaGoogle_resposta_(status, mensagem, dados) {
   return { status: status, mensagem: mensagem || '', dados: dados || {} };
 }
 
+function rel_agendaGoogle_normalizarNomeComparacao_(nome) {
+  return String(nome || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function rel_agendaGoogle_analisar_(dados) {
   const registros = Array.isArray(dados && dados.registros) ? dados.registros : [];
   if (registros.length > 20000) {
     return { erro: rel_agendaGoogle_resposta_('ERRO_VALIDACAO', 'O limite é de 20.000 telefones por arquivo.', {}) };
   }
   const nomesPorTelefone = {};
+  const chavesNomesPorTelefone = {};
   const conflitos = {};
   const telefonesValidos = {};
   let invalidos = 0;
@@ -21,15 +31,26 @@ function rel_agendaGoogle_analisar_(dados) {
     const telefone = normalizado.telefoneNormalizado;
     telefonesValidos[telefone] = true;
     if (!nome) return;
+    const chaveNome = rel_agendaGoogle_normalizarNomeComparacao_(nome);
     if (conflitos[telefone]) {
-      if (conflitos[telefone].indexOf(nome) < 0) conflitos[telefone].push(nome);
+      const nomeEquivalente = conflitos[telefone].some(nomeConflito =>
+        rel_agendaGoogle_normalizarNomeComparacao_(nomeConflito) === chaveNome
+      );
+      if (nomeEquivalente) duplicadosEquivalentes++;
+      else conflitos[telefone].push(nome);
       return;
     }
-    if (nomesPorTelefone[telefone] === undefined) nomesPorTelefone[telefone] = nome;
-    else if (nomesPorTelefone[telefone] === nome) duplicadosEquivalentes++;
+    if (nomesPorTelefone[telefone] === undefined) {
+      nomesPorTelefone[telefone] = nome;
+      chavesNomesPorTelefone[telefone] = chaveNome;
+    }
+    else if (chavesNomesPorTelefone[telefone] === chaveNome) {
+      duplicadosEquivalentes++;
+    }
     else {
       conflitos[telefone] = [nomesPorTelefone[telefone], nome];
       delete nomesPorTelefone[telefone];
+      delete chavesNomesPorTelefone[telefone];
     }
   });
 
