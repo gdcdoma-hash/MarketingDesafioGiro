@@ -21,6 +21,10 @@
         /^phone_\d+_value$/.test(cabecalho);
     }
 
+    function separarTelefones(valor) {
+      return String(valor || '').split(':::').map(item => item.trim()).filter(Boolean);
+    }
+
     function indicePrimeiro(cabecalhos, alternativas) {
       for (let i = 0; i < alternativas.length; i++) {
         const indice = cabecalhos.indexOf(alternativas[i]);
@@ -33,7 +37,13 @@
       const arquivo = e.arquivo.files[0];
       if (!arquivo || !/\.csv$/i.test(arquivo.name)) throw new Error('Selecione uma exportação CSV do Google Contatos.');
       if (typeof XLSX === 'undefined') throw new Error('Não foi possível carregar o leitor do arquivo.');
-      const pasta = XLSX.read(await arquivo.arrayBuffer(), { type: 'array' });
+      let texto;
+      try {
+        texto = new TextDecoder('utf-8', { fatal: true }).decode(await arquivo.arrayBuffer());
+      } catch (erro) {
+        throw new Error('O arquivo não pôde ser lido como UTF-8. Exporte novamente o CSV do Google Contatos.');
+      }
+      const pasta = XLSX.read(texto.replace(/^\uFEFF/, ''), { type: 'string' });
       const linhas = XLSX.utils.sheet_to_json(pasta.Sheets[pasta.SheetNames[0]], {
         header: 1, defval: '', raw: false, blankrows: false
       });
@@ -51,8 +61,9 @@
         const montado = [primeiroNome >= 0 ? linha[primeiroNome] : '', sobrenome >= 0 ? linha[sobrenome] : ''].join(' ');
         const nome = (completo || montado).trim().replace(/\s+/g, ' ');
         telefones.forEach(coluna => {
-          const valor = String(linha[coluna] || '').trim();
-          if (valor) registros.push({ nome: nome, telefoneOriginal: valor, linhaArquivo: indice + 2 });
+          separarTelefones(linha[coluna]).forEach(telefone => {
+            registros.push({ nome: nome, telefoneOriginal: telefone, linhaArquivo: indice + 2 });
+          });
         });
       });
       return { linhasLidas: linhas.length - 1, registros: registros };
