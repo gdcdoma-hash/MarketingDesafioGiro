@@ -27,12 +27,17 @@
       elementos.aviso.classList.toggle('rel-alert-error', tipo === 'erro');
     }
 
+    function atualizarConfirmacao(disponivel) {
+      elementos.confirmar.hidden = !disponivel;
+      elementos.confirmar.disabled = !disponivel || estado.importando;
+    }
+
     function invalidarAnalise() {
       estado.selecaoAnalisada = null;
       estado.registros = null;
       elementos.preview.hidden = true;
       elementos.invalidos.hidden = true;
-      elementos.confirmar.disabled = true;
+      atualizarConfirmacao(false);
       mensagem('');
     }
 
@@ -176,11 +181,12 @@
           renderizarInvalidos(resposta.dados.amostraInvalidos);
         }
         if (resposta.status !== 'OK') {
-          elementos.confirmar.disabled = true;
+          atualizarConfirmacao(false);
           throw new Error(resposta.mensagem);
         }
-        estado.selecaoAnalisada = selecao;
-        elementos.confirmar.disabled = resposta.dados.resumo.telefonesValidos === 0;
+        const podeConfirmar = resposta.dados.resumo.telefonesValidos > 0;
+        estado.selecaoAnalisada = podeConfirmar ? selecao : null;
+        atualizarConfirmacao(podeConfirmar);
         mensagem(resposta.mensagem, 'sucesso');
       } catch (erro) {
         mensagem(erro.message || 'Não foi possível pré-analisar a importação.', 'erro');
@@ -193,7 +199,7 @@
     async function confirmar() {
       if (!estado.selecaoAnalisada || estado.importando) return;
       estado.importando = true;
-      elementos.confirmar.disabled = true;
+      atualizarConfirmacao(true);
       try {
         const resposta = await relApiClient.executar('rel_confirmarImportacao', estado.selecaoAnalisada);
         if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
@@ -212,7 +218,7 @@
         mensagem(erro.message || 'Não foi possível confirmar a importação.', 'erro');
       } finally {
         estado.importando = false;
-        elementos.confirmar.disabled = !estado.selecaoAnalisada;
+        atualizarConfirmacao(Boolean(estado.selecaoAnalisada));
       }
     }
 
@@ -227,6 +233,7 @@
         invalidos: document.querySelector('#rel-import-invalidos'),
         confirmar: document.querySelector('#rel-confirmar-importacao')
       });
+      atualizarConfirmacao(false);
       elementos.form.addEventListener('submit', preAnalisar);
       elementos.origem.addEventListener('change', invalidarAnalise);
       elementos.arquivo.addEventListener('change', () => {
