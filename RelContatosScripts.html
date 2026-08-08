@@ -60,7 +60,8 @@
       identidade.appendChild(criar('strong', contato.nomeExibicao === 'Nome não informado' ? 'rel-contact-name is-empty' : 'rel-contact-name', contato.nomeExibicao));
       identidade.appendChild(criar('span', contato.cidadeUfExibicao === 'Cidade não informada' ? 'rel-contact-city is-empty' : 'rel-contact-city', contato.cidadeUfExibicao));
       const chips = criar('div', 'rel-contact-chips');
-      chips.appendChild(criar('span', 'rel-contact-chip rel-contact-badge ' + (identificado ? 'is-portal' : ''), identificado ? 'Identificado no Portal' : 'Contato novo'));
+      const nomeGoogle = contato.origemNomeExibicao === 'GOOGLE_CONTATOS';
+      chips.appendChild(criar('span', 'rel-contact-chip rel-contact-badge ' + (identificado ? 'is-portal' : ''), identificado ? 'Identificado no Portal' : (nomeGoogle ? 'Na sua agenda' : 'Contato novo')));
       const origens = contato.origens && contato.origens.length ? contato.origens : ['Origem não informada'];
       origens.forEach(origem => chips.appendChild(criar('span', 'rel-contact-chip', origem)));
       identidade.appendChild(chips);
@@ -169,6 +170,6 @@
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
       carregar();
     }
-    return Object.freeze({ iniciar: iniciar, textoCopiar: textoCopiar, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
+    return Object.freeze({ iniciar: iniciar, carregar: carregar, textoCopiar: textoCopiar, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
   })();
 </script>

@@ -103,7 +103,8 @@ function rel_contatos_listar_(filtros) {
       telefoneNormalizado: telefoneNormalizado,
       telefoneExibicao: rel_contatos_texto_(valor('TELEFONE_EXIBICAO')) || telefoneNormalizado,
       idDgmb: idDgmb,
-      nomeExibicao: nomePortal || nomeContato || 'Nome não informado',
+      nomeExibicao: nomePortal || nomeContato || nomeGoogleContatos || 'Nome não informado',
+      origemNomeExibicao: nomePortal ? 'PORTAL' : (nomeContato ? 'MANUAL' : (nomeGoogleContatos ? 'GOOGLE_CONTATOS' : '')),
       nomePortal: nomePortal,
       nomeContato: nomeContato,
       nomeGoogleContatos: nomeGoogleContatos,
@@ -134,7 +135,7 @@ function rel_contatos_listar_(filtros) {
     if (idOrigem && contato.idsOrigens.indexOf(idOrigem) < 0) return false;
     if (!busca) return true;
     return [contato.telefoneNormalizado, contato.telefoneExibicao, contato.idDgmb, contato.nomePortal,
-      contato.nomeContato, contato.cidadeUfExibicao, contato.cidade, contato.uf]
+      contato.nomeContato, contato.nomeGoogleContatos, contato.cidadeUfExibicao, contato.cidade, contato.uf]
       .some(valor => rel_contatos_normalizar_(valor).indexOf(busca) >= 0);
   });
 

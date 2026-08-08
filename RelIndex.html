@@ -51,6 +51,28 @@
         </div>
       </details>
 
+      <details class="rel-card rel-admin-section rel-google-contacts-card">
+        <summary>Atualizar nomes pela agenda</summary>
+        <div class="rel-admin-section-content">
+          <div class="rel-section-header"><div>
+            <h2 class="rel-card-title">Atualizar nomes pela agenda</h2>
+            <p class="rel-message">Importe uma exportação CSV do Google Contatos para identificar números que já estão salvos na sua agenda.</p>
+            <p class="rel-message"><strong>A agenda não será adicionada inteira ao sistema.</strong> Somente contatos já existentes serão comparados.</p>
+          </div></div>
+          <form id="rel-form-agenda-google" class="rel-import-form">
+            <label>Exportação do Google Contatos<input id="rel-agenda-google-arquivo" type="file" accept=".csv" required></label>
+            <div class="rel-import-actions"><button id="rel-agenda-google-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
+          </form>
+          <div id="rel-agenda-google-aviso" class="rel-alert" role="status" hidden></div>
+          <section id="rel-agenda-google-preview" class="rel-import-preview" aria-live="polite" hidden>
+            <h3>Resumo da pré-análise</h3>
+            <dl id="rel-agenda-google-resumo" class="rel-import-metrics"></dl>
+            <div id="rel-agenda-google-conflitos" class="rel-import-invalidos" hidden></div>
+            <div class="rel-import-confirm"><p>Confira o resumo antes de atualizar os nomes.</p><button id="rel-agenda-google-confirmar" class="rel-button rel-button-primary" type="button">Confirmar atualização</button></div>
+          </section>
+        </div>
+      </details>
+
       <details class="rel-card rel-admin-section rel-analysis-card">
         <summary>Análise dos contatos</summary>
         <div class="rel-admin-section-content">
@@ -134,6 +156,7 @@
   <?!= include('RelResumoOperacionalScripts'); ?>
   <?!= include('RelAnalise'); ?>
   <?!= include('RelImport'); ?>
+  <?!= include('RelGoogleContacts'); ?>
   <?!= include('RelOrigens'); ?>
   <?!= include('RelContatosScripts'); ?>
   <?!= include('RelScripts'); ?>
