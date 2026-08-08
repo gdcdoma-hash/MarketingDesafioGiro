@@ -26,7 +26,9 @@ const REL_CONFIG = Object.freeze({
         'EXPORTACAO_GOOGLE_STATUS',
         'DATA_ULTIMA_EXPORTACAO',
         'OBSERVACAO',
-        'ATUALIZADO_EM'
+        'ATUALIZADO_EM',
+        'NOME_GOOGLE_CONTATOS',
+        'SITUACAO'
       ])
     }),
     ORIGENS: Object.freeze({
@@ -108,6 +110,16 @@ const REL_CONFIG = Object.freeze({
       'PENDENTE',
       'EXPORTADO',
       'ATUALIZAR'
+    ]),
+    SITUACAO: Object.freeze([
+      'NAO_CLASSIFICADO',
+      'PODE_CONTATAR',
+      'NAO_FAZ_DESAFIO',
+      'NAO_E_CICLISTA',
+      'SEM_INTERESSE',
+      'NAO_DESEJA_CONTATO',
+      'CONTATO_INADEQUADO',
+      'OUTRO'
     ]),
     TIPO_ORIGEM: Object.freeze([
       'GRUPO_WHATSAPP',

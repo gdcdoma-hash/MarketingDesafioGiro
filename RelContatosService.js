@@ -30,6 +30,11 @@ function rel_contatos_dataLocalChave_(valor) {
   return ano + '-' + mes + '-' + dia;
 }
 
+function rel_contatos_situacao_(valor) {
+  const situacao = rel_contatos_texto_(valor).toUpperCase();
+  return REL_CONFIG.ENUMS.SITUACAO.indexOf(situacao) >= 0 ? situacao : 'NAO_CLASSIFICADO';
+}
+
 function rel_contatos_listar_(filtros) {
   const entrada = filtros || {};
   const pagina = Math.max(1, Number(entrada.pagina) || 1);
@@ -88,6 +93,7 @@ function rel_contatos_listar_(filtros) {
     const idDgmb = rel_contatos_texto_(valor('ID_DGMB'));
     const nomePortal = rel_contatos_texto_(valor('NOME_PORTAL'));
     const nomeContato = rel_contatos_texto_(valor('NOME_CONTATO'));
+    const nomeGoogleContatos = rel_contatos_texto_(valor('NOME_GOOGLE_CONTATOS'));
     const cidadePortal = rel_contatos_texto_(valor('CIDADE_UF_PORTAL'));
     const cidade = rel_contatos_texto_(valor('CIDADE'));
     const uf = rel_contatos_texto_(valor('UF')).toUpperCase();
@@ -100,6 +106,8 @@ function rel_contatos_listar_(filtros) {
       nomeExibicao: nomePortal || nomeContato || 'Nome não informado',
       nomePortal: nomePortal,
       nomeContato: nomeContato,
+      nomeGoogleContatos: nomeGoogleContatos,
+      situacao: rel_contatos_situacao_(valor('SITUACAO')),
       cidadeUfExibicao: cidadePortal || (cidade && uf ? cidade + '-' + uf : cidade) || 'Cidade não informada',
       cidade: cidade,
       uf: uf,
