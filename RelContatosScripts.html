@@ -17,6 +17,13 @@
     function atualizarIndicador() { if (typeof relResumoOperacional !== 'undefined' && relResumoOperacional.destacarIndicador) relResumoOperacional.destacarIndicador(estado.indicadorAtivo); }
     function filtrarAgora() { estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
     function filtrarBusca() { window.clearTimeout(buscaTimer); buscaTimer = window.setTimeout(filtrarAgora, 400); }
+    function contatoAtendeFiltrosOperacionais(contato) {
+      const atendeEtapa = e.etapa.value === 'TODOS'
+        || (e.etapa.value === 'PADRAO' && contato.etapa !== 'FINALIZADO' && contato.etapa !== 'NAO_CONTATAR')
+        || e.etapa.value === contato.etapa;
+      const atendeSituacao = e.situacao.value === 'TODOS' || e.situacao.value === contato.situacao;
+      return atendeEtapa && atendeSituacao;
+    }
 
     async function carregar() {
       mensagem('Carregando contatos...');
@@ -143,7 +150,10 @@
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar.');
         contato.etapa = resposta.dados.etapa; contato.proximoRetorno = resposta.dados.proximoRetorno || ''; retorno.value = valorData(contato.proximoRetorno);
         linha.className = 'rel-contact-row etapa-' + contato.etapa.toLowerCase(); retornoWrap.hidden = contato.etapa !== 'RETORNAR_DEPOIS';
-        mensagem('Etapa atualizada.'); relResumoOperacional.carregar(); if (((select.value === 'FINALIZADO' || select.value === 'NAO_CONTATAR') && e.etapa.value === 'PADRAO') || estado.retornoPendente) carregar();
+        const aguardaSituacao = contato.etapa === 'NAO_CONTATAR' && contato.situacao === 'NAO_CLASSIFICADO';
+        mensagem(aguardaSituacao ? 'Etapa atualizada. Selecione a situação deste contato.' : 'Etapa atualizada.');
+        relResumoOperacional.carregar();
+        if (!aguardaSituacao && (!contatoAtendeFiltrosOperacionais(contato) || estado.retornoPendente)) carregar();
       } catch (erro) { select.value = anterior; retornoWrap.hidden = anterior !== 'RETORNAR_DEPOIS'; mensagem(erro.message, true); } finally { select.disabled = false; }
     }
 
@@ -154,7 +164,7 @@
         const resposta = await relApiClient.executar('rel_atualizarSituacaoContato', { telefoneNormalizado: contato.telefoneNormalizado, situacao: select.value });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar a situação.');
         contato.situacao = resposta.dados.situacao; select.value = contato.situacao; mensagem('Situação atualizada.');
-        if (e.situacao.value !== 'TODOS' && e.situacao.value !== contato.situacao) carregar();
+        if (!contatoAtendeFiltrosOperacionais(contato) || estado.retornoPendente) carregar();
       } catch (erro) { select.value = anterior; mensagem(erro.message, true); } finally { select.disabled = false; }
     }
 
