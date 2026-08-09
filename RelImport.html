@@ -16,9 +16,12 @@
     });
 
     function preencherSelect(select, itens, valor, texto, placeholder) {
+      const selecaoAtual = select.value;
       const opcoes = [new Option(placeholder, '')];
       itens.forEach(item => opcoes.push(new Option(item[texto], item[valor])));
       select.replaceChildren(...opcoes);
+      select.value = Array.from(select.options).some(opcao => opcao.value === selecaoAtual)
+        ? selecaoAtual : '';
     }
 
     function mensagem(texto, tipo) {
@@ -164,9 +167,9 @@
 
     async function preAnalisar(evento) {
       evento.preventDefault();
-      if (estado.analisando || estado.importando) return;
+      if (estado.analisando || estado.importando ||
+        !relOperacao.iniciar('pre-analise-importacao', elementos.preAnalisar, 'Analisando...')) return;
       estado.analisando = true;
-      elementos.preAnalisar.disabled = true;
       invalidarAnalise();
       try {
         const leitura = await lerArquivo();
@@ -192,12 +195,13 @@
         mensagem(erro.message || 'Não foi possível pré-analisar a importação.', 'erro');
       } finally {
         estado.analisando = false;
-        elementos.preAnalisar.disabled = false;
+        relOperacao.finalizar();
       }
     }
 
     async function confirmar() {
-      if (!estado.selecaoAnalisada || estado.importando) return;
+      if (!estado.selecaoAnalisada || estado.importando ||
+        !relOperacao.iniciar('confirmacao-importacao', elementos.confirmar, 'Importando...')) return;
       estado.importando = true;
       atualizarConfirmacao(true);
       try {
@@ -218,6 +222,7 @@
         mensagem(erro.message || 'Não foi possível confirmar a importação.', 'erro');
       } finally {
         estado.importando = false;
+        relOperacao.finalizar();
         atualizarConfirmacao(Boolean(estado.selecaoAnalisada));
       }
     }

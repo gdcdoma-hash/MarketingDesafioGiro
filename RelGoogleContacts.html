@@ -93,31 +93,38 @@
       }
     }
 
-    function invalidar() { estado.dados = null; e.preview.hidden = true; e.confirmar.hidden = true; mensagem(''); }
+    function atualizarConfirmacao(disponivel) {
+      e.confirmar.hidden = !disponivel;
+      e.confirmar.disabled = !disponivel || estado.confirmando;
+    }
+
+    function invalidar() { estado.dados = null; e.preview.hidden = true; atualizarConfirmacao(false); mensagem(''); }
 
     async function analisar(evento) {
-      evento.preventDefault(); if (estado.analisando || estado.confirmando) return;
-      estado.analisando = true; e.analisar.disabled = true; invalidar();
+      evento.preventDefault(); if (estado.analisando || estado.confirmando ||
+        !relOperacao.iniciar('pre-analise-agenda', e.analisar, 'Analisando...')) return;
+      estado.analisando = true; invalidar();
       try {
         const dados = await lerArquivo();
         const resposta = await relApiClient.executar('rel_preAnalisarAgendaGoogle', dados);
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha na pré-análise.');
-        estado.dados = dados; renderizar(resposta.dados, 'Resumo da pré-análise'); e.confirmar.hidden = false; mensagem(resposta.mensagem);
+        estado.dados = dados; renderizar(resposta.dados, 'Resumo da pré-análise'); atualizarConfirmacao(true); mensagem(resposta.mensagem);
       } catch (erro) { mensagem(erro.message || 'Não foi possível analisar a agenda.', true); }
-      finally { estado.analisando = false; e.analisar.disabled = false; }
+      finally { estado.analisando = false; relOperacao.finalizar(); }
     }
 
     async function confirmar() {
-      if (!estado.dados || estado.confirmando) return;
-      estado.confirmando = true; e.confirmar.disabled = true;
+      if (!estado.dados || estado.confirmando ||
+        !relOperacao.iniciar('confirmacao-agenda', e.confirmar, 'Atualizando...')) return;
+      estado.confirmando = true; atualizarConfirmacao(true);
       try {
         const resposta = await relApiClient.executar('rel_confirmarAgendaGoogle', estado.dados);
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha na atualização.');
         renderizar(resposta.dados, 'Resultado da atualização'); mensagem(resposta.mensagem);
-        estado.dados = null; e.confirmar.hidden = true; e.arquivo.value = '';
+        estado.dados = null; atualizarConfirmacao(false); e.arquivo.value = '';
         await relContatos.carregar();
       } catch (erro) { mensagem(erro.message || 'Não foi possível atualizar os nomes.', true); }
-      finally { estado.confirmando = false; e.confirmar.disabled = false; }
+      finally { estado.confirmando = false; relOperacao.finalizar(); atualizarConfirmacao(Boolean(estado.dados)); }
     }
 
     function inicializar() {
@@ -125,7 +132,7 @@
         analisar: document.querySelector('#rel-agenda-google-analisar'), aviso: document.querySelector('#rel-agenda-google-aviso'),
         preview: document.querySelector('#rel-agenda-google-preview'), resumo: document.querySelector('#rel-agenda-google-resumo'),
         conflitos: document.querySelector('#rel-agenda-google-conflitos'), confirmar: document.querySelector('#rel-agenda-google-confirmar') });
-      e.confirmar.hidden = true; e.form.addEventListener('submit', analisar); e.arquivo.addEventListener('change', invalidar); e.confirmar.addEventListener('click', confirmar);
+      atualizarConfirmacao(false); e.form.addEventListener('submit', analisar); e.arquivo.addEventListener('change', invalidar); e.confirmar.addEventListener('click', confirmar);
     }
     return Object.freeze({ inicializar: inicializar });
   })();

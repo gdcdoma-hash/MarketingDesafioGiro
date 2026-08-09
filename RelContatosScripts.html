@@ -31,7 +31,7 @@
     function renderizar(dados) {
       estado.pagina = dados.pagina; estado.totalPaginas = dados.totalPaginas; estado.contatos = {};
       if (!estado.origensCarregadas) {
-        (dados.origens || []).forEach(origem => e.origem.add(new Option(origem.nomeOrigem, origem.idOrigem)));
+        substituirOrigens(dados.origens || []);
         estado.origensCarregadas = true;
       }
       e.lista.replaceChildren();
@@ -40,6 +40,26 @@
       e.pagina.textContent = 'Página ' + dados.pagina + ' de ' + dados.totalPaginas + ' · ' + dados.total + ' resultados';
       e.anterior.disabled = dados.pagina <= 1; e.proxima.disabled = dados.pagina >= dados.totalPaginas;
       atualizarIndicador();
+    }
+
+    function substituirOrigens(origens) {
+      const selecaoAtual = e.origem.value;
+      const opcoes = [new Option('Todas', '')];
+      origens.forEach(origem => opcoes.push(new Option(origem.nomeOrigem, origem.idOrigem)));
+      e.origem.replaceChildren(...opcoes);
+      e.origem.value = Array.from(e.origem.options).some(opcao => opcao.value === selecaoAtual)
+        ? selecaoAtual : '';
+    }
+
+    async function atualizarOrigens() {
+      try {
+        const resposta = await relApiClient.executar('rel_obterOpcoesImportacao');
+        if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem);
+        substituirOrigens(resposta.dados.origens || []);
+        estado.origensCarregadas = true;
+      } catch (erro) {
+        mensagem(erro.message || 'Não foi possível atualizar as origens.', true);
+      }
     }
 
     function criarCard(contato) {
@@ -162,12 +182,12 @@
     async function salvar(evento) {
       evento.preventDefault(); const cidade = e.cidade.value === '__NOVA__' ? '' : e.cidade.value;
       if (e.cidade.value === '__NOVA__') { avisoForm('Cadastre a nova cidade antes de salvar.', true); return; }
-      e.salvar.disabled = true;
+      if (!relOperacao.iniciar('salvar-contato', e.salvar, 'Salvando...')) return;
       try {
         const resposta = await relApiClient.executar('rel_salvarDadosContato', { telefoneNormalizado: e.telefone.value, nomeContato: e.nome.value, uf: e.uf.value, regiao: e.regiao.value, cidade: cidade, eCiclista: e.ciclista.value, modalidade: e.modalidade.value, observacao: e.observacao.value });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao salvar.');
         e.modal.close(); mensagem('Dados do contato salvos.'); relResumoOperacional.carregar(); carregar();
-      } catch (erro) { avisoForm(erro.message, true); } finally { e.salvar.disabled = false; }
+      } catch (erro) { avisoForm(erro.message, true); } finally { relOperacao.finalizar(); }
     }
     function limparFiltros() { e.busca.value = ''; e.classificacao.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
     function aplicarIndicador(indicador) {
@@ -187,6 +207,6 @@
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
       carregar();
     }
-    return Object.freeze({ iniciar: iniciar, carregar: carregar, textoCopiar: textoCopiar, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
+    return Object.freeze({ iniciar: iniciar, carregar: carregar, atualizarOrigens: atualizarOrigens, textoCopiar: textoCopiar, aplicarIndicador: aplicarIndicador, limparFiltros: limparFiltros });
   })();
 </script>
