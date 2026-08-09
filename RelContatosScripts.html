@@ -5,7 +5,7 @@
     const situacoes = { NAO_CLASSIFICADO: 'Não classificado', PODE_CONTATAR: 'Pode contatar', NAO_FAZ_DESAFIO: 'Não faz desafio', NAO_E_CICLISTA: 'Não é ciclista', SEM_INTERESSE: 'Sem interesse', NAO_DESEJA_CONTATO: 'Não deseja contato', CONTATO_INADEQUADO: 'Contato inadequado', OUTRO: 'Outro' };
     const regioes = { PARA: 'Pará', IMPERATRIZ: 'Imperatriz', SAO_LUIS: 'São Luís', PINHEIRO: 'Pinheiro', CURURUPU: 'Cururupu', SANTA_INES: 'Santa Inês', BR: 'BR' };
     const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
-    const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {}, retornoPendente: false, indicadorAtivo: '' };
+    const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {}, contatosAguardandoSituacao: {}, retornoPendente: false, indicadorAtivo: '' };
     const e = {};
     let buscaTimer = null;
 
@@ -15,7 +15,8 @@
     function valorData(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10); }
     function criar(tag, classe, texto) { const el = document.createElement(tag); if (classe) el.className = classe; if (texto !== undefined) el.textContent = texto; return el; }
     function atualizarIndicador() { if (typeof relResumoOperacional !== 'undefined' && relResumoOperacional.destacarIndicador) relResumoOperacional.destacarIndicador(estado.indicadorAtivo); }
-    function filtrarAgora() { estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
+    function limparContatosAguardandoSituacao() { estado.contatosAguardandoSituacao = {}; }
+    function filtrarAgora() { limparContatosAguardandoSituacao(); estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
     function filtrarBusca() { window.clearTimeout(buscaTimer); buscaTimer = window.setTimeout(filtrarAgora, 400); }
     function contatoAtendeFiltrosOperacionais(contato) {
       const atendeEtapa = e.etapa.value === 'TODOS'
@@ -41,9 +42,15 @@
         substituirOrigens(dados.origens || []);
         estado.origensCarregadas = true;
       }
+      const contatos = (dados.contatos || []).slice();
+      Object.keys(estado.contatosAguardandoSituacao).forEach(telefone => {
+        const pendente = estado.contatosAguardandoSituacao[telefone];
+        const indice = contatos.findIndex(contato => contato.telefoneNormalizado === telefone);
+        if (indice === -1) contatos.push(pendente); else contatos[indice] = pendente;
+      });
       e.lista.replaceChildren();
-      (dados.contatos || []).forEach(contato => e.lista.appendChild(criarCard(contato)));
-      e.vazio.hidden = dados.total !== 0; e.lista.hidden = dados.total === 0;
+      contatos.forEach(contato => e.lista.appendChild(criarCard(contato)));
+      e.vazio.hidden = contatos.length !== 0; e.lista.hidden = contatos.length === 0;
       e.pagina.textContent = 'Página ' + dados.pagina + ' de ' + dados.totalPaginas + ' · ' + dados.total + ' resultados';
       e.anterior.disabled = dados.pagina <= 1; e.proxima.disabled = dados.pagina >= dados.totalPaginas;
       atualizarIndicador();
@@ -151,6 +158,8 @@
         contato.etapa = resposta.dados.etapa; contato.proximoRetorno = resposta.dados.proximoRetorno || ''; retorno.value = valorData(contato.proximoRetorno);
         linha.className = 'rel-contact-row etapa-' + contato.etapa.toLowerCase(); retornoWrap.hidden = contato.etapa !== 'RETORNAR_DEPOIS';
         const aguardaSituacao = contato.etapa === 'NAO_CONTATAR' && contato.situacao === 'NAO_CLASSIFICADO';
+        if (aguardaSituacao) estado.contatosAguardandoSituacao[contato.telefoneNormalizado] = contato;
+        else delete estado.contatosAguardandoSituacao[contato.telefoneNormalizado];
         mensagem(aguardaSituacao ? 'Etapa atualizada. Selecione a situação deste contato.' : 'Etapa atualizada.');
         relResumoOperacional.carregar();
         if (!aguardaSituacao && (!contatoAtendeFiltrosOperacionais(contato) || estado.retornoPendente)) carregar();
@@ -164,6 +173,7 @@
         const resposta = await relApiClient.executar('rel_atualizarSituacaoContato', { telefoneNormalizado: contato.telefoneNormalizado, situacao: select.value });
         if (!resposta || resposta.status !== 'OK') throw new Error(resposta && resposta.mensagem || 'Falha ao atualizar a situação.');
         contato.situacao = resposta.dados.situacao; select.value = contato.situacao; mensagem('Situação atualizada.');
+        if (contato.situacao !== 'NAO_CLASSIFICADO') delete estado.contatosAguardandoSituacao[contato.telefoneNormalizado];
         if (!contatoAtendeFiltrosOperacionais(contato) || estado.retornoPendente) carregar();
       } catch (erro) { select.value = anterior; mensagem(erro.message, true); } finally { select.disabled = false; }
     }
@@ -199,8 +209,9 @@
         e.modal.close(); mensagem('Dados do contato salvos.'); relResumoOperacional.carregar(); carregar();
       } catch (erro) { avisoForm(erro.message, true); } finally { relOperacao.finalizar(); }
     }
-    function limparFiltros() { e.busca.value = ''; e.classificacao.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
+    function limparFiltros() { limparContatosAguardandoSituacao(); e.busca.value = ''; e.classificacao.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
     function aplicarIndicador(indicador) {
+      limparContatosAguardandoSituacao();
       e.busca.value = ''; e.classificacao.value = 'TODOS'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.indicadorAtivo = indicador;
       estado.retornoPendente = indicador === 'RETORNAR_HOJE'; e.etapa.value = estado.retornoPendente ? 'TODOS' : indicador;
       atualizarIndicador(); carregar();
@@ -210,7 +221,7 @@
       Object.assign(e, { filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), etapa: document.querySelector('#rel-contatos-etapa'), situacao: document.querySelector('#rel-contatos-situacao'), origem: document.querySelector('#rel-contatos-origem'), limpar: document.querySelector('#rel-contatos-limpar'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
       ufs.forEach(uf => e.uf.add(new Option(uf, uf)));
       e.filtros.addEventListener('submit', evento => evento.preventDefault()); e.busca.addEventListener('input', filtrarBusca); [e.classificacao, e.etapa, e.situacao, e.origem].forEach(campo => campo.addEventListener('change', filtrarAgora)); e.limpar.addEventListener('click', limparFiltros);
-      e.anterior.addEventListener('click', () => { estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { estado.pagina++; carregar(); });
+      e.anterior.addEventListener('click', () => { limparContatosAguardandoSituacao(); estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { limparContatosAguardandoSituacao(); estado.pagina++; carregar(); });
       e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-whatsapp]')) abrirWhatsApp(contato.telefoneNormalizado); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
       e.lista.addEventListener('change', evento => { const linha = evento.target.closest('.rel-contact-row'); if (evento.target.matches('[data-etapa]')) alterarEtapa(linha, evento.target); if (evento.target.matches('[data-situacao]')) alterarSituacao(linha, evento.target); if (evento.target.matches('[data-retorno]')) { const select = linha.querySelector('[data-etapa]'); if (select.value === 'RETORNAR_DEPOIS') alterarEtapa(linha, select); } });
       e.uf.addEventListener('change', carregarCidades); e.regiao.addEventListener('change', carregarCidades); e.cidade.addEventListener('change', () => { e.novaCidadeCampos.hidden = e.cidade.value !== '__NOVA__'; });
