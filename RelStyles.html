@@ -75,6 +75,49 @@
     padding: 24px 0;
   }
 
+  .rel-internal-nav {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin: -8px 0 14px;
+    padding: 8px;
+    border: 1px solid #dfe3e8;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 3px 10px rgba(31, 41, 55, .06);
+  }
+
+  .rel-internal-nav-item {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 12px;
+    border: 1px solid #cbd2dc;
+    border-radius: 7px;
+    background: #ffffff;
+    color: #374151;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .rel-internal-nav-item.is-active {
+    border-color: #1d4ed8;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .rel-internal-nav-item:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+
+  #rel-contatos-section,
+  .rel-admin-section {
+    scroll-margin-top: 72px;
+  }
+
   .rel-app .rel-card {
     box-sizing: border-box;
     padding: 24px;

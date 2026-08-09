@@ -25,17 +25,24 @@
     </header>
 
     <main class="rel-main">
+      <nav class="rel-internal-nav" aria-label="Áreas de Relacionamento">
+        <button class="rel-internal-nav-item is-active" type="button" data-rel-section="rel-contatos-section">Contatos</button>
+        <button class="rel-internal-nav-item" type="button" data-rel-section="rel-importacao-section">Importar contatos</button>
+        <button class="rel-internal-nav-item" type="button" data-rel-section="rel-agenda-section">Agenda Google</button>
+        <button class="rel-internal-nav-item" type="button" data-rel-section="rel-analise-section">Analisar contatos</button>
+        <button class="rel-internal-nav-item" type="button" data-rel-section="rel-origens-section">Origens</button>
+      </nav>
       <?!= include('RelResumoOperacional'); ?>
-      <?!= include('RelContatos'); ?>
+      <div id="rel-contatos-section"><?!= include('RelContatos'); ?></div>
 
-      <details class="rel-card rel-admin-section rel-import-card">
+      <details id="rel-importacao-section" class="rel-card rel-admin-section rel-import-card">
         <summary id="rel-importacao-title">Importar contatos</summary>
         <div class="rel-admin-section-content">
           <div class="rel-section-header"><div><h2 class="rel-card-title">Importar contatos</h2><p class="rel-message">Selecione o arquivo gerado pela extensão de contatos do WhatsApp.</p></div></div>
           <form id="rel-form-importacao" class="rel-import-form">
             <label>Origem ativa<select id="rel-import-origem" required><option value="">Selecione</option></select></label>
             <label>Arquivo de contatos<input id="rel-import-arquivo" type="file" accept=".xlsx,.xls,.csv" required></label>
-            <div class="rel-import-actions"><button id="rel-pre-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
+            <div class="rel-import-actions"><button id="rel-pre-analisar" class="rel-button rel-button-primary" type="submit" data-rel-critical>Pré-analisar</button></div>
           </form>
           <dl class="rel-import-file-info" aria-live="polite">
             <div><dt>Arquivo selecionado</dt><dd id="rel-import-nome-arquivo">Nenhum arquivo selecionado</dd></div>
@@ -46,12 +53,12 @@
             <h3>Resumo da pré-análise</h3>
             <dl id="rel-import-resumo" class="rel-import-metrics"></dl>
             <div id="rel-import-invalidos" class="rel-import-invalidos" hidden></div>
-            <div class="rel-import-confirm"><p>Confira os números antes de gravar os contatos.</p><button id="rel-confirmar-importacao" class="rel-button rel-button-primary" type="button">Confirmar importação</button></div>
+            <div class="rel-import-confirm"><p>Confira os números antes de gravar os contatos.</p><button id="rel-confirmar-importacao" class="rel-button rel-button-primary" type="button" data-rel-critical>Confirmar importação</button></div>
           </section>
         </div>
       </details>
 
-      <details class="rel-card rel-admin-section rel-google-contacts-card">
+      <details id="rel-agenda-section" class="rel-card rel-admin-section rel-google-contacts-card">
         <summary>Atualizar nomes pela agenda</summary>
         <div class="rel-admin-section-content">
           <div class="rel-section-header"><div>
@@ -61,19 +68,19 @@
           </div></div>
           <form id="rel-form-agenda-google" class="rel-import-form">
             <label>Exportação do Google Contatos<input id="rel-agenda-google-arquivo" type="file" accept=".csv" required></label>
-            <div class="rel-import-actions"><button id="rel-agenda-google-analisar" class="rel-button rel-button-primary" type="submit">Pré-analisar</button></div>
+            <div class="rel-import-actions"><button id="rel-agenda-google-analisar" class="rel-button rel-button-primary" type="submit" data-rel-critical>Pré-analisar</button></div>
           </form>
           <div id="rel-agenda-google-aviso" class="rel-alert" role="status" hidden></div>
           <section id="rel-agenda-google-preview" class="rel-import-preview" aria-live="polite" hidden>
             <h3>Resumo da pré-análise</h3>
             <dl id="rel-agenda-google-resumo" class="rel-import-metrics"></dl>
             <div id="rel-agenda-google-conflitos" class="rel-import-invalidos" hidden></div>
-            <div class="rel-import-confirm"><p>Confira o resumo antes de atualizar os nomes.</p><button id="rel-agenda-google-confirmar" class="rel-button rel-button-primary" type="button">Confirmar atualização</button></div>
+            <div class="rel-import-confirm"><p>Confira o resumo antes de atualizar os nomes.</p><button id="rel-agenda-google-confirmar" class="rel-button rel-button-primary" type="button" data-rel-critical>Confirmar atualização</button></div>
           </section>
         </div>
       </details>
 
-      <details class="rel-card rel-admin-section rel-analysis-card">
+      <details id="rel-analise-section" class="rel-card rel-admin-section rel-analysis-card">
         <summary>Análise dos contatos</summary>
         <div class="rel-admin-section-content">
         <div class="rel-section-header">
@@ -81,14 +88,14 @@
             <h2 id="rel-analise-title" class="rel-card-title">Análise dos contatos</h2>
             <p class="rel-message">Compare os telefones importados com os cadastros do Portal Giro.</p>
           </div>
-          <button id="rel-analisar-contatos" class="rel-button rel-button-primary" type="button">Analisar contatos</button>
+          <button id="rel-analisar-contatos" class="rel-button rel-button-primary" type="button" data-rel-critical>Analisar contatos</button>
         </div>
         <div id="rel-analise-aviso" class="rel-alert" role="status" aria-live="polite" hidden></div>
         <dl id="rel-analise-resumo" class="rel-analysis-metrics" aria-live="polite" hidden></dl>
         </div>
       </details>
 
-      <details class="rel-card rel-admin-section">
+      <details id="rel-origens-section" class="rel-card rel-admin-section">
         <summary>Gerenciar origens</summary>
         <div class="rel-admin-section-content">
         <div class="rel-section-header">
@@ -125,7 +132,7 @@
         <label>Tipo<select id="rel-tipo" required><option value="">Selecione</option><option value="GRUPO_WHATSAPP">Grupo de WhatsApp</option><option value="LOJA">Loja</option><option value="EVENTO">Evento</option><option value="LISTA_MANUAL">Lista manual</option><option value="OUTRO">Outro</option></select></label>
         <label>Observação (opcional)<textarea id="rel-observacao" maxlength="500" rows="3"></textarea></label>
         <div id="rel-form-aviso" class="rel-alert" role="alert" hidden></div>
-        <div class="rel-modal-actions"><button class="rel-button" type="button" data-rel-fechar>Cancelar</button><button id="rel-salvar" class="rel-button rel-button-primary" type="submit">Salvar origem</button></div>
+        <div class="rel-modal-actions"><button class="rel-button" type="button" data-rel-fechar>Cancelar</button><button id="rel-salvar" class="rel-button rel-button-primary" type="submit" data-rel-critical>Salvar origem</button></div>
       </form>
     </dialog>
     <dialog id="rel-contato-modal" class="rel-modal rel-contact-modal">
@@ -145,7 +152,7 @@
         </div>
         <label>Observação (opcional)<textarea id="rel-contato-observacao" maxlength="500" rows="3"></textarea></label>
         <div id="rel-contato-form-aviso" class="rel-alert" role="alert" hidden></div>
-        <div class="rel-modal-actions"><button class="rel-button" type="button" data-contato-fechar>Cancelar</button><button id="rel-contato-salvar" class="rel-button rel-button-primary" type="submit">Salvar dados</button></div>
+        <div class="rel-modal-actions"><button class="rel-button" type="button" data-contato-fechar>Cancelar</button><button id="rel-contato-salvar" class="rel-button rel-button-primary" type="submit" data-rel-critical>Salvar dados</button></div>
       </form>
     </dialog>
   </div>

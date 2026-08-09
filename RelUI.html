@@ -83,3 +83,55 @@
     });
   })();
 </script>
+<script>
+  const relOperacao = (() => {
+    'use strict';
+
+    let operacaoAtual = '';
+    let botaoAtual = null;
+    let textoOriginal = '';
+    let botoesBloqueados = [];
+
+    function iniciar(tipo, botao, textoEmAndamento) {
+      if (operacaoAtual) return false;
+      operacaoAtual = tipo;
+      botaoAtual = botao || null;
+      textoOriginal = botaoAtual ? botaoAtual.textContent : '';
+      botoesBloqueados = Array.from(document.querySelectorAll('[data-rel-critical]'))
+        .filter(item => !item.disabled);
+      botoesBloqueados.forEach(item => { item.disabled = true; });
+      if (botaoAtual && textoEmAndamento) botaoAtual.textContent = textoEmAndamento;
+      return true;
+    }
+
+    function finalizar() {
+      botoesBloqueados.forEach(item => { item.disabled = false; });
+      if (botaoAtual) botaoAtual.textContent = textoOriginal;
+      operacaoAtual = '';
+      botaoAtual = null;
+      textoOriginal = '';
+      botoesBloqueados = [];
+    }
+
+    function ocupada() { return Boolean(operacaoAtual); }
+
+    return Object.freeze({ iniciar: iniciar, finalizar: finalizar, ocupada: ocupada });
+  })();
+
+  const relNavegacao = (() => {
+    'use strict';
+
+    function inicializar() {
+      const botoes = Array.from(document.querySelectorAll('[data-rel-section]'));
+      botoes.forEach(botao => botao.addEventListener('click', () => {
+        const secao = document.getElementById(botao.dataset.relSection);
+        if (!secao) return;
+        if (secao.tagName === 'DETAILS') secao.open = true;
+        botoes.forEach(item => item.classList.toggle('is-active', item === botao));
+        secao.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }));
+    }
+
+    return Object.freeze({ inicializar: inicializar });
+  })();
+</script>

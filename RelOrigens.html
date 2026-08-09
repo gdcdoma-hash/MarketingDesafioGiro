@@ -49,6 +49,7 @@
       botao.type = 'button';
       botao.dataset.id = origem.idOrigem || '';
       botao.dataset.status = origem.status === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+      botao.dataset.relCritical = '';
       botao.textContent = origem.status === 'ATIVO' ? 'Inativar' : 'Reativar';
       acoes.appendChild(botao);
 
@@ -100,9 +101,9 @@
 
     async function salvarOrigem(evento) {
       evento.preventDefault();
-      if (estado.salvandoOrigem) return;
+      if (estado.salvandoOrigem ||
+        !relOperacao.iniciar('salvar-origem', elementos.salvar, 'Salvando...')) return;
       estado.salvandoOrigem = true;
-      relUI.definirSalvandoOrigem(true);
       relUI.limparMensagemFormulario();
       try {
         const resposta = await relApiClient.executar('rel_cadastrarOrigem', {
@@ -117,18 +118,22 @@
         relUI.fecharModalOrigem();
         elementos.form.reset();
         relUI.exibirMensagemTela(resposta.mensagem, 'sucesso');
-        await Promise.all([carregarLista(), relResumo.carregar()]);
+        await Promise.all([
+          carregarLista(), relResumo.carregar(),
+          relContatos.atualizarOrigens(), relImportacao.carregarOpcoes()
+        ]);
       } catch (erro) {
         relUI.exibirMensagemFormulario(erro.message || 'Não foi possível cadastrar a origem.', 'erro');
       } finally {
         estado.salvandoOrigem = false;
-        relUI.definirSalvandoOrigem(false);
+        relOperacao.finalizar();
       }
     }
 
     async function alterarStatus(botao) {
       const idOrigem = botao.dataset.id;
-      if (estado.alterandoStatusIds.has(idOrigem)) return;
+      if (estado.alterandoStatusIds.has(idOrigem) ||
+        !relOperacao.iniciar('alterar-status-origem', botao, 'Atualizando...')) return;
       estado.alterandoStatusIds.add(idOrigem);
       botao.disabled = true;
       try {
@@ -139,12 +144,15 @@
         );
         if (resposta.status !== 'OK') throw new Error(resposta.mensagem);
         relUI.exibirMensagemTela(resposta.mensagem, 'sucesso');
-        await Promise.all([carregarLista(), relResumo.carregar()]);
+        await Promise.all([
+          carregarLista(), relResumo.carregar(),
+          relContatos.atualizarOrigens(), relImportacao.carregarOpcoes()
+        ]);
       } catch (erro) {
         relUI.exibirMensagemTela(erro.message || 'Não foi possível alterar o status.', 'erro');
       } finally {
         estado.alterandoStatusIds.delete(idOrigem);
-        botao.disabled = false;
+        relOperacao.finalizar();
       }
     }
 

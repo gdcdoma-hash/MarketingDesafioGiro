@@ -35,9 +35,7 @@
     }
 
     async function analisar() {
-      if (elementos.botao.disabled) return;
-      elementos.botao.disabled = true;
-      elementos.botao.textContent = 'Analisando...';
+      if (!relOperacao.iniciar('analise-portal', elementos.botao, 'Analisando...')) return;
       mostrarMensagem('Analisando contatos...', false);
       try {
         const resposta = await relApiClient.executar('rel_analisarContatosPortal');
@@ -52,8 +50,7 @@
       } catch (erro) {
         mostrarMensagem(erro.message || 'Não foi possível concluir a análise dos contatos.', true);
       } finally {
-        elementos.botao.disabled = false;
-        elementos.botao.textContent = 'Analisar contatos';
+        relOperacao.finalizar();
       }
     }
 
