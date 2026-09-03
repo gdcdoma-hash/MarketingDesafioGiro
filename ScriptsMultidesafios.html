@@ -1,0 +1,332 @@
+<script>
+let abaAtualMarketing = 'visao-geral';
+
+function carregarDados(periodo, idDesafio) {
+  document.getElementById('conteudo').innerHTML =
+    '<div class="carregando">Carregando dados...</div>';
+
+  google.script.run
+    .withSuccessHandler(renderizar)
+    .withFailureHandler(erro => {
+      console.error(erro);
+      document.getElementById('conteudo').innerHTML =
+        '<div class="erro">Não foi possível carregar os dados.</div>';
+    })
+    .obterDadosPainelMarketingV2(periodo || '', idDesafio || '');
+}
+
+function renderizar(dados) {
+  dadosAtuais = dados;
+  renderizarPeriodos(dados);
+
+  const desafio = dados.desafioSelecionado;
+  const escopo = desafio
+    ? `Cód. ${esc(desafio.codigo)} · ${esc(desafio.nome)}`
+    : 'Todos os desafios do período';
+  const metaLabel = desafio ? 'Meta do desafio' : 'Meta geral';
+  const totalDesafios = Array.isArray(dados.desafios) ? dados.desafios.length : 0;
+  const divulgadores = filtrarDivulgadores(dados.divulgadores || []);
+
+  document.getElementById('conteudo').innerHTML = `
+    <div class="topo-contexto">
+      <div class="escopo-atual">${escopo}</div>
+      ${desafio ? '<button class="btn-link-discreto" type="button" onclick="limparFiltroDesafio()">Ver geral</button>' : ''}
+    </div>
+
+    <section class="meta-card meta-v2">
+      <div class="meta-topo">
+        <div>
+          <div class="meta-label">${metaLabel}</div>
+          <div class="meta-numero">${dados.totalPeriodo} / ${dados.meta || 0}</div>
+        </div>
+        <div class="meta-percentual">${Number(dados.percentualMeta || 0).toFixed(1)}%</div>
+      </div>
+      <div class="barra">
+        <div class="barra-preenchida" style="width:${Math.min(100, Number(dados.percentualMeta || 0))}%"></div>
+      </div>
+    </section>
+
+    <section class="resumos resumos-v2">
+      ${cardResumo(dados.totalPeriodo, desafio ? 'Inscrições neste desafio' : 'Inscrições no período')}
+      ${cardResumo(dados.totalAtribuidas, 'Com origem identificada')}
+      ${cardResumo(dados.totalDireto, 'Direto / sem referência')}
+      ${cardResumo(totalDesafios, 'Desafios no período')}
+    </section>
+
+    <div class="filtro-escopo">
+      <div>
+        <label class="campo-label" for="filtro-desafio-painel">Analisar desafio</label>
+        <select id="filtro-desafio-painel" class="campo-input" onchange="trocarDesafioPainel(this.value)">
+          <option value="">Todos os desafios</option>
+          ${(dados.desafios || []).map(item => `
+            <option value="${esc(item.id)}" ${String(item.id) === String(dados.idDesafioSelecionado || '') ? 'selected' : ''}>
+              ${esc(item.codigo)} · ${esc(item.nome)}
+            </option>
+          `).join('')}
+        </select>
+      </div>
+      <div class="escopo-atual" style="align-self:end;padding-bottom:14px;">
+        Resultado e origem acompanham o filtro selecionado.
+      </div>
+    </div>
+
+    <nav class="navegacao navegacao-v2">
+      <button class="nav-btn" data-aba="visao-geral" onclick="abrirAba('visao-geral', this)">Visão geral</button>
+      <button class="nav-btn" data-aba="desafios" onclick="abrirAba('desafios', this)">Desafios</button>
+      <button class="nav-btn" data-aba="divulgadores" onclick="abrirAba('divulgadores', this)">Divulgadores</button>
+    </nav>
+
+    <section id="visao-geral" class="secao">
+      <div class="painel-grid-principal">
+        ${renderizarBlocoDesafiosResumo(dados.desafios || [])}
+        ${renderizarBlocoOrigens(dados.principaisOrigens || [])}
+      </div>
+      <div class="painel-grid-secundario" style="margin-top:12px;">
+        ${renderizarBlocoMetricasV2('Por tipo', dados.metricasPorTipo || [], 6)}
+        ${renderizarBlocoMetricasV2('Por UF', dados.metricasPorUf || [], 6)}
+        ${renderizarBlocoMetricasV2('Principais cidades', dados.metricasPorCidade || [], 6)}
+      </div>
+    </section>
+
+    <section id="desafios" class="secao">
+      <div class="secao-cabecalho">
+        <h2 class="secao-titulo">Desempenho por desafio</h2>
+        <div class="secao-info">${esc(dados.periodoSelecionado || '')}</div>
+      </div>
+      <div class="desafios-grid">${renderizarCardsDesafios(dados.desafios || [])}</div>
+    </section>
+
+    <section id="divulgadores" class="secao">
+      <div class="secao-cabecalho">
+        <div>
+          <h2 class="secao-titulo">Divulgadores</h2>
+          <div class="linha-subtitulo">${escopo}</div>
+        </div>
+        <div id="contador-divulgadores" class="secao-info">${textoContadorDivulgadores(divulgadores.length)}</div>
+      </div>
+      <div class="filtros-divulgadores" role="group" aria-label="Filtrar divulgadores por status">
+        ${renderizarFiltrosDivulgadores()}
+      </div>
+      <div id="lista-divulgadores" class="divulgadores-lista-v2">${renderizarDivulgadores(divulgadores)}</div>
+    </section>
+  `;
+
+  ativarAbaAtualMarketing();
+}
+
+function cardResumo(numero, label) {
+  return `
+    <div class="resumo-card compacto">
+      <div class="resumo-numero">${Number(numero || 0)}</div>
+      <div class="resumo-label">${esc(label)}</div>
+    </div>`;
+}
+
+function renderizarBlocoDesafiosResumo(lista) {
+  const linhas = lista.length
+    ? lista.slice(0, 6).map(item => `
+        <div class="linha-compacta">
+          <div>
+            <div class="linha-titulo">${esc(item.nome)}</div>
+            <div class="linha-subtitulo">Cód. ${esc(item.codigo)} · ${esc(item.tipo)}${item.meta ? ` · meta ${item.meta}` : ''}</div>
+          </div>
+          <div class="linha-numero">${item.inscricoes}</div>
+        </div>`).join('')
+    : '<div class="metrica-vazia">Nenhum desafio encontrado neste período.</div>';
+
+  return `
+    <section class="bloco-painel">
+      <div class="secao-cabecalho">
+        <h3 class="secao-titulo">Desempenho por desafio</h3>
+        <button class="btn-link-discreto" type="button" onclick="abrirAbaPorId('desafios')">Ver todos</button>
+      </div>
+      <div class="lista-compacta">${linhas}</div>
+    </section>`;
+}
+
+function renderizarBlocoOrigens(lista) {
+  const linhas = lista.length
+    ? lista.map(item => `
+        <div class="linha-compacta">
+          <div>
+            <div class="linha-titulo">${esc(item.nome || item.ref)}</div>
+            <div class="linha-subtitulo">${esc(item.tipo || '-')}</div>
+          </div>
+          <div class="linha-numero">${item.inscricoes}</div>
+        </div>`).join('')
+    : '<div class="metrica-vazia">Sem inscrições atribuídas neste escopo.</div>';
+
+  return `
+    <section class="bloco-painel">
+      <div class="secao-cabecalho">
+        <h3 class="secao-titulo">Principais origens</h3>
+        <button class="btn-link-discreto" type="button" onclick="abrirAbaPorId('divulgadores')">Ver todos</button>
+      </div>
+      <div class="lista-compacta">${linhas}</div>
+    </section>`;
+}
+
+function renderizarBlocoMetricasV2(titulo, lista, limite) {
+  const itens = (lista || []).slice(0, limite || 6);
+  return `
+    <section class="bloco-painel">
+      <h3 class="metrica-titulo">${esc(titulo)}</h3>
+      ${itens.length ? itens.map(item => `
+        <div class="metrica-linha">
+          <span class="metrica-nome">${esc(item.nome)}</span>
+          <strong class="metrica-numero">${item.inscricoes}</strong>
+        </div>`).join('') : '<div class="metrica-vazia">Sem dados.</div>'}
+    </section>`;
+}
+
+function renderizarCardsDesafios(lista) {
+  if (!lista.length) return '<div class="vazio">Nenhum desafio encontrado neste período.</div>';
+
+  return lista.map(item => `
+    <article class="card-desafio">
+      <div class="card-desafio-topo">
+        <div class="desafio-identificacao">
+          <div class="desafio-codigo">Cód. ${esc(item.codigo)} · ${esc(item.periodo || '')}</div>
+          <div class="desafio-nome">${esc(item.nome)}</div>
+          <span class="desafio-tipo">${esc(item.tipo)}</span>
+        </div>
+        <div class="desafio-resultado">
+          <strong>${item.inscricoes}</strong>
+          <span>inscrições</span>
+        </div>
+      </div>
+      <div class="barra">
+        <div class="barra-preenchida" style="width:${Math.min(100, Number(item.percentual || 0))}%"></div>
+      </div>
+      <div class="card-desafio-acoes">
+        <div class="desafio-meta-texto">${item.meta ? `Meta ${item.meta} · ${Number(item.percentual || 0).toFixed(1)}%` : 'Sem meta individual'}</div>
+        <button class="btn-link-discreto" type="button" onclick="abrirDesafio('${escJs(item.id)}')">Analisar</button>
+      </div>
+    </article>`).join('');
+}
+
+function renderizarDivulgadores(lista) {
+  if (!lista.length) return '<div class="vazio">Nenhum divulgador cadastrado.</div>';
+
+  return lista.map(item => {
+    const ativo = String(item.status || '').toUpperCase() === 'ATIVO';
+    return `
+      <article class="divulgador-linha">
+        <div>
+          <div class="origem-nome-com-status">
+            <span class="indicador-status ${ativo ? 'ativo' : 'inativo'}"></span>
+            <div class="origem-nome">${esc(item.nome || item.ref)}</div>
+          </div>
+          <div class="divulgador-meta">${esc(item.tipo || '-')} ${item.cidadeUf ? '· ' + esc(item.cidadeUf) : ''} · histórico ${item.totalHistorico || 0}</div>
+          <div class="divulgador-linha-acoes">
+            ${ativo ? `<button class="btn-mini primario" type="button" onclick="copiarLink('${escJs(item.link)}', this)">COPIAR LINK</button>` : ''}
+            <button class="btn-mini ${ativo ? 'perigo' : ''}" type="button" onclick="alterarStatusDivulgador('${escJs(item.ref)}','${ativo ? 'INATIVO' : 'ATIVO'}',this)">${ativo ? 'INATIVAR' : 'REATIVAR'}</button>
+          </div>
+        </div>
+        <div class="divulgador-qtd-v2">
+          <strong>${item.inscricoes}</strong>
+          <span>${item.inscricoes === 1 ? 'inscrição' : 'inscrições'}</span>
+        </div>
+      </article>`;
+  }).join('');
+}
+
+function renderizarPeriodos(dados) {
+  const select = document.getElementById('periodo-configuracoes');
+  document.getElementById('periodo-atual').textContent = dados.periodoSelecionado || '';
+
+  if (!select) return;
+  select.innerHTML = (dados.periodos || []).map(periodo => `
+    <option value="${esc(periodo)}" ${periodo === dados.periodoSelecionado ? 'selected' : ''}>${esc(periodo)}</option>
+  `).join('');
+
+  const metaGeral = document.getElementById('meta-geral-configuracoes');
+  if (metaGeral) metaGeral.value = Number(dados.metaGeral || 0) || '';
+
+  const area = document.getElementById('metas-desafios-configuracoes');
+  if (area) {
+    area.innerHTML = (dados.desafios || []).map(item => `
+      <div class="meta-config-item">
+        <div>
+          <div class="meta-config-nome">${esc(item.nome)}</div>
+          <div class="meta-config-codigo">Cód. ${esc(item.codigo)} · ${esc(item.tipo)}</div>
+        </div>
+        <input class="campo-input meta-desafio-input" type="number" min="0" step="1" data-id-desafio="${esc(item.id)}" value="${item.meta || ''}" placeholder="Sem meta">
+      </div>`).join('') || '<div class="metrica-vazia">Sem desafios neste período.</div>';
+  }
+}
+
+function aplicarConfiguracoes() {
+  const periodo = document.getElementById('periodo-configuracoes').value;
+  const metaGeral = document.getElementById('meta-geral-configuracoes').value;
+  const metasDesafios = {};
+
+  document.querySelectorAll('.meta-desafio-input').forEach(input => {
+    const valor = Number(input.value || 0);
+    if (valor > 0) metasDesafios[input.dataset.idDesafio] = valor;
+  });
+
+  const botao = document.getElementById('btn-aplicar-configuracoes');
+  if (botao) {
+    botao.disabled = true;
+    botao.textContent = 'SALVANDO...';
+  }
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = 'SALVAR E APLICAR';
+      }
+      if (!res || res.status !== 'OK') {
+        window.alert(res && res.mensagem ? res.mensagem : 'Não foi possível salvar as metas.');
+        return;
+      }
+      fecharConfiguracoes();
+      carregarDados(periodo, '');
+    })
+    .withFailureHandler(erro => {
+      console.error(erro);
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = 'SALVAR E APLICAR';
+      }
+      window.alert('Não foi possível salvar as configurações.');
+    })
+    .salvarMetasMarketingV2({ periodo, metaGeral, metasDesafios });
+}
+
+function trocarDesafioPainel(idDesafio) {
+  carregarDados(dadosAtuais ? dadosAtuais.periodoSelecionado : '', idDesafio || '');
+}
+
+function limparFiltroDesafio() {
+  carregarDados(dadosAtuais ? dadosAtuais.periodoSelecionado : '', '');
+}
+
+function abrirDesafio(idDesafio) {
+  abaAtualMarketing = 'visao-geral';
+  carregarDados(dadosAtuais ? dadosAtuais.periodoSelecionado : '', idDesafio);
+}
+
+function abrirAba(id, botao) {
+  abaAtualMarketing = id;
+  document.querySelectorAll('.secao').forEach(el => el.classList.remove('ativa'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('ativa'));
+  const secao = document.getElementById(id);
+  if (secao) secao.classList.add('ativa');
+  if (botao) botao.classList.add('ativa');
+}
+
+function abrirAbaPorId(id) {
+  const botao = document.querySelector(`.nav-btn[data-aba="${id}"]`);
+  abrirAba(id, botao);
+  window.scrollTo({ top: Math.max(0, document.querySelector('.navegacao').offsetTop - 8), behavior: 'smooth' });
+}
+
+function ativarAbaAtualMarketing() {
+  const id = document.getElementById(abaAtualMarketing) ? abaAtualMarketing : 'visao-geral';
+  const botao = document.querySelector(`.nav-btn[data-aba="${id}"]`);
+  abrirAba(id, botao);
+}
+</script>
