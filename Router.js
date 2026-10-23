@@ -3,6 +3,19 @@ const DG_ROUTER_AREAS_PERMITIDAS = ['divulgadores', 'contatos'];
 
 function doGet(e) {
   const parametros = e && e.parameter ? e.parameter : {};
+  // Diagnostico isolado: sem leitura de planilhas, sessao ou dados pessoais.
+  // Se este endpoint nao abrir fora da conta proprietaria, o bloqueio ocorre
+  // antes da execucao da aplicacao ou na camada de entrega do Google.
+  if (parametros.diagnostico === 'acesso') {
+    console.info('MARKETING_DGMB_DIAGNOSTICO_ACESSO_DOGET');
+    return HtmlService.createHtmlOutput(
+      '<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<title>Diagnostico de acesso</title></head>' +
+      '<body><p>MARKETING_DGMB_ACESSO_OK</p></body></html>'
+    ).setTitle('Diagnostico de acesso - Marketing Desafio Giro');
+  }
+
   const area = String(parametros.area || '').trim().toLowerCase();
   const areaPermitida = DG_ROUTER_AREAS_PERMITIDAS.includes(area)
     ? area
