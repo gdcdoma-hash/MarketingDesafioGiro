@@ -63,3 +63,14 @@ function criarContexto() {
 }
 
 console.log('OK: rota de diagnostico isolada e rotas normais preservadas.');
+
+
+{
+  const { contexto } = criarContexto();
+  assert.equal(contexto.dg_router_urlCanonica_('https://script.google.com/macros/u/1/s/DEPLOY/exec?area=contatos'), 'https://script.google.com/macros/s/DEPLOY/exec');
+  assert.equal(contexto.dg_router_urlCanonica_('https://script.google.com/macros/s/DEPLOY/exec'), 'https://script.google.com/macros/s/DEPLOY/exec');
+  for (const arquivo of ['Index.html', 'RelIndex.html']) {
+    const html = fs.readFileSync(path.join(__dirname, '..', arquivo), 'utf8');
+    assert.match(html, /webAppUrl \?>\?authuser=0&amp;area=/);
+  }
+}
