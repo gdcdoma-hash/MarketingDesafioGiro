@@ -32,7 +32,7 @@ function doGet(e) {
 
 function dg_router_criarPaginaDivulgadores_() {
   const template = HtmlService.createTemplateFromFile('Index');
-  template.webAppUrl = ScriptApp.getService().getUrl();
+  template.webAppUrl = dg_router_urlCanonica_(ScriptApp.getService().getUrl());
 
   const output = template
     .evaluate()
@@ -50,10 +50,21 @@ function dg_router_criarPaginaDivulgadores_() {
 
 function rel_criarPaginaContatos_() {
   const template = HtmlService.createTemplateFromFile('RelIndex');
-  template.webAppUrl = ScriptApp.getService().getUrl();
+  template.webAppUrl = dg_router_urlCanonica_(ScriptApp.getService().getUrl());
 
   return template
     .evaluate()
     .setTitle('Contatos e Relacionamento — Desafio Giro')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+
+
+// Mantem links internos independentes do indice da conta que abriu o editor.
+// authuser=0 reduz a selecao implicita de outra sessao pelo Google;
+// nao substitui autorizacao nem garante suporte a multi-login da plataforma.
+function dg_router_urlCanonica_(url) {
+  return String(url || '').trim()
+    .replace(/^(https:\/\/script\.google\.com\/macros)\/u\/\d+\/s\//, '$1/s/')
+    .split(/[?#]/)[0];
 }
