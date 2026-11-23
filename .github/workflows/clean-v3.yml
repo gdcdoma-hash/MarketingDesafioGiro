@@ -5,6 +5,7 @@ on:
       - 'v3/**'
       - 'scripts/preparar-v3-limpa.cjs'
       - 'tests/v3_clean.test.cjs'
+      - 'tests/v3_ui_safety.test.cjs'
       - '.github/workflows/clean-v3.yml'
   workflow_dispatch:
 
@@ -25,4 +26,4 @@ jobs:
       - name: Testar V3 limpa sem acesso a dados reais
         run: |
           node --check scripts/preparar-v3-limpa.cjs
-          node --test tests/v3_clean.test.cjs
+          node --test tests/v3_clean.test.cjs tests/v3_ui_safety.test.cjs
