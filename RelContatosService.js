@@ -43,7 +43,7 @@ function rel_contatos_referenciasMarketing_() {
   const registros = lerAbaComoObjetos_(
     dg_abrirPlanilhaMarketingRelacionamento_(), 'Marketing'
   );
-  const vistos = {};
+  const vistos = Object.create(null);
   return registros.filter(item => {
     const ref = rel_contatos_texto_(item.REF);
     const ativo = rel_contatos_texto_(item.STATUS).toUpperCase() === 'ATIVO';
