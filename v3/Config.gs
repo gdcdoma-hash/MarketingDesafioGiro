@@ -77,10 +77,18 @@ function v3_lock_(f){
 }
 function v3_dataISO_(v){
  const s=v3_texto_(v);
- if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
- const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
- if(m)return m[3]+'-'+m[2]+'-'+m[1];
- return '';
+ let iso='';
+ if(/^\d{4}-\d{2}-\d{2}$/.test(s))iso=s;
+ else{
+  const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s|$)/);
+  if(m)iso=m[3]+'-'+m[2]+'-'+m[1];
+ }
+ if(!iso)return '';
+ const [ano,mes,dia]=iso.split('-').map(Number);
+ if(ano<1900||ano>2100||mes<1||mes>12||dia<1||dia>31)return '';
+ const d=new Date(Date.UTC(ano,mes-1,dia));
+ return d.getUTCFullYear()===ano&&d.getUTCMonth()+1===mes&&
+  d.getUTCDate()===dia?iso:'';
 }
 function v3_hoje_(){return Utilities.formatDate(new Date(),Session.getScriptTimeZone()||'America/Fortaleza','yyyy-MM-dd');}
 function v3_elegivel_(r){
