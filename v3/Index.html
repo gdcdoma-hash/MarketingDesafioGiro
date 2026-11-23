@@ -197,9 +197,22 @@ function renderDivulgadores(){
  const data=state.painel.divulgadores.filter(x=>[x.ref,x.nome].some(v=>String(v).toLowerCase().includes(q)));
  E('m-divulgadores').innerHTML='<div class="scroll"><table><thead><tr><th>Origem</th><th>Inscrições</th><th>Status</th><th></th></tr></thead><tbody>'+
  data.slice(0,100).map(x=>'<tr><td><strong>'+esc(x.nome)+'</strong><small>REF '+esc(x.ref)+'</small></td><td>'+brl(x.inscricoes)+'</td><td><span class="pill '+(x.status==='ATIVO'?'':'gray')+'">'+esc(x.status)+'</span></td><td>'+
+ (state.opt.ambiente==='PROD'&&x.status==='ATIVO'?'<button class="btn light mini" data-copy-ref="'+esc(x.ref)+'">Copiar link</button> ':'')+
  (state.opt.edicao?'<button class="btn light mini" data-status-ref="'+esc(x.ref)+'" data-status-to="'+(x.status==='ATIVO'?'INATIVO':'ATIVO')+'">'+(x.status==='ATIVO'?'Inativar':'Ativar')+'</button>':'')+'</td></tr>').join('')+'</tbody></table></div>'+
  (data.length>100?'<p class="muted">Mostrando os 100 primeiros. Use a busca.</p>':'');
  E('m-divulgadores').querySelectorAll('[data-status-ref]').forEach(el=>el.addEventListener('click',()=>alternarDivulgador(el.dataset.statusRef,el.dataset.statusTo)));
+ E('m-divulgadores').querySelectorAll('[data-copy-ref]').forEach(el=>el.addEventListener('click',()=>copiarLinkRef(el.dataset.copyRef)));
+}
+async function copiarLinkRef(ref){
+ if(state.opt.ambiente!=='PROD'){aviso('Links públicos bloqueados no LAB.',true);return;}
+ if(!/^[A-Za-z0-9_-]{1,100}$/.test(ref)){aviso('REF inválida.',true);return;}
+ const url='https://desafiogiro.gmbd.com.br/?ref='+encodeURIComponent(ref);
+ try{
+  if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(url);}
+  else{const i=document.createElement('textarea');i.value=url;document.body.appendChild(i);i.select();
+   if(!document.execCommand('copy'))throw Error('Cópia não disponível.');i.remove();}
+  aviso('Link de divulgação copiado.');
+ }catch(e){aviso('Não foi possível copiar: '+e.message,true);}
 }
 async function alternarDivulgador(ref,status){
  if(!confirm('Alterar status da REF '+ref+' para '+status+'?'))return;
