@@ -300,3 +300,49 @@ test('Autoteste de aceite V3 confirma competência de dezembro e janeiro sem gra
  const prod=context('PROD','',f);
  assert.throws(()=>prod.ctx.v3_lab_aceite(),/somente no LAB/);
 });
+
+test('Fila padrão exclui recusas mesmo com etapa Para Contatar',()=>{
+ const c=context();
+ const header=c.fixtures.mark.Relacionamento_Contatos[0];
+ const row=c.fixtures.mark.Relacionamento_Contatos[1];
+ row[header.indexOf('SITUACAO')]='SEM_INTERESSE';
+ assert.equal(row[header.indexOf('ETAPA')],'PARA_CONTATAR');
+ const principal=c.ctx.v3_contatos({}).dados;
+ assert.equal(principal.total,2,'Contato recusado não integra fila de ação');
+ const todos=c.ctx.v3_contatos({etapa:'TODOS'}).dados;
+ assert.equal(todos.total,4,'Contato recusado permanece para consulta e auditoria');
+ assert.equal(todos.indicadores.BLOQUEADOS,2,'Opt-out e etapa Não Contatar');
+ const impedido=todos.registros.find(r=>r.telefone==='5598991234501');
+ assert.equal(impedido.bloqueado,true);
+ assert.equal(c.updates,0,'Listagem não altera situação ou etapa');
+});
+test('Retornar hoje inclui pendentes vencidos e exclui bloqueados',()=>{
+ const c=context(), h=c.fixtures.mark.Relacionamento_Contatos[0];
+ const prazo=h.indexOf('DATA_PROXIMO_RETORNO'), etapa=h.indexOf('ETAPA'),situacao=h.indexOf('SITUACAO');
+ const um=c.fixtures.mark.Relacionamento_Contatos[1];
+ const dois=c.fixtures.mark.Relacionamento_Contatos[2];
+ const tres=c.fixtures.mark.Relacionamento_Contatos[3];
+ um[etapa]='RETORNAR_DEPOIS';um[prazo]='2026-12-10';
+ dois[etapa]='RETORNAR_DEPOIS';dois[prazo]='2026-12-12';
+ tres[etapa]='RETORNAR_DEPOIS';tres[prazo]='2026-12-08';
+ tres[situacao]='SEM_INTERESSE';
+ const res=c.ctx.v3_contatos({etapa:'TODOS'}).dados;
+ assert.equal(res.indicadores.RETORNAR_HOJE,2);
+ assert.equal(res.indicadores.BLOQUEADOS,2);
+ const pendentes=c.ctx.v3_contatos({etapa:'TODOS',retornoPendente:true}).dados;
+ assert.equal(pendentes.total,2);
+ assert.ok(pendentes.registros.every(c=>c.bloqueado===false));
+ assert.equal(c.updates,0);
+});
+test('Datas inválidas não devem virar tarefas de retorno',()=>{
+ const c=context();
+ assert.equal(c.ctx.v3_dataISO_('2026-02-29'),'');
+ assert.equal(c.ctx.v3_dataISO_('31/02/2026'),'');
+ assert.equal(c.ctx.v3_dataISO_('2026-13-01'),'');
+ assert.equal(c.ctx.v3_dataISO_('2028-02-29'),'2028-02-29');
+ assert.equal(c.ctx.v3_dataISO_('12/12/2026'),'2026-12-12');
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',
+  etapa:'RETORNAR_DEPOIS',retorno:'2026-02-29'}),/data/);
+ assert.equal(c.updates,before,'Não grava data impossível');
+});
