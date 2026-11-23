@@ -86,8 +86,16 @@
 
       <select
         id="periodo-configuracoes"
-        class="campo-input">
+        class="campo-input"
+        onchange="atualizarDesafiosConfiguracoes()">
         <option>Carregando...</option>
+      </select>
+
+      <label class="campo-label" for="desafio-configuracoes">
+        Desafio
+      </label>
+      <select id="desafio-configuracoes" class="campo-input">
+        <option value="">Todos os desafios do período</option>
       </select>
 
       <button
