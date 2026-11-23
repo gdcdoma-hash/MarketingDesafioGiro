@@ -238,8 +238,15 @@ function v3_salvarContato(dados){
   if(Object.prototype.hasOwnProperty.call(dados,'resultadoContato')){
    const resultado=v3_texto_(dados.resultadoContato).toUpperCase();
    const permitidos=['AGUARDANDO_RESPOSTA','EM_CONVERSA','RETORNAR_DEPOIS',
-    'SEM_INTERESSE','NAO_DESEJA_CONTATO','FINALIZADO'];
+    'SEM_INTERESSE','NAO_DESEJA_CONTATO','FINALIZADO','REATIVADO'];
    if(!permitidos.includes(resultado))throw Error('Resultado do contato inválido.');
+   if(resultado==='REATIVADO'){
+    if(!v3_bloqueadoContato_(c)||v3_normal_(c.VALIDADE)==='INVALIDO')
+     throw Error('Reativação permitida apenas para contato bloqueado com telefone válido.');
+    if(dados.autorizarReativacao!==true||
+       edit.ETAPA!=='PARA_CONTATAR'||edit.SITUACAO!=='PODE_CONTATAR')
+     throw Error('Reativação exige confirmação, etapa e situação corretas.');
+   }
    if(resultado==='RETORNAR_DEPOIS'&&edit.ETAPA!=='RETORNAR_DEPOIS')
     throw Error('Retorno exige a etapa Retornar depois e uma data.');
    if(['SEM_INTERESSE','NAO_DESEJA_CONTATO'].includes(resultado)&&
