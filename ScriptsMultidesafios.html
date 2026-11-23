@@ -20,14 +20,15 @@ function renderizar(dados) {
   renderizarPeriodos(dados);
 
   const desafio = dados.desafioSelecionado;
-  const escopo = desafio
-    ? `Cód. ${esc(desafio.codigo)} · ${esc(desafio.nome)}`
-    : 'Todos os desafios do período';
-  const metaLabel = desafio ? 'Meta do desafio' : 'Meta geral';
+  const escopo = dados.filtroDesafioInvalido ? 'Desafio indisponível neste mês' :
+    (desafio ? `Cód. ${esc(desafio.codigo)} · ${esc(desafio.nome)}` : 'Todos os desafios do mês');
+  const metaLabel = dados.filtroDesafioInvalido ? 'Sem desafio válido neste mês' :
+    (desafio ? 'Meta do desafio' : 'Meta geral do mês');
   const totalDesafios = Array.isArray(dados.desafios) ? dados.desafios.length : 0;
   const divulgadores = filtrarDivulgadores(dados.divulgadores || []);
 
   document.getElementById('conteudo').innerHTML = `
+    ${dados.filtroDesafioInvalido ? '<div class="erro" role="alert">O desafio escolhido não pertence ao mês selecionado. Selecione um desafio válido.</div>' : ''}
     <div class="topo-contexto">
       <div class="escopo-atual">${escopo}</div>
       ${desafio ? '<button class="btn-link-discreto" type="button" onclick="limparFiltroDesafio()">Ver geral</button>' : ''}
@@ -50,6 +51,7 @@ function renderizar(dados) {
       ${cardResumo(dados.totalPeriodo, desafio ? 'Inscrições neste desafio' : 'Inscrições no período')}
       ${cardResumo(dados.totalAtribuidas, 'Com origem identificada')}
       ${cardResumo(dados.totalDireto, 'Direto / sem referência')}
+      ${Number(dados.totalRefNaoCadastradas || 0) > 0 ? cardResumo(dados.totalRefNaoCadastradas, 'REF sem cadastro') : ''}
       ${cardResumo(totalDesafios, 'Desafios no período')}
     </section>
 
@@ -58,6 +60,7 @@ function renderizar(dados) {
         <label class="campo-label" for="filtro-desafio-painel">Analisar desafio</label>
         <select id="filtro-desafio-painel" class="campo-input" onchange="trocarDesafioPainel(this.value)">
           <option value="">Todos os desafios</option>
+          ${dados.filtroDesafioInvalido ? `<option value="${esc(dados.idDesafioSelecionado)}" selected disabled>Desafio indisponível neste mês</option>` : ''}
           ${(dados.desafios || []).map(item => `
             <option value="${esc(item.id)}" ${String(item.id) === String(dados.idDesafioSelecionado || '') ? 'selected' : ''}>
               ${esc(item.codigo)} · ${esc(item.nome)}
@@ -219,7 +222,7 @@ function renderizarDivulgadores(lista) {
           </div>
           <div class="divulgador-meta">${esc(item.tipo || '-')} ${item.cidadeUf ? '· ' + esc(item.cidadeUf) : ''} · histórico ${item.totalHistorico || 0}</div>
           <div class="divulgador-linha-acoes">
-            ${ativo ? `<button class="btn-mini primario" type="button" onclick="copiarLink('${escJs(item.link)}', this)">COPIAR LINK</button>` : ''}
+            ${ativo && item.link ? `<button class="btn-mini primario" type="button" onclick="copiarLink('${escJs(item.link)}', this)">COPIAR LINK</button>` : ''}
             <button class="btn-mini ${ativo ? 'perigo' : ''}" type="button" onclick="alterarStatusDivulgador('${escJs(item.ref)}','${ativo ? 'INATIVO' : 'ATIVO'}',this)">${ativo ? 'INATIVAR' : 'REATIVAR'}</button>
           </div>
         </div>
