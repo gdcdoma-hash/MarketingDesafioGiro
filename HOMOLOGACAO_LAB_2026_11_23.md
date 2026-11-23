@@ -52,13 +52,14 @@ A planilha de Marketing LAB tem `Marketing` e as cinco abas `Relacionamento_*` e
 Em um computador autenticado com a conta que **será proprietária do novo projeto LAB**:
 
 1. Entrar em <https://script.google.com/home/projects/create> e criar um projeto **autônomo** chamado `DG-Marketing-LAB-2026`. Não editar nem duplicar a implantação de produção. Copiar o **ID do script** em **Configurações do projeto → IDs** e conferir que é diferente do ID antigo (início `1kGOdB_gSW...`).
-2. Obter a ramificação `fix/reativar-marketing-relacionamento-20261123` de <https://github.com/gdcdoma-hash/MarketingDesafioGiro>. Instalar `Node.js` e o Google `clasp`, entrar em `clasp login` e ativar a API do Apps Script na conta quando solicitado (exigência documentada pelo Google).
-3. Na pasta do repositório executar:
+2. Obter a **ramificação integrada** `integrate/painel-v2-marketing-relacionamento-20261123` de <https://github.com/gdcdoma-hash/MarketingDesafioGiro/tree/integrate/painel-v2-marketing-relacionamento-20261123> pelo menu **Code → Download ZIP** e extrair em uma pasta local. **Não usar a ramificação antiga `fix/reativar-marketing-relacionamento-20261123` isoladamente**, pois ela não contém a interface multidesafios integrada. Instalar `Node.js` (versão 20+) e o Google `clasp`, executar `clasp login` com a mesma conta proprietária do projeto novo e habilitar a Apps Script API em <https://script.google.com/home/usersettings> quando necessário.
+3. No Windows, abrir a pasta extraída no Explorador de Arquivos, digitar `powershell` na barra de endereço e executar:
    ```powershell
    node scripts/preparar-lab.cjs --dry-run
    node scripts/preparar-lab.cjs --script-id=COLE_AQUI_O_ID_NOVO --confirm-new-lab-project=SIM
    ```
    A saída do segundo comando apresenta uma nova pasta `build/lab-...`.
+   O argumento `--script-id` deve receber o **ID do novo projeto LAB** copiado de Configurações do projeto; não cadastrar esse identificador em arquivos versionados no GitHub.
 4. **Apenas dentro dessa pasta nova**, conferir se o ID em `.clasp.json` corresponde ao novo projeto. Executar `clasp push`, sem `--force`. A ferramenta de preparação não faz push nem deploy automaticamente. Nunca executar `clasp push` na raiz do repositório.
 5. Configurar as três Script Properties de LAB listadas acima, executar `dg_lab_autoteste()` (esperado `status: 'OK'`) e somente então implantar o Web App **privado** no novo projeto. Não fornecer o endereço a participantes reais.
 6. O link de divulgação gerado pelo módulo Marketing permanece **vazio no LAB** para impedir que um botão de cópia aponte ao Portal público. A abertura do WhatsApp também permanece bloqueada. Utilizar exclusivamente os IDs fictícios `9001` e `9002` nas simulações.
