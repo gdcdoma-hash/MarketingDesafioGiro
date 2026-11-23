@@ -139,4 +139,4 @@ try {
     fs.rmSync(dir,{recursive:true,force:true});
   }
 }
-console.log('OK: produção inicia leitura; 19 guardas de escrita, diagnóstico e pacote seguros.');
+console.log('OK: produção inicia leitura; 17 guardas de escrita, diagnóstico e pacote seguros.');
