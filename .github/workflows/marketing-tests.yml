@@ -38,6 +38,8 @@ jobs:
           node --check LabAutoteste.js
           node --check MarketingMultidesafios.js
           node --check scripts/preparar-lab.cjs
+          node --check scripts/preparar-producao.cjs
+          node --check ProdAutoteste.js
           test ! -e .clasp.json
           node -e "const m=require('./appsscript.json');if(m.webapp.access!=='MYSELF')process.exit(1);"
       - name: Executar testes (nenhum dado real)
@@ -55,3 +57,4 @@ jobs:
           node tests/periodo_competencia_desafio.test.js
           node --test tests/painel_competencia.test.cjs tests/painel_competencia_ui.test.cjs
           node tests/integracao_painel_v2.test.js
+          node tests/prod_release_guard.test.js
