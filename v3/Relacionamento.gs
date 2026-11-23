@@ -238,12 +238,16 @@ function v3_salvarContato(dados){
   if(Object.prototype.hasOwnProperty.call(dados,'observacao')){
    const val=v3_texto_(dados.observacao);
    if(val.length>2000)throw Error('Observação muito longa.');
-   edit.OBSERVACAO=v3_seguroCelula_(val);audit.push(['OBSERVACAO','[alterada]','[alterada]']);
+   edit.OBSERVACAO=v3_seguroCelula_(val);
+   if(val!==v3_texto_(c.OBSERVACAO))
+    audit.push(['OBSERVACAO','[texto anterior]','[texto atualizado]']);
   }
   if(Object.prototype.hasOwnProperty.call(dados,'nomeContato')){
    const val=v3_texto_(dados.nomeContato);
    if(val.length>120)throw Error('Nome muito longo.');
    edit.NOME_CONTATO=v3_seguroCelula_(val);
+   if(val!==v3_texto_(c.NOME_CONTATO))
+    audit.push(['NOME_CONTATO','[nome anterior]','[nome atualizado]']);
   }
   if(Object.prototype.hasOwnProperty.call(dados,'modalidade')){
    const val=v3_texto_(dados.modalidade).toUpperCase();
@@ -252,6 +256,10 @@ function v3_salvarContato(dados){
    edit.MODALIDADE=val;audit.push(['MODALIDADE',c.MODALIDADE,val]);
   }
   if(!Object.keys(edit).length)throw Error('Nenhuma alteração fornecida.');
+  if(Object.prototype.hasOwnProperty.call(edit,'DATA_PROXIMO_RETORNO')&&
+     edit.DATA_PROXIMO_RETORNO!==v3_texto_(c.DATA_PROXIMO_RETORNO))
+   audit.push(['RETORNO',v3_texto_(c.DATA_PROXIMO_RETORNO),
+    edit.DATA_PROXIMO_RETORNO||'[removido]']);
   const depois={...c,...edit};
   const desbloqueio=v3_bloqueadoContato_(c)&&!v3_bloqueadoContato_(depois);
   if(desbloqueio){
