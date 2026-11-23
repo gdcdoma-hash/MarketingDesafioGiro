@@ -49,3 +49,4 @@ jobs:
           node tests/lab_bundle.test.js
           node tests/lab_autoteste.test.js
           node tests/ref_reservados.test.js
+          node tests/campanhas_etapas_dashboard.test.js
