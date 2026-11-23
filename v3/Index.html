@@ -294,15 +294,30 @@ function renderContatos(){
  }));
 }
 function pagina(delta){state.pagina+=delta;carregarContatos();}
+function motivoBloqueioConvite(c,etapa,situacao){
+ if(!c||state.opt.ambiente==='LAB')return 'Convites bloqueados no LAB.';
+ if(!state.opt.edicao)return 'Convites desativados enquanto a produção está em modo leitura.';
+ const etapaAtual=etapa||c.etapa,situacaoAtual=situacao||c.situacao;
+ if(etapaAtual==='NAO_CONTATAR'||['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(situacaoAtual)||
+  ['NAO_CONTATAR','SEM_INTERESSE'].includes(c.resultado)||c.validade==='INVALIDO')
+  return 'Contato sem permissão para convite ou número inválido.';
+ if(!/^\d{12,15}$/.test(c.telefone))return 'Telefone não possui formato internacional válido.';
+ return '';
+}
+function atualizarBloqueioConvite(){
+ const c=state.ultimo;
+ E('convite-whats').disabled=!!motivoBloqueioConvite(c,E('edit-etapa').value,E('edit-situacao').value);
+}
 function abrirContato(c){
  state.ultimo=c;E('edit-nome').textContent=c.nome;E('edit-meta').textContent=c.exibicao+' · '+c.cidadeUf+' · '+c.perfil;
  E('edit-nome-contato').value=c.nomeContato;E('edit-modalidade').value=['CICLISMO','CAMINHADA_CORRIDA','CICLISMO_E_CAMINHADA_CORRIDA'].includes(c.modalidade)?c.modalidade:'NAO_INFORMADO';
  E('edit-etapa').value=c.etapa;E('edit-situacao').value=c.situacao;
  E('edit-retorno').value=c.retorno||'';E('edit-obs').value=c.observacao||'';
- E('convite-whats').disabled=state.opt.ambiente==='LAB'||c.etapa==='NAO_CONTATAR'||
- ['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(c.situacao)||c.resultado==='NAO_CONTATAR';
+ atualizarBloqueioConvite();
  options(E('edit-origem'),[{value:'',label:'Escolha uma origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
  E('edit-historico').textContent='';
+ E('edit-etapa').onchange=atualizarBloqueioConvite;
+ E('edit-situacao').onchange=atualizarBloqueioConvite;
  E('modal-contato').showModal();
 }
 async function salvarContato(){
@@ -319,11 +334,8 @@ function abrirConvite(){
  const c=state.ultimo,d=state.opt.desafios.find(x=>x.id===E('convite-desafio').value);
  const ref=E('convite-ref').value;
  if(!d){aviso('Selecione um desafio.',true);return;}
- if(state.opt.ambiente==='LAB'){aviso('WhatsApp bloqueado no LAB.',true);return;}
- if(c.etapa==='NAO_CONTATAR'||c.resultado==='NAO_CONTATAR'||['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(c.situacao)){
-  aviso('Contato marcado para não receber mensagens.',true);return;
- }
- if(!/^\d{10,15}$/.test(c.telefone)){aviso('Telefone inválido.',true);return;}
+ const bloqueio=motivoBloqueioConvite(c,E('edit-etapa').value,E('edit-situacao').value);
+ if(bloqueio){aviso(bloqueio,true);atualizarBloqueioConvite();return;}
  const primeiro=c.nome.split(/\s+/)[0];const url='https://desafiogiro.gmbd.com.br/'+(ref?'?ref='+encodeURIComponent(ref):'');
  const msg='Olá'+(primeiro&&primeiro!=='Nome'?', '+primeiro:'')+'!\nO Desafio Giro está apresentando '+d.nome+
   ', com realização em '+d.periodo+'. Gostaria de conhecer a proposta e acompanhar as novidades?\n'+url;
