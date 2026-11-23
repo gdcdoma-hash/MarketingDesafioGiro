@@ -52,21 +52,29 @@ function rel_esporte_carregarIndicesPortal_() {
   const inscricoes = lerAbaComoObjetos_(portal, 'dgmbDesafios');
   const desafios = lerAbaComoObjetos_(portal, 'ListaDesafios');
 
-  const nomePorId = {};
+  const detalhePorId = Object.create(null);
   desafios.forEach(item => {
     const id = String(item.id_Desafio_lista || '').trim();
-    if (id) nomePorId[id] = String(item.Nome_Desafio || '');
+    if (!id) return;
+    detalhePorId[id] = {
+      nome: String(item.Nome_Desafio || ''),
+      modalidade: String(item.Modalidade_Esportiva || '')
+    };
   });
 
-  const modalidadePorId = {};
+  const modalidadePorId = Object.create(null);
   inscricoes.forEach(item => {
     const id = String(item.ID_DGMB || '').trim();
     if (!id) return;
-    const manualRegistro = String(item.Modalidade_Esportiva || '').trim();
     const idDesafio = extrairIdDesafio_(item.Observacao);
-    const flags = manualRegistro
-      ? rel_esporte_flags_(manualRegistro)
-      : rel_esporte_flags_(nomePorId[idDesafio] || '', 'NOME_DESAFIO');
+    const desafio = detalhePorId[idDesafio] || {};
+    // Prioridade: modalidade declarada na inscrição > modalidade oficial
+    // do desafio > nome inequivocamente esportivo para acervo legado.
+    const registro = rel_esporte_flags_(item.Modalidade_Esportiva);
+    const oficial = rel_esporte_flags_(desafio.modalidade);
+    const nome = rel_esporte_flags_(desafio.nome, 'NOME_DESAFIO');
+    const flags = (registro.ciclismo || registro.corrida) ? registro :
+      (oficial.ciclismo || oficial.corrida) ? oficial : nome;
     modalidadePorId[id] = rel_esporte_mesclar_(modalidadePorId[id], flags);
   });
 
