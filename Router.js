@@ -33,6 +33,7 @@ function doGet(e) {
 function dg_router_criarPaginaDivulgadores_() {
   const template = HtmlService.createTemplateFromFile('Index');
   template.webAppUrl = ScriptApp.getService().getUrl();
+  template.ambiente = dg_configPlanilhas_().ambiente;
 
   const output = template
     .evaluate()
@@ -50,6 +51,7 @@ function dg_router_criarPaginaDivulgadores_() {
 function rel_criarPaginaContatos_() {
   const template = HtmlService.createTemplateFromFile('RelIndex');
   template.webAppUrl = ScriptApp.getService().getUrl();
+  template.ambiente = dg_configPlanilhas_().ambiente;
 
   return template
     .evaluate()
