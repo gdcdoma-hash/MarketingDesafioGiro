@@ -82,7 +82,7 @@ const contextoConfiguracao = vm.createContext({
   PropertiesService: {
     getScriptProperties() {
       return { getProperty(chave) {
-        assert.equal(chave, 'DG_PORTAL_SPREADSHEET_ID');
+        assert.ok(['DG_AMBIENTE','DG_PORTAL_SPREADSHEET_ID'].includes(chave));
         return '';
       } };
     }
@@ -97,3 +97,40 @@ assert.equal(
 );
 
 console.log('Marketing/Relacionamento: 12 verificações isoladas aprovadas.');
+
+{
+  function contextoLab(props) {
+    const ctx = vm.createContext({
+      PropertiesService: {
+        getScriptProperties() { return { getProperty(chave) { return props[chave] || ''; } }; }
+      },
+      SpreadsheetApp: { openById(id) { return id; } }
+    });
+    vm.runInContext(sourceCode + '\n' + sourcePlanilhas, ctx);
+    return ctx;
+  }
+  const lab = contextoLab({
+    DG_AMBIENTE: 'LAB',
+    DG_PORTAL_SPREADSHEET_ID: 'PORTAL_LAB_FICTICIO',
+    DG_MARKETING_SPREADSHEET_ID: 'MARKETING_LAB_FICTICIO'
+  });
+  assert.equal(lab.dg_abrirPlanilhaPortal_(), 'PORTAL_LAB_FICTICIO');
+  assert.equal(lab.dg_abrirPlanilhaMarketingRelacionamento_(), 'MARKETING_LAB_FICTICIO');
+  assert.throws(() => contextoLab({ DG_AMBIENTE: 'LAB' }).dg_abrirPlanilhaPortal_(), /LAB sem/);
+  assert.throws(() => contextoLab({
+    DG_AMBIENTE: 'LAB',
+    DG_PORTAL_SPREADSHEET_ID: '1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ',
+    DG_MARKETING_SPREADSHEET_ID: 'MARKETING_LAB_FICTICIO'
+  }).dg_abrirPlanilhaPortal_(), /LAB não pode/);
+  assert.throws(() => contextoLab({
+    DG_AMBIENTE: 'LAB',
+    DG_PORTAL_SPREADSHEET_ID: 'PORTAL_LAB_FICTICIO',
+    DG_MARKETING_SPREADSHEET_ID: '1znhdMCmPsMZ6viMJtWl2wXg3G7yWh-0Xu0M8IcJ-9ao'
+  }).dg_abrirPlanilhaMarketingRelacionamento_(), /LAB não pode/);
+  assert.throws(() => contextoLab({
+    DG_AMBIENTE: 'LAB',
+    DG_PORTAL_SPREADSHEET_ID: 'BASE_UNICA',
+    DG_MARKETING_SPREADSHEET_ID: 'BASE_UNICA'
+  }).dg_abrirPlanilhaPortal_(), /LAB não pode/);
+  assert.throws(() => contextoLab({ DG_AMBIENTE: 'DEV' }).dg_abrirPlanilhaPortal_(), /inválido/);
+}
