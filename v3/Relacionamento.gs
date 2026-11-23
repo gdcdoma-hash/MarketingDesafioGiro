@@ -193,11 +193,11 @@ function v3_prepararHistorico_(book,phone,alteracoes){
    DETALHE:v3_seguroCelula_(detalhe||'Alteração pelo sistema V3'),USUARIO:usuario};
   return t.header.map(h=>Object.prototype.hasOwnProperty.call(obj,h)?obj[h]:'');
  });
- return {sheet:t.sheet,rows:rows,colunas:t.header.length};
+ return {sheet:t.sheet,rows:rows,colunas:t.header.length,inicio:0};
 }
 function v3_gravarHistorico_(preparado){
  if(!preparado||!preparado.rows.length)return;
- preparado.sheet.getRange(preparado.sheet.getLastRow()+1,1,
+ preparado.sheet.getRange(preparado.inicio,1,
   preparado.rows.length,preparado.colunas).setValues(preparado.rows);
 }
 function v3_salvarContato(dados){
@@ -273,6 +273,7 @@ function v3_salvarContato(dados){
   const historico=v3_prepararHistorico_(book,phone,alteracoes);
   for(const campo of Object.keys(edit))
    if(tabela.header.indexOf(campo)<0)throw Error('Coluna ausente: '+campo);
+  if(historico)historico.inicio=v3_prepararEspaco_(historico.sheet,historico.rows.length);
   edit.ATUALIZADO_EM=new Date();
   v3_gravarCampos_(tabela,c,edit);
   v3_gravarHistorico_(historico);
