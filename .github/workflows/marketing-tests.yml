@@ -48,3 +48,4 @@ jobs:
           node tests/rel_whatsapp_campanhas.test.js
           node tests/lab_bundle.test.js
           node tests/lab_autoteste.test.js
+          node tests/ref_reservados.test.js
