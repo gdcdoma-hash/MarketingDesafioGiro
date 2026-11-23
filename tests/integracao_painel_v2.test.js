@@ -62,6 +62,7 @@ function context(ambiente){
   dg_abrirPlanilhaMarketingRelacionamento_:()=>marketing,
   dg_abrirPlanilhaPortal_:()=>portal,
   dg_configPlanilhas_:()=>({ambiente}),
+  dg_assertEscritaPermitida_:()=>{}, // metas V2 são exercitadas no teste isolado
   PropertiesService:{getScriptProperties(){return {
    getProperty(key){return properties[key]||''},
    setProperty(key,value){properties[key]=value;writes++}
