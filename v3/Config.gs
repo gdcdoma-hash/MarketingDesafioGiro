@@ -136,6 +136,29 @@ function doGet(e){
  template.area=e&&e.parameter&&e.parameter.area==='relacionamento'?'relacionamento':'marketing';
  return template.evaluate().setTitle('Desafio Giro | Gestão');
 }
+/**
+ * Primeiro uso de um projeto NOVO e vazio, criado exclusivamente para a V3.
+ * Não troca ambientes já configurados e não toca em produção.
+ * Executar manualmente no editor Google Apps Script após o clasp push.
+ */
+function v3_instalarLab(){
+ const p=PropertiesService.getScriptProperties();
+ const atual=p.getProperties();
+ const chaves=Object.keys(atual||{});
+ const esperado={
+  DG_AMBIENTE:'LAB',
+  DG_MARKETING_SPREADSHEET_ID:V3_IDS.LAB_MARKETING,
+  DG_PORTAL_SPREADSHEET_ID:V3_IDS.LAB_PORTAL
+ };
+ if(chaves.length){
+  const configurado=Object.keys(esperado).every(k=>atual[k]===esperado[k]);
+  if(!configurado||atual.DG_PROD_EDICAO_LIBERADA==='SIM')
+   throw Error('Projeto já configurado com outras propriedades. Instalação LAB recusada.');
+ }else{
+  p.setProperties(esperado,false);
+ }
+ return v3_autoteste();
+}
 function v3_autoteste(){
  const b=v3_bases_(),catalogo=v3_catalogo_(b.portal);
  const marketing=v3_tabela_(b.marketing,'Marketing',
