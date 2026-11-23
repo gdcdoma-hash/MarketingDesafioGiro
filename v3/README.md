@@ -15,7 +15,7 @@ As capturas reais do LAB V3 mostraram que o formulário detalhado e a importaç�
 
 ### Relacionamento
 
-- Busca por nome, telefone, cidade ou ID aparece em destaque, com espera curta durante a digitação. Esporte, etapa, situação e origem ficam em **Mais filtros**.
+- Busca por nome, telefone, cidade ou ID aparece em destaque, com espera curta durante a digitação. **Uma busca digitada consulta também contatos bloqueados ou finalizados** (para verificar histórico, sem autorizar novas mensagens); sem texto, a fila padrão continua excluindo esses casos. Filtros explícitos de etapa continuam valendo. Esporte, etapa, situação e origem ficam em **Mais filtros**.
 - Lista compacta: nome, telefone, perfil, etapa e ações **WhatsApp**, **Registrar resultado**, **Detalhes**. A edição detalhada continua acessível apenas quando necessária.
 - O desafio e a REF do convite são selecionados uma vez acima da lista. O WhatsApp abre uma mensagem preparada para revisão e envio manual. **Abrir uma conversa não marca automaticamente que uma mensagem foi enviada.**
 - **Registrar resultado** abre uma janela pequena com decisões: `AGUARDANDO_RESPOSTA`, `EM_CONVERSA`, `RETORNAR_DEPOIS` (data obrigatória), `SEM_INTERESSE`, `NAO_DESEJA_CONTATO` ou `FINALIZADO`. Anotação é opcional.
