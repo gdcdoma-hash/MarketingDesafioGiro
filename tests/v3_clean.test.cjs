@@ -621,7 +621,7 @@ test('Clasp informa Project file already exists com status 0: instalador RECUSA 
 test('Recuperação V3: valida fonte, ID existente e operação seca sem criar projeto',()=>{
  const recovery=require('../scripts/recuperar-v3-lab.cjs');
  assert.doesNotThrow(()=>recovery.checkSource());
- const id='1YPPgTF5AoOEED6TjJIi-4oxr8WoGk21s-me2vWabLd4pGhWynv6NFKyk';
+ const id='1V3_LAB_TESTE_RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR';
  assert.equal(recovery.checkId(id),id);
  assert.throws(()=>recovery.checkId('1qOTRjWCldsxcu2cRa_nNzZPhoUHFO_NoEcCs0IQcItK7a87yR1tcTHYk'),/antigo/);
  assert.throws(()=>recovery.checkId('abc'),/inválido/);
