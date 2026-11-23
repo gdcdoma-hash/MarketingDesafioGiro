@@ -58,7 +58,8 @@ const sourceCode = fs.readFileSync(path.join(__dirname, '..', 'Code.js'), 'utf8'
 const sourcePlanilhas = fs.readFileSync(path.join(__dirname, '..', 'Planilhas.js'), 'utf8');
 const context = vm.createContext({
   dg_abrirPlanilhaPortal_: () => planilhaPortal,
-  dg_abrirPlanilhaMarketingRelacionamento_: () => planilhaMarketing
+  dg_abrirPlanilhaMarketingRelacionamento_: () => planilhaMarketing,
+  dg_configPlanilhas_: () => ({ ambiente: 'PROD' })
 });
 vm.runInContext(sourceCode, context, { filename: 'Code.js' });
 
@@ -111,11 +112,11 @@ console.log('Marketing/Relacionamento: 12 verificações isoladas aprovadas.');
   }
   const lab = contextoLab({
     DG_AMBIENTE: 'LAB',
-    DG_PORTAL_SPREADSHEET_ID: 'PORTAL_LAB_FICTICIO',
-    DG_MARKETING_SPREADSHEET_ID: 'MARKETING_LAB_FICTICIO'
+    DG_PORTAL_SPREADSHEET_ID: '1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY',
+    DG_MARKETING_SPREADSHEET_ID: '1GGV-coN-1cNQ-0sxV-vAHFVqpfjGiKllzQEwyhGBq8Y'
   });
-  assert.equal(lab.dg_abrirPlanilhaPortal_(), 'PORTAL_LAB_FICTICIO');
-  assert.equal(lab.dg_abrirPlanilhaMarketingRelacionamento_(), 'MARKETING_LAB_FICTICIO');
+  assert.equal(lab.dg_abrirPlanilhaPortal_(), '1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY');
+  assert.equal(lab.dg_abrirPlanilhaMarketingRelacionamento_(), '1GGV-coN-1cNQ-0sxV-vAHFVqpfjGiKllzQEwyhGBq8Y');
   assert.throws(() => contextoLab({ DG_AMBIENTE: 'LAB' }).dg_abrirPlanilhaPortal_(), /LAB sem/);
   assert.throws(() => contextoLab({
     DG_AMBIENTE: 'LAB',
@@ -133,5 +134,19 @@ console.log('Marketing/Relacionamento: 12 verificações isoladas aprovadas.');
     DG_MARKETING_SPREADSHEET_ID: 'BASE_UNICA'
   }).dg_abrirPlanilhaPortal_(), /LAB não pode/);
   assert.throws(() => contextoLab({}).dg_abrirPlanilhaPortal_(), /Defina DG_AMBIENTE/);
-  assert.throws(() => contextoLab({ DG_AMBIENTE: 'DEV' }).dg_abrirPlanilhaPortal_(), /inválido/);
+  assert.throws(() => contextoLab({
+    DG_AMBIENTE: 'LAB',
+    DG_PORTAL_SPREADSHEET_ID: 'PORTAL_LAB_FICTICIO',
+    DG_MARKETING_SPREADSHEET_ID: 'MARKETING_LAB_FICTICIO'
+  }).dg_abrirPlanilhaPortal_(), /somente as duas planilhas fictícias autorizadas/);
+  assert.equal(lab.dg_configPlanilhas_().ambiente, 'LAB');
+  assert.equal(context.dg_configPlanilhas_().ambiente, 'PROD');
+  assert.equal(context.montarLinkDivulgacao_('LAB_TRANSMISSAO'), 'https://desafiogiro.gmbd.com.br/?ref=LAB_TRANSMISSAO');
+  const testeLinkSemPonteReal = vm.createContext({
+    dg_configPlanilhas_: () => ({ ambiente: 'LAB' })
+  });
+  vm.runInContext(sourceCode, testeLinkSemPonteReal);
+  assert.equal(testeLinkSemPonteReal.montarLinkDivulgacao_('LAB_TRANSMISSAO'), '',
+    'No LAB nenhum link deve apontar para o Portal de produção');
+    assert.throws(() => contextoLab({ DG_AMBIENTE: 'DEV' }).dg_abrirPlanilhaPortal_(), /inválido/);
 }
