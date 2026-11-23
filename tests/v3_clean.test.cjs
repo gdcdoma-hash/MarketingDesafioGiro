@@ -314,6 +314,29 @@ test('Autoteste de aceite V3 confirma competência de dezembro e janeiro sem gra
  assert.throws(()=>prod.ctx.v3_lab_aceite(),/somente no LAB/);
 });
 
+test('Busca rápida encontra bloqueados e finalizados, mas fila e filtros continuam seguros',()=>{
+ const c=context();
+ const todos=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros;
+ const bloqueado=todos.find(x=>x.bloqueado);
+ assert.ok(bloqueado,'Massa LAB deve conter contato com bloqueio');
+ assert.ok(!c.ctx.v3_contatos({}).dados.registros.some(x=>x.telefone===bloqueado.telefone),
+   'Fila padrão não deve sugerir novo contato');
+ const encontrado=c.ctx.v3_contatos({busca:bloqueado.telefone}).dados;
+ assert.equal(encontrado.total,1,'Busca por telefone precisa localizar contato bloqueado');
+ assert.equal(encontrado.registros[0].bloqueado,true,'Busca não concede autorização de abordar');
+
+ const h=c.fixtures.mark.Relacionamento_Contatos[0];
+ const primeiro=c.fixtures.mark.Relacionamento_Contatos[1];
+ const tel=primeiro[h.indexOf('TELEFONE_NORMALIZADO')];
+ primeiro[h.indexOf('ETAPA')]='FINALIZADO';
+ const finalizado=c.ctx.v3_contatos({busca:tel}).dados;
+ assert.equal(finalizado.total,1,'Histórico finalizado continua localizável pela busca');
+ assert.equal(finalizado.registros[0].etapa,'FINALIZADO');
+ assert.equal(c.ctx.v3_contatos({}).dados.registros.some(x=>x.telefone===tel),false);
+ assert.equal(c.ctx.v3_contatos({busca:tel,etapa:'PARA_CONTATAR'}).dados.total,0,
+   'Filtro explícito de etapa deve continuar valendo');
+ assert.equal(c.updates,0,'Pesquisa nunca modifica registros');
+});
 test('Fila padrão exclui recusas mesmo com etapa Para Contatar',()=>{
  const c=context();
  const header=c.fixtures.mark.Relacionamento_Contatos[0];
