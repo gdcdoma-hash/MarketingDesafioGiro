@@ -285,21 +285,21 @@ test('Registro rápido para Sem Interesse bloqueia abordagens futuras',async()=>
  t.queue[0].resolve({status:'OK',dados:{}});
  await pending;
 });
-test('WhatsApp direto exige desafio selecionado, sem registrar envio automaticamente',()=>{
+test('WhatsApp direto funciona sem desafio e mantém convite opcional',()=>{
  const t=setup(),c={...base,bloqueado:false};
  t.elem('r-desafio-convite').value='';
  t.context.abrirMensagemRapida(c);
- assert.equal(t.opened.length,0);
+ assert.equal(t.opened.length,1);assert.equal(t.opened[0][0],'https://wa.me/5598991234501');
  t.elem('r-desafio-convite').value='9001';
  t.elem('r-ref-convite').value='LAB_EXEMPLO';
  t.context.abrirMensagemRapida(c);
- assert.equal(t.opened.length,1);
- assert.match(t.opened[0][0],/wa\.me\/5598991234501/);
- assert.match(decodeURIComponent(t.opened[0][0]),/\?ref=LAB_EXEMPLO/);
+ assert.equal(t.opened.length,2);
+ assert.match(t.opened[1][0],/wa\.me\/5598991234501/);
+ assert.match(decodeURIComponent(t.opened[1][0]),/\?ref=LAB_EXEMPLO/);
  assert.equal(t.calls.includes('v3_salvarContato'),false);
  t.state.opt.ambiente='LAB';
  t.context.abrirMensagemRapida(c);
- assert.equal(t.opened.length,1,'LAB nunca abre nova conversa');
+ assert.equal(t.opened.length,2,'LAB nunca abre nova conversa');
 });
 test('CSV Google Contatos: identifica telefone correto em meio a dezenas de campos',()=>{
  const t=setup();
@@ -351,4 +351,13 @@ test('Arquivo CSV com mais de 300 telefones gera lotes de análise',async()=>{
  t.queue[1].resolve({status:'OK',dados:{novos:3,repetidos:0,invalidos:0}});
  await promise;
  assert.equal(t.elem('csv-confirmar').disabled,false);
+});
+
+test('Prévia com contatos existentes e novos vínculos permite confirmar',async()=>{
+ const t=setup();t.elem('csv-texto').value='LAB Pessoa;98991234567';t.elem('csv-origem').value='O1';
+ const task=t.context.analisarImportacao();
+ assert.equal(t.queue[0].args[0].origemId,'O1');
+ t.queue[0].resolve({status:'OK',dados:{novos:0,repetidos:1,invalidos:0,novosVinculos:1}});
+ await task;assert.equal(t.elem('csv-confirmar').disabled,false);
+ assert.match(t.elem('csv-resultado').textContent,/ANÁLISE CONCLUÍDA/);
 });

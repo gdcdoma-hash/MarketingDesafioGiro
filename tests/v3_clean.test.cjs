@@ -756,3 +756,16 @@ test('Reativação com autorização substitui resultado bloqueado, preservando 
  assert.equal(rec.resultado,'REATIVADO');
  assert.ok(c.ctx.v3_historicoContato(tel).dados.eventos.some(x=>x.tipo==='REATIVACAO'));
 });
+
+test('Reimportar telefone conhecido com outra origem adiciona vínculo sem alterar cadastro',()=>{
+ const c=context(),phone='5598991234502';
+ const dados={registros:[{nome:'LAB Nome alternativo',telefone:phone}],origemId:'O1',confirmarFicticio:true};
+ const old=JSON.stringify(c.fixtures.mark.Relacionamento_Contatos);
+ const preview=c.ctx.v3_analisarImportacao(dados).dados;
+ assert.equal(preview.novos,0);assert.equal(preview.novosVinculos,1);assert.equal(c.updates,0);
+ const done=c.ctx.v3_confirmarImportacao(dados).dados;
+ assert.equal(done.gravados,0);assert.equal(done.novosVinculos,1);
+ assert.equal(JSON.stringify(c.fixtures.mark.Relacionamento_Contatos),old);
+ assert.equal(c.ctx.v3_confirmarImportacao(dados).dados.novosVinculos,0);
+ assert.ok(c.ctx.v3_contatos({etapa:'TODOS',origem:'O1'}).dados.registros.some(r=>r.telefone===phone));
+});
