@@ -107,6 +107,7 @@ function rel_agendaGoogle_preAnalisar_(dados) {
 }
 
 function rel_agendaGoogle_confirmar_(dados) {
+  dg_assertEscritaPermitida_();
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
