@@ -4,8 +4,8 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),cp=r
 const root=path.resolve(__dirname,'..'),app=path.join(root,'v3');
 const file=name=>fs.readFileSync(path.join(app,name),'utf8');
 const ids={
-  lm:'1GGV-coN-1cNQ-0sxV-vAHFVqpfjGiKllzQEwyhGBq8Y',
-  lp:'1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY',
+  lm:'1bHR_mjL4vrVOTv-szVd__X3sgM0k4zhBe947I3hZcgE',
+  lp:'1pVIcTNdZN8yuEqyQ_WQ_aNfWzc9Wq8HcFFaMoye3dMM',
   pm:'1znhdMCmPsMZ6viMJtWl2wXg3G7yWh-0Xu0M8IcJ-9ao',
   pp:'1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ'
 };
