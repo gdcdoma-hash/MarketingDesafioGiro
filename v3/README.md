@@ -9,6 +9,44 @@ Substituir os inúmeros serviços, telas duplicadas, rotas e scripts históricos
 
 **Não existem condições especiais para o nome de uma medalha.** Inscrições iniciadas em novembro para desafio de dezembro contam em dezembro. O início da inscrição pode ser antes ou dentro do mês do desafio.
 
+## Fluxo de atendimento rápido — revisão de interface (23/11/2026)
+
+As capturas reais do LAB V3 mostraram que o formulário detalhado e a importação em textarea ocupavam espaço excessivo. A V3 agora prioriza **localizar → abrir conversa → registrar resultado**.
+
+### Relacionamento
+
+- Busca por nome, telefone, cidade ou ID aparece em destaque, com espera curta durante a digitação. Esporte, etapa, situação e origem ficam em **Mais filtros**.
+- Lista compacta: nome, telefone, perfil, etapa e ações **WhatsApp**, **Registrar resultado**, **Detalhes**. A edição detalhada continua acessível apenas quando necessária.
+- O desafio e a REF do convite são selecionados uma vez acima da lista. O WhatsApp abre uma mensagem preparada para revisão e envio manual. **Abrir uma conversa não marca automaticamente que uma mensagem foi enviada.**
+- **Registrar resultado** abre uma janela pequena com decisões: `AGUARDANDO_RESPOSTA`, `EM_CONVERSA`, `RETORNAR_DEPOIS` (data obrigatória), `SEM_INTERESSE`, `NAO_DESEJA_CONTATO` ou `FINALIZADO`. Anotação é opcional.
+- Cada decisão grava `ETAPA`, `RESULTADO` e, quando aplicável, `SITUACAO`, `DATA_PROXIMO_RETORNO` e `OBSERVACAO`, com histórico. Não reescreve campos não alterados.
+- Recusas não entram mais na fila de abordagem. Reativar exige autorização confirmada e motivo registrado, em **Detalhes**.
+- O LAB mantém bloqueio do WhatsApp, e produção somente leitura também.
+
+### Importação simplificada
+
+- **Escolher CSV → verificar contatos → importar novos**, sem exigir copiar o arquivo para uma caixa de texto. Uma opção avançada permite colar lista simples.
+- Interpreta CSV exportado do Google Contatos: cabeçalhos `Name` e `Phone 1 - Value`, telefones adicionais, campos entre aspas, vírgulas em observações e quebras de linha dentro de campos.
+- Também aceita `Nome;Telefone;Cidade;UF`. Ignora registros sem telefone e deduplica números encontrados no mesmo arquivo.
+- Faz pré-análise com os dados já cadastrados; importação usa lotes de até 300 telefones, sem sobrescrever cadastros existentes.
+- **LAB:** aceita análise de um arquivo real, mas **bloqueia a gravação** se os nomes não forem identificados como fictícios `LAB` ou `TESTE`. O servidor exige também `confirmarFicticio=true`; não basta manipular o botão no navegador. Nunca usar o arquivo real da agenda pessoal para gravar no LAB.
+- Ao importar em produção, manter backup anterior, revisão dos totais e origem selecionada. Não há envio automático de WhatsApp.
+
+### Atualizar o Web App privado existente
+
+A PR atualiza **código-fonte**, não a versão já publicada do Web App. Depois de homologar os testes CI, na pasta da V3 previamente extraída:
+
+```powershell
+$base="https://raw.githubusercontent.com/gdcdoma-hash/MarketingDesafioGiro/clean/marketing-relacionamento-v3-20261123/v3"
+@("Index.html","Relacionamento.gs","Importacao.gs") | ForEach-Object {
+  Invoke-WebRequest -Uri "$base/$_" -OutFile ".\v3\$_"
+}
+node .\scripts\recuperar-v3-lab.cjs --dry-run
+node .\scripts\recuperar-v3-lab.cjs --script-id=ID_DO_LAB_V3_EXISTENTE --confirmar-recuperacao=SIM
+```
+
+No editor do **mesmo** projeto V3 LAB, usar `Implantar → Gerenciar implantações → Editar → Versão: Nova versão → Implantar` para atualizar o URL `/exec` existente. Não criar projeto novo e não configurar produção nesse LAB. Conferir a nova interface em PC e celular, testar contato fictício, CSV fictício e bloqueios, e confirmar acesso **Somente eu** em outra conta antes de qualquer migração para PROD.
+
 ## Arquivos do aplicativo V3 (e somente estes)
 
 - `Config.gs` — configurações, acesso isolado, validações, planilhas e catálogo
@@ -116,7 +154,7 @@ O comando de recuperação lê somente os seis arquivos da pasta `v3/`, gera um 
 ## Proteções e comportamento
 
 - Toda gravação do V3 ocorre **apenas nas abas operacionais** `Marketing` e `Relacionamento_*`. A tabela `dgmbDesafios`, dados pessoais e o catálogo do Portal são sempre consultados, nunca modificados.
-- Cadastro e importação não sobrescrevem cadastros existentes. A pré-análise da importação somente lê, informa novos/repetidos/inválidos e limita o lote a 300 registros.
+- Cadastro e importação não sobrescrevem cadastros existentes. A pré-análise somente lê e informa novos/repetidos/inválidos. Arquivos grandes são processados em **lotes de até 300 telefones**, com revalidação em cada lote.
 - Campos escritos em Sheets são normalizados para evitar fórmulas vindas de texto ou CSV. As edições de contatos preservam as demais colunas e adicionam eventos no histórico operacional.
 - WhatsApp é **manual** e bloqueado no LAB ou em contatos classificados como não contatar. O convite usa o desafio selecionado e sua competência, **sem afirmar que inscrições estão abertas**, e direciona à home oficial com `?ref=...` quando há REF.
 - A modalidade do atleta vem preferencialmente da informação declarada, depois da modalidade oficial do desafio e somente então do nome inequívoco no legado. DDD, cidade e grupo de WhatsApp não definem modalidade.
