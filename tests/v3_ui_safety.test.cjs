@@ -150,3 +150,32 @@ test('Resposta de pré-análise antiga não reativa botão depois de alteração
  await pending;
  assert.equal(s.elem('csv-confirmar').disabled,true);
 });
+
+test('Contato bloqueado pelo servidor não abre convite após edição não salva',()=>{
+ const s=setup();
+ prepare(s,{...base,bloqueado:true});
+ s.elem('edit-etapa').value='PARA_CONTATAR';
+ s.elem('edit-situacao').value='PODE_CONTATAR';
+ s.context.atualizarBloqueioConvite();
+ assert.equal(s.elem('convite-whats').disabled,true);
+ s.context.abrirConvite();
+ assert.equal(s.opened.length,0);
+});
+test('Filtro rápido Retornar Hoje envia flag para consulta do Relacionamento',()=>{
+ const s=setup();
+ for(const id of ['r-busca','r-esporte','r-etapa','r-situacao','r-origem'])s.elem(id).value='';
+ s.elem('r-retorno').checked=true;
+ const filter=s.context.filtroContatos();
+ assert.equal(filter.retornoPendente,true);
+ assert.equal(filter.pagina,1);
+ s.elem('r-retorno').checked=false;
+ assert.equal(s.context.filtroContatos().retornoPendente,false);
+});
+test('Painel de contatos inclui retorno do dia e bloqueados entre os indicadores',()=>{
+ const s=setup();
+ s.state.contatos={indicadores:{RETORNAR_HOJE:2,BLOQUEADOS:1},
+  origens:[],registros:[],total:4,pagina:1,paginas:1};
+ s.context.renderContatos();
+ assert.match(s.elem('r-indicadores').innerHTML,/Retornar hoje \/ atrasados/);
+ assert.match(s.elem('r-indicadores').innerHTML,/Bloqueados para contato/);
+});
