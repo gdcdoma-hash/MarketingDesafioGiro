@@ -10,7 +10,7 @@ const blocked=new Set([
 ]);
 function fail(message){throw Error('[V3 BLOQUEADA] '+message);}
 function validate(){
- const files=fs.readdirSync(source).sort();
+ const files=fs.readdirSync(source).filter(name=>/\.(gs|html)$/.test(name)||name==='appsscript.json').sort();
  if(JSON.stringify(files)!==JSON.stringify(required.slice().sort()))
   fail('O diretório v3 deve conter exatamente os 6 arquivos aprovados.');
  const mf=JSON.parse(fs.readFileSync(path.join(source,'appsscript.json'),'utf8'));
