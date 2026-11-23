@@ -1,5 +1,17 @@
 # Homologação LAB — Marketing e Relacionamento — 23/11/2026
 
+## Integração concluída em código: painel V2 + Marketing/Relacionamento
+
+A PR #52 (baseada na PR #50) incorpora a interface multidesafios da PR #51 e preserva os contatos, os bloqueios de LAB, a fonte correta das planilhas e a validação por REF. A instalação do novo LAB permanece pendente e nenhuma alteração foi aplicada ao PROD.
+
+- Arquivos integrados: `MarketingMultidesafios.js`, `ScriptsMultidesafios.html`, `StylesMultidesafios.html`, `Index.html` e `LabAutoteste.js`.
+- O autoteste executa **16 verificações**, incluindo as metas e os resultados do painel V2.
+- O período é `ListaDesafios.Periodo`: inscrições feitas antecipadamente para um desafio de dezembro entram em dezembro, mesmo se `Timestamp` for de novembro.
+- Na visão por desafio, total atribuído com REF cadastrada, REF desconhecida e inscrições diretas são categorias distintas; cancelamento/desistência/expiração ficam excluídos.
+- Para evitar retrabalho, **não mesclar diretamente a PR #51 à produção**. A integração está somente na PR #52, que depende da PR #50.
+- Para homologar visualmente: escolher o mês fictício `novembro/2026`, alternar os IDs 9001/9002, mudar as metas, conferir os totais por REF e verificar que os botões de cópia de link não aparecem no LAB.
+- Antes de publicar, revisar a propriedade de produção `METAS_MARKETING_V2` e realizar backup da configuração atual, além de definir `DG_AMBIENTE=PROD` e conferir `MYSELF` no Web App.
+
 ## Regra geral de competência mensal — obrigatória para qualquer desafio
 
 O sistema **não deve depender de nomes de medalhas, campanhas, nem da data em que a inscrição foi realizada** para determinar o período do painel. Cada inscrição pertence ao mês de realização registrado em `ListaDesafios.Periodo`, identificado pelo `ID_DESAFIO` da inscrição.
@@ -31,7 +43,7 @@ A planilha de Marketing LAB tem `Marketing` e as cinco abas `Relacionamento_*` e
    - `DG_PORTAL_SPREADSHEET_ID = 1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY`
 4. Implantar o **novo projeto** como Web App `executeAs: USER_DEPLOYING`, `access: MYSELF` (somente proprietário), sem permitir incorporação por sites terceiros. Não tornar público; não criar deploy em produção.
 5. Verificar `?area=contatos` (banner amarelo **AMBIENTE LAB**; abrir WhatsApp bloqueado) e `?area=divulgadores`. Verificar que o endpoint administrativo não abre em janela anônima de um usuário não autorizado; o diagnóstico `?diagnostico=acesso` sozinho não valida controle de autorização.
-6. Executar primeiro **`dg_lab_autoteste()`** no editor Apps Script **LAB**. Esperado: `status: 'OK'`, 13 verificações aprovadas e totais de 2 referências, 4 contatos, 4 participantes, 4 inscrições e 2 desafios fictícios, sem nomes ou telefones na resposta. O autoteste interrompe se `DG_AMBIENTE` não for `LAB`. Em seguida executar `rel_auditarEstrutura()` (cinco estruturas OK) e, se necessário, `testarConexaoMarketing()` (somente bases LAB). Conferir LAB01 ciclismo, LAB02 caminhada, LAB03 ambos, LAB04 não contatar.
+6. Executar primeiro **`dg_lab_autoteste()`** no editor Apps Script **LAB**. Esperado: `status: 'OK'`, 16 verificações aprovadas e totais de 2 referências, 4 contatos, 4 participantes, 4 inscrições e 2 desafios fictícios, sem nomes ou telefones na resposta. O autoteste interrompe se `DG_AMBIENTE` não for `LAB`. Em seguida executar `rel_auditarEstrutura()` (cinco estruturas OK) e, se necessário, `testarConexaoMarketing()` (somente bases LAB). Conferir LAB01 ciclismo, LAB02 caminhada, LAB03 ambos, LAB04 não contatar.
 7. Conferir ranking e filtros com referências `LAB_TRANSMISSAO` e `LAB_CORACAO`; verificar a atribuição de inscrições conforme os IDs de desafio fictícios 9001 e 9002. Alterações de etapa, situação, origem ou importação somente na planilha LAB.
 8. Para a **REF pública**, a PR https://github.com/gdcdoma-hash/desafiogiro/pull/190 corrige a preservação de `?ref=...` nas landing pages. Ela também é **draft**. O teste unitário passa sem abrir inscrições reais. Uma homologação ponta a ponta com o Portal real requer ambiente de inscrição separado; **não criar inscrição fictícia na planilha de produção**.
 
