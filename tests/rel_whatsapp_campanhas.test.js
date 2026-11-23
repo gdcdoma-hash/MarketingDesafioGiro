@@ -19,7 +19,7 @@ let script = fs.readFileSync(
 const anchor = 'return Object.freeze({ iniciar: iniciar,';
 assert.ok(script.includes(anchor), 'A assinatura pública do módulo mudou');
 script = script.replace(anchor,
-  "return Object.freeze({ mensagemTeste: montarMensagemConvite, abrirTeste: abrirWhatsApp, definirRefTeste: ref => {e.ref = {value:ref};},");
+  "return Object.freeze({ mensagemTeste: montarMensagemConvite, abrirTeste: abrirWhatsApp, definirRefTeste: ref => {e.ref = {value:ref};e.aviso = {textContent:'',hidden:true,classList:{toggle(){}}};},");
 script += '\nthis.apiTesteWhatsApp = relContatos;';
 vm.runInContext(script, context);
 const api = context.apiTesteWhatsApp;
