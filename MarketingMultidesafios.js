@@ -76,20 +76,75 @@ function mdg_obterMetas_() {
   }
 }
 
+/**
+ * A competência é sempre ListaDesafios.Periodo (mês de realização).
+ * Data_Inicio/Data_Fim e a data em que o atleta se inscreve não mudam
+ * o mês contábil deste painel.
+ */
+function mdg_desafiosDoPeriodo_(periodo) {
+  const portal = dg_abrirPlanilhaPortal_();
+  const lista = lerAbaComoObjetos_(portal, ABAS.LISTA_DESAFIOS);
+  const catalogo = mdg_catalogoDesafios_(lista);
+  return Object.values(catalogo).filter(item => item.periodo === periodo);
+}
+
+function mdg_metaGeralPeriodo_(metasPeriodo) {
+  return Object.prototype.hasOwnProperty.call(metasPeriodo || {}, 'geral')
+    ? Number(metasPeriodo.geral || 0)
+    : Number(META_MARKETING || 0);
+}
+
+/** Consulta leve: só catálogo e metas, sem ler contatos ou inscrições. */
+function obterMetasPeriodoMarketingV2(periodoSolicitado) {
+  const periodo = String(periodoSolicitado || '').trim();
+  if (!periodo) return { status: 'ERRO', mensagem: 'Escolha o mês do desafio.' };
+  const desafios = mdg_desafiosDoPeriodo_(periodo);
+  if (!desafios.length) {
+    return { status: 'ERRO', mensagem: 'Não existem desafios cadastrados para esse mês.' };
+  }
+  const metas = mdg_obterMetas_()[periodo] || {};
+  const metasDesafios = metas.desafios || {};
+  return {
+    status: 'OK',
+    periodo: periodo,
+    metaGeral: mdg_metaGeralPeriodo_(metas),
+    desafios: desafios.map(item => ({
+      id: item.id,
+      codigo: item.codigo,
+      nome: item.nome,
+      tipo: item.tipo,
+      meta: Number(metasDesafios[item.id] || 0)
+    }))
+  };
+}
+
 function salvarMetasMarketingV2(dados) {
   const periodo = String(dados && dados.periodo || '').trim();
-  if (!periodo) {
-    return { status: 'ERRO', mensagem: 'Período não informado.' };
+  const desafiosPeriodo = periodo ? mdg_desafiosDoPeriodo_(periodo) : [];
+  if (!desafiosPeriodo.length) {
+    return { status: 'ERRO', mensagem: 'Período sem desafios cadastrados.' };
   }
 
-  const metaGeral = Math.max(0, Number(dados && dados.metaGeral) || 0);
+  const metaGeral = Number(dados && dados.metaGeral);
+  if (!Number.isSafeInteger(metaGeral) || metaGeral < 0) {
+    return { status: 'ERRO', mensagem: 'Meta geral inválida.' };
+  }
   const metasRecebidas = dados && dados.metasDesafios || {};
-  const metasDesafios = {};
-
-  Object.keys(metasRecebidas).forEach(id => {
-    const valor = Math.max(0, Number(metasRecebidas[id]) || 0);
-    if (valor > 0) metasDesafios[String(id)] = valor;
-  });
+  if (!metasRecebidas || typeof metasRecebidas !== 'object' || Array.isArray(metasRecebidas)) {
+    return { status: 'ERRO', mensagem: 'Metas dos desafios inválidas.' };
+  }
+  const idsValidos = new Set(desafiosPeriodo.map(item => item.id));
+  const metasDesafios = Object.create(null);
+  for (const id of Object.keys(metasRecebidas)) {
+    if (!idsValidos.has(id)) {
+      return { status: 'ERRO', mensagem: 'Um desafio não pertence ao mês selecionado.' };
+    }
+    const valor = Number(metasRecebidas[id]);
+    if (!Number.isSafeInteger(valor) || valor < 0) {
+      return { status: 'ERRO', mensagem: 'Meta individual inválida.' };
+    }
+    if (valor > 0) metasDesafios[id] = valor;
+  }
 
   const todas = mdg_obterMetas_();
   todas[periodo] = {
@@ -97,8 +152,7 @@ function salvarMetasMarketingV2(dados) {
     desafios: metasDesafios
   };
 
-  PropertiesService
-    .getScriptProperties()
+  PropertiesService.getScriptProperties()
     .setProperty(CHAVE_METAS_MARKETING_V2, JSON.stringify(todas));
 
   return {
@@ -137,7 +191,7 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
 
   const metasTodas = mdg_obterMetas_();
   const metasPeriodo = metasTodas[periodoSelecionado] || {};
-  const metaGeral = Number(metasPeriodo.geral || META_MARKETING || 0);
+  const metaGeral = mdg_metaGeralPeriodo_(metasPeriodo);
   const metasDesafios = metasPeriodo.desafios || {};
 
   const origens = {};
