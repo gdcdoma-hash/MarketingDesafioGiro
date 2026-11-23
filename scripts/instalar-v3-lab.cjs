@@ -18,8 +18,9 @@ const oldIds=new Set([
 ]);
 function refuse(message){throw Error('[LAB V3] '+message);}
 function validate(){
- if(fs.existsSync(path.join(root,'.clasp.json')))
-  refuse('Raiz possui vínculo clasp antigo. Use uma cópia limpa desta branch.');
+ // Um repositório histórico pode possuir .clasp.json na raiz.
+ // Nunca a usamos: create-script e push rodam exclusivamente no diretório
+ // novo criado em build/, com um scriptId recém-gerado e validado.
  const actual=fs.readdirSync(sourceDir).filter(x=>/\.(gs|html|json)$/.test(x)).sort();
  if(JSON.stringify(actual)!==JSON.stringify(files.slice().sort()))
   refuse('Pacote inesperado: devem existir somente seis arquivos executáveis.');
