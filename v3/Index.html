@@ -535,6 +535,7 @@ async function salvarOrigem(){
 function fechar(id){E(id).close();}
 
 let importacaoPendente=null;
+let csvResumoLocal={semTelefone:0,repetidos:0,formato:''};
 function invalidarPreviaImportacao(){
  state.consultaImportacao++;
  importacaoPendente=null;
@@ -543,73 +544,180 @@ function invalidarPreviaImportacao(){
 }
 function abrirImportacao(){
  invalidarPreviaImportacao();
+ E('csv-aviso-lab').textContent=state.opt.ambiente==='LAB'?
+  'LAB: é permitido analisar um arquivo, mas somente contatos fictícios identificados com LAB ou TESTE poderão ser gravados. Nunca importe sua agenda real neste ambiente.':
+  'Antes de importar, o sistema compara os números com os já cadastrados. Nenhum contato existente será substituído.';
  options(E('csv-origem'),[{value:'',label:'Sem origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
  E('modal-importacao').showModal();
 }
 async function lerCsvArquivo(ev){
  const file=ev.target.files?.[0];if(!file)return;
- E('csv-texto').value=await file.text();
+ const texto=await file.text();
+ if(texto.length>2500000){aviso('Arquivo muito grande. Separe em arquivos CSV menores que 2,5 MB.',true);return;}
+ E('csv-texto').value=texto;
  invalidarPreviaImportacao();
+ await analisarImportacao();
 }
-function dividirCSV(linha){
- const sep=(linha.match(/;/g)||[]).length>=(linha.match(/,/g)||[]).length?';':',';
- const out=[];let atual='',quoted=false;
- for(let i=0;i<linha.length;i++){
-  const ch=linha[i];
-  if(ch==='"'){if(quoted&&linha[i+1]==='"'){atual+='"';i++;}else quoted=!quoted;}
-  else if(ch===sep&&!quoted){out.push(atual.trim());atual='';}
-  else atual+=ch;
+function separadorCSV(texto){
+ // Conta delimitadores da primeira linha lógica, ignorando campos entre aspas.
+ let quoted=false,counts={',':0,';':0,'\t':0};
+ for(let i=0;i<texto.length;i++){
+  const c=texto[i];
+  if(c==='"'){
+   if(quoted&&texto[i+1]==='"')i++;
+   else quoted=!quoted;
+  }else if(!quoted){
+   if(c==='\n'||c==='\r')break;
+   if(Object.prototype.hasOwnProperty.call(counts,c))counts[c]++;
+  }
  }
- out.push(atual.trim());return out;
+ return Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0]||';';
+}
+function lerTabelaCSV(texto){
+ const separator=separadorCSV(texto);
+ let quoted=false,cell='',row=[],rows=[];
+ const pushCell=()=>{row.push(cell.trim());cell='';};
+ const pushRow=()=>{
+  pushCell();
+  if(row.some(v=>v!==''))rows.push(row);
+  row=[];
+ };
+ for(let i=0;i<texto.length;i++){
+  const ch=texto[i];
+  if(ch==='"'){
+   if(quoted&&texto[i+1]==='"'){cell+='"';i++;}
+   else quoted=!quoted;
+  }else if(ch===separator&&!quoted)pushCell();
+  else if((ch==='\n'||ch==='\r')&&!quoted){
+   if(ch==='\r'&&texto[i+1]==='\n')i++;
+   pushRow();
+  }else cell+=ch;
+ }
+ if(quoted)throw Error('Arquivo CSV com aspas não fechadas.');
+ if(cell||row.length)pushRow();
+ if(!rows.length)throw Error('Arquivo sem contatos.');
+ rows[0][0]=rows[0][0].replace(/^\uFEFF/,'');
+ return rows;
+}
+function normalizarTituloCSV(x){
+ return String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  .toLowerCase().replace(/\s+/g,' ').trim();
+}
+function telefoneCanonico(x){
+ const raw=String(x||'').replace(/\D/g,'');
+ return raw.length===10||raw.length===11?'55'+raw:raw;
 }
 function dadosCSV(){
- const linhas=E('csv-texto').value.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
- if(!linhas.length)throw Error('Informe pelo menos um contato.');
- if(linhas.length>301)throw Error('Máximo de 300 contatos por lote.');
- const primeira=dividirCSV(linhas[0]).map(v=>v.toLowerCase());
- const header=primeira.some(v=>/^(nome|name|telefone|phone|phone 1 - value)$/.test(v));
- let nameIdx=0,phoneIdx=1,cityIdx=2,ufIdx=3;
- if(header){
-  const choose=(terms,fallback)=>{const i=primeira.findIndex(h=>terms.some(t=>h.includes(t)));return i<0?fallback:i;};
-  nameIdx=choose(['name','nome'],0);phoneIdx=choose(['phone 1 - value','telefone','phone'],1);
-  cityIdx=choose(['city','cidade'],2);ufIdx=choose(['state','uf','estado'],3);
+ const original=E('csv-texto').value;
+ if(!original.trim())throw Error('Escolha um arquivo CSV ou cole os contatos.');
+ const rows=lerTabelaCSV(original);
+ const headers=rows[0].map(normalizarTituloCSV);
+ const phoneCols=headers.map((h,i)=>
+  (/^(phone|telefone|celular|mobile)(?: \d+)?(?: - (value|valor))?$/.test(h) ||
+    /^phone \d+ - value$/.test(h))?i:-1).filter(i=>i>=0);
+ const hasHeaders=phoneCols.length>0&&headers.some(h=>
+  ['name','nome','given name','first name','nome proprio','nome completo'].includes(h));
+ const entries=[];
+ let semTelefone=0,dup=0;
+ const vistos=new Set();
+ if(!hasHeaders&&rows[0].length>4){
+  throw Error('Não consegui identificar as colunas deste CSV. Exporte novamente em CSV do Google Contatos ou use a lista simples Nome;Telefone;Cidade;UF.');
  }
- const data=header?linhas.slice(1):linhas;
- return data.map(l=>{
-  const fields=dividirCSV(l);
-  return {nome:fields[nameIdx]||'',telefone:fields[phoneIdx]||'',
-   cidade:fields[cityIdx]||'',uf:fields[ufIdx]||''};
- });
+ const starting=hasHeaders?1:0;
+ const nameCol=hasHeaders?headers.findIndex(h=>h==='name'||h==='nome'||h==='nome completo'):0;
+ const givenCol=headers.findIndex(h=>h==='given name'||h==='first name');
+ const familyCol=headers.findIndex(h=>h==='family name'||h==='last name');
+ const cityCol=hasHeaders?headers.findIndex(h=>/^(city|cidade|address \d+ - city)$/.test(h)):2;
+ const ufCol=hasHeaders?headers.findIndex(h=>/^(state|uf|estado|address \d+ - region)$/.test(h)):3;
+ for(const row of rows.slice(starting)){
+  const nome=(nameCol>=0?row[nameCol]:'')||
+   [givenCol>=0?row[givenCol]:'',familyCol>=0?row[familyCol]:''].filter(Boolean).join(' ');
+  const cidade=(row[cityCol]||'').trim(),ufRaw=(row[ufCol]||'').trim();
+  const uf=/^[A-Z]{2}$/i.test(ufRaw)?ufRaw.toUpperCase():'';
+  const valores=hasHeaders?phoneCols.flatMap(i=>String(row[i]||'').split(/\s*:::\s*/)):[row[1]||''];
+  const numeros=valores.map(x=>String(x||'').trim()).filter(Boolean);
+  if(!numeros.length){semTelefone++;continue;}
+  for(const numero of numeros){
+   const canon=telefoneCanonico(numero);
+   if(vistos.has(canon)){dup++;continue;}
+   vistos.add(canon);
+   entries.push({nome:nome||'',telefone:numero,cidade,uf});
+  }
+ }
+ csvResumoLocal={semTelefone,repetidos:dup,formato:hasHeaders?'Google Contatos / CSV com cabeçalhos':'Lista simples'};
+ if(entries.length>10000)throw Error('Arquivo muito grande. Divida a importação em arquivos menores.');
+ if(!entries.length)throw Error('Nenhum contato com telefone encontrado no arquivo.');
+ return entries;
+}
+function lotesCSV(registros){
+ const lotes=[];
+ for(let i=0;i<registros.length;i+=300)lotes.push(registros.slice(i,i+300));
+ return lotes;
+}
+function dadosFicticiosCSV(registros){
+ return registros.every(r=>/^(LAB|TESTE)(\s|[-_]|$)/.test(
+  normalizarTituloCSV(r.nome).toUpperCase()));
 }
 async function analisarImportacao(){
  invalidarPreviaImportacao();
  const versao=state.consultaImportacao;
  try{
-  const registros=dadosCSV(),res=await api('v3_analisarImportacao',{registros});
-  if(versao!==state.consultaImportacao)return;
-  if(res.status!=='OK')throw Error(res.mensagem);
-  importacaoPendente=registros;
-  const d=res.dados;
+  const registros=dadosCSV(),lotes=lotesCSV(registros);
+  let novos=0,repetidos=csvResumoLocal.repetidos,invalidos=0;
+  for(let i=0;i<lotes.length;i++){
+   const res=await api('v3_analisarImportacao',{registros:lotes[i]});
+   if(versao!==state.consultaImportacao)return;
+   if(res.status!=='OK')throw Error(res.mensagem);
+   novos+=res.dados.novos;repetidos+=res.dados.repetidos;invalidos+=res.dados.invalidos;
+  }
+  importacaoPendente={registros,conteudo:E('csv-texto').value};
+  const labReal=state.opt.ambiente==='LAB'&&!dadosFicticiosCSV(registros);
   E('csv-resultado').hidden=false;
-  E('csv-resultado').textContent='Total: '+d.total+' · Novos: '+d.novos+' · Repetidos: '+d.repetidos+' · Inválidos: '+d.invalidos+
-    (d.invalidos?' (linhas: '+d.linhasInvalidas.join(', ')+')':'');
-  E('csv-confirmar').disabled=!state.opt.edicao||d.invalidos>0||d.novos===0;
-  aviso('Pré-análise concluída. Nenhum registro foi alterado.');
- }catch(e){if(versao===state.consultaImportacao)aviso(e.message,true);}
+  E('csv-resultado').textContent=
+   csvResumoLocal.formato+' · '+registros.length+' telefones encontrados · '+
+   novos+' novos · '+repetidos+' repetidos · '+invalidos+' inválidos · '+
+   csvResumoLocal.semTelefone+' sem telefone.'+
+   (labReal?' LAB: arquivo real identificado; a importação ficará bloqueada.':'');
+  E('csv-confirmar').disabled=!state.opt.edicao||invalidos>0||novos===0||labReal;
+  aviso('Análise concluída. Nenhum registro foi alterado.');
+ }catch(e){
+  if(versao===state.consultaImportacao){
+   E('csv-resultado').hidden=false;E('csv-resultado').textContent=e.message;
+   aviso(e.message,true);
+  }
+ }
 }
 async function confirmarImportacao(){
- if(!importacaoPendente)return;
+ if(!importacaoPendente||!state.opt.edicao)return;
  let atual;
  try{atual=dadosCSV();}catch(e){invalidarPreviaImportacao();aviso(e.message,true);return;}
- if(JSON.stringify(atual)!==JSON.stringify(importacaoPendente)){
-  invalidarPreviaImportacao();aviso('Dados alterados. Faça nova pré-análise antes de confirmar.',true);return;
+ if(E('csv-texto').value!==importacaoPendente.conteudo||
+    JSON.stringify(atual)!==JSON.stringify(importacaoPendente.registros)){
+  invalidarPreviaImportacao();aviso('Arquivo alterado. Faça nova análise antes de confirmar.',true);return;
  }
- if(!confirm('Confirmar a inclusão dos contatos novos? Contatos existentes serão preservados.'))return;
+ if(state.opt.ambiente==='LAB'&&!dadosFicticiosCSV(atual)){
+  aviso('LAB aceita apenas contatos fictícios identificados como LAB ou TESTE.',true);return;
+ }
+ if(!confirm('Importar somente contatos novos? Cadastros existentes permanecerão intactos.'))return;
+ const lotes=lotesCSV(atual),versao=state.consultaImportacao;
+ E('csv-confirmar').disabled=true;E('csv-analisar').disabled=true;
+ let gravados=0,repetidos=0;
  try{
-  const res=await api('v3_confirmarImportacao',{registros:importacaoPendente,origemId:E('csv-origem').value});
-  if(res.status!=='OK')throw Error(res.mensagem);
-  importacaoPendente=null;fechar('modal-importacao');aviso(res.mensagem);filtrarContatos();
- }catch(e){aviso(e.message,true);}
+  for(let i=0;i<lotes.length;i++){
+   E('csv-resultado').textContent='Importando lote '+(i+1)+' de '+lotes.length+'...';
+   const res=await api('v3_confirmarImportacao',{
+    registros:lotes[i],origemId:E('csv-origem').value,confirmarFicticio:state.opt.ambiente==='LAB'
+   });
+   if(res.status!=='OK')throw Error(res.mensagem);
+   gravados+=res.dados.gravados;repetidos+=res.dados.repetidos;
+  }
+  importacaoPendente=null;
+  fechar('modal-importacao');aviso(gravados+' contatos novos adicionados; '+repetidos+' já cadastrados.');
+  filtrarContatos();
+ }catch(e){
+  aviso('Importação interrompida: '+e.message+'. Lotes anteriores podem ter sido gravados.',true);
+  E('csv-resultado').textContent='Importação parcial: '+gravados+' novos incluídos. Analise o arquivo novamente antes de continuar.';
+ }finally{E('csv-analisar').disabled=false;}
 }
 async function vincularOrigem(){
  const id=E('edit-origem').value;if(!id){aviso('Escolha uma origem.',true);return;}
