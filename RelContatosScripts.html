@@ -171,6 +171,10 @@
     }
 
     function abrirWhatsApp(contato, desafio) {
+      if (window.DG_AMBIENTE === 'LAB') {
+        mensagem('WhatsApp bloqueado no LAB. Não contate números fictícios.', true);
+        return;
+      }
       const numero = normalizarTelefoneWhatsApp(contato.telefoneNormalizado);
       if (!numero) return;
       if (contato.etapa === 'NAO_CONTATAR' || contato.situacao === 'NAO_DESEJA_CONTATO' ||
