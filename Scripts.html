@@ -37,6 +37,9 @@ function renderizar(dados) {
   const divulgadores = filtrarDivulgadores(dados.divulgadores);
 
   document.getElementById('conteudo').innerHTML = `
+    ${dados.filtroDesafioInvalido ?
+      '<div role="alert" class="erro">O desafio solicitado não pertence ao período selecionado. Nenhum resultado foi contabilizado. Abra Configurações e escolha um desafio válido.</div>'
+      : ''}
     <section class="meta-card">
       <div class="meta-topo">
         <div>
@@ -194,7 +197,10 @@ function atualizarDesafiosConfiguracoes(selecionarId) {
     ? dadosAtuais.catalogoDesafios : [];
   const desafios = catalogo.filter(item => item.periodo === periodo);
   const escolhido = String(selecionarId || '').trim();
+  const idEncontrado = desafios.some(item => item.id === escolhido);
   select.innerHTML = '<option value="">Todos os desafios do período</option>' +
+    (escolhido && !idEncontrado ?
+      '<option value="' + esc(escolhido) + '" selected disabled>Desafio indisponível neste período</option>' : '') +
     desafios.map(item => '<option value="' + esc(item.id) + '"' +
       (item.id === escolhido ? ' selected' : '') + '>' +
       esc(item.nome) + ' (#' + esc(item.id) + ')' + '</option>').join('');
