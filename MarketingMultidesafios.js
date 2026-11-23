@@ -254,7 +254,7 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
     const idDesafio = extrairIdDesafio_(inscricao.Observacao);
     const catalogado = catalogo[idDesafio];
     const periodo = catalogado ? catalogado.periodo : '';
-    if (periodo !== periodoSelecionado) return;
+    if (!catalogado || periodo !== periodoSelecionado) return;
 
     totalGeralPeriodo++;
 
@@ -292,11 +292,8 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
     const pessoa = idDgmb ? pessoasPorId[idDgmb] : null;
     const cidadeUf = String(pessoa && pessoa['Cidade-UF'] || '').trim();
     const cidade = cidadeUf || 'NÃO INFORMADO';
-    const partes = cidadeUf.split(' - ');
-    const ufExtraida = partes.length > 1
-      ? String(partes[partes.length - 1] || '').trim().toUpperCase()
-      : '';
-    const uf = /^[A-Z]{2}$/.test(ufExtraida) ? ufExtraida : 'NÃO INFORMADO';
+    const ufFinal = cidadeUf.match(/-\s*([A-Za-z]{2})\s*$/);
+    const uf = ufFinal ? ufFinal[1].toUpperCase() : 'NÃO INFORMADO';
 
     totaisPorCidade[cidade] = (totaisPorCidade[cidade] || 0) + 1;
     totaisPorUf[uf] = (totaisPorUf[uf] || 0) + 1;
