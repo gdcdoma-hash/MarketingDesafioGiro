@@ -287,7 +287,7 @@ function renderContatos(){
  '<div><span class="pill">'+esc(c.perfil.replace(/_/g,' '))+'</span>'+ 
  (c.bloqueado?' <span class="pill gray">Não contatar</span>':'')+
  '<div class="meta" style="margin-top:6px">'+esc(c.origens.join(', ')||'Origem não informada')+'</div></div>'+
- '<div><label>Etapa</label><select data-stage="'+i+'" '+(!state.opt.edicao?'disabled':'')+'>'+state.opt.etapas.map(s=>'<option value="'+esc(s)+'"'+(s===c.etapa?' selected':'')+'>'+esc(s.replace(/_/g,' '))+'</option>').join('')+'</select></div>'+
+ '<div><label>Etapa</label><select data-stage="'+i+'" '+(!state.opt.edicao||c.bloqueado?'disabled':'')+'>'+state.opt.etapas.map(s=>'<option value="'+esc(s)+'"'+(s===c.etapa?' selected':'')+'>'+esc(s.replace(/_/g,' '))+'</option>').join('')+'</select></div>'+
  '<div><label>Situação</label><div class="meta">'+esc(c.situacao.replace(/_/g,' '))+'</div></div>'+
  '<div class="action"><button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>').join(''):'<div class="empty">Nenhum contato encontrado com estes filtros.</div>';
  E('r-lista').querySelectorAll('[data-open-contact]').forEach(el=>el.addEventListener('click',()=>abrirContato(d.registros[Number(el.dataset.openContact)])));
@@ -296,9 +296,9 @@ function renderContatos(){
   if(novo==='RETORNAR_DEPOIS'){abrirContato(c);E('edit-etapa').value=novo;el.value=c.etapa;return;}
   const limpar=novo==='PARA_CONTATAR'&&!!c.retorno;
   if(limpar&&!confirm('Limpar o próximo retorno deste contato?')){el.value=c.etapa;return;}
-  try{await api('v3_salvarContato',{telefone:c.telefone,etapa:novo,limparRetorno:limpar});
+  try{await api('v3_salvarContato',{telefone:c.telefone,versao:c.versao,etapa:novo,limparRetorno:limpar});
    aviso('Etapa atualizada.');carregarContatos();
-  }catch(e){el.value=c.etapa;aviso(e.message,true);}
+  }catch(e){el.value=c.etapa;aviso(e.message,true);carregarContatos();}
  }));
 }
 function pagina(delta){state.pagina+=delta;carregarContatos();}
@@ -330,14 +330,35 @@ function abrirContato(c){
  E('modal-contato').showModal();
 }
 async function salvarContato(){
- const d={telefone:state.ultimo.telefone,nomeContato:E('edit-nome-contato').value,
- modalidade:E('edit-modalidade').value,etapa:E('edit-etapa').value,situacao:E('edit-situacao').value,
- retorno:E('edit-retorno').value,observacao:E('edit-obs').value,
- limparRetorno:E('edit-etapa').value!=='RETORNAR_DEPOIS'};
+ const c=state.ultimo;
+ if(!c)return;
+ const d={telefone:c.telefone,versao:c.versao,
+  nomeContato:E('edit-nome-contato').value,
+  modalidade:E('edit-modalidade').value,etapa:E('edit-etapa').value,
+  situacao:E('edit-situacao').value,retorno:E('edit-retorno').value,
+  observacao:E('edit-obs').value,
+  limparRetorno:E('edit-etapa').value!=='RETORNAR_DEPOIS'};
+ const permaneceBloqueado=d.etapa==='NAO_CONTATAR'||
+  ['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(d.situacao)||
+  ['NAO_CONTATAR','SEM_INTERESSE'].includes(c.resultado)||c.validade==='INVALIDO';
+ if(c.bloqueado&&!permaneceBloqueado){
+  const motivo=prompt('Reativação de contato bloqueado: informe o motivo da autorização (mínimo 10 caracteres).\nA justificativa será registrada no histórico.');
+  if(!motivo||motivo.trim().length<10||motivo.trim().length>300){
+   aviso('Reativação cancelada: informe uma justificativa entre 10 e 300 caracteres.',true);return;
+  }
+  d.autorizarReativacao=true;d.motivoReativacao=motivo.trim();
+  if(!confirm('Confirma reativar este contato para novas abordagens?'))return;
+ }
  try{
-  const res=await api('v3_salvarContato',d);if(res.status!=='OK')throw Error(res.mensagem);
+  const res=await api('v3_salvarContato',d);
+  if(res.status!=='OK')throw Error(res.mensagem);
   fechar('modal-contato');aviso('Contato salvo.');carregarContatos();
- }catch(e){aviso(e.message,true);}
+ }catch(e){
+  aviso(e.message,true);
+  if(/alterado após a consulta/.test(e.message)){
+   fechar('modal-contato');carregarContatos();
+  }
+ }
 }
 function abrirConvite(){
  const c=state.ultimo,d=state.opt.desafios.find(x=>x.id===E('convite-desafio').value);
