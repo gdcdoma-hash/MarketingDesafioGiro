@@ -95,6 +95,24 @@ node .\scripts\instalar-v3-lab.cjs --confirmar-novo-lab=SIM
 
 O novo instalador também consulta `clasp list-scripts` antes de criar, impedindo repetir o mesmo nome de projeto. Se não conseguir listar, recusa a criação e mostra o motivo. Ele nunca publica o Web App ou altera as bases oficiais.
 
+## Recuperar um projeto já criado (erro de symlink no Windows)
+
+Se o Google retornar `Created new script: https://script.google.com/d/<ID>/edit` **antes** de informar `Security Error: Content directory is a symlink`, o projeto remoto já existe; o push não foi executado. **Não execute novamente o comando de criação.**
+
+A causa provável é a checagem de `fs.realpath` do `clasp` quando `%TEMP%` contém um caminho Windows abreviado (por exemplo `DESAFI~1`). Para preservar a proteção de segurança, `scripts/recuperar-v3-lab.cjs` cria a pasta de trabalho na **raiz do mesmo volume do repositório** (por exemplo `D:\DG-V3-RECUP-XXXXXX`) e valida que `path.resolve === fs.realpath` antes de qualquer envio. Não usa `allowSymlinks`, não cria outro projeto, não implanta Web App e impede usar IDs conhecidos do projeto antigo e do LAB V2.
+
+Na pasta de código V3 já extraída no Windows, baixar apenas o script atualizado:
+
+```powershell
+Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gdcdoma-hash/MarketingDesafioGiro/clean/marketing-relacionamento-v3-20261123/scripts/recuperar-v3-lab.cjs' -OutFile '.\scripts\recuperar-v3-lab.cjs'
+node .\scripts\recuperar-v3-lab.cjs --dry-run
+node .\scripts\recuperar-v3-lab.cjs --script-id=COLE_AQUI_O_ID_JA_CRIADO --confirmar-recuperacao=SIM
+```
+
+O comando de recuperação lê somente os seis arquivos da pasta `v3/`, gera um `.clasp.json` na pasta curta e executa `clasp push` no projeto já criado. Se retornar `Envio concluído`, abrir o endereço do projeto e executar `v3_instalarLab()` e `v3_lab_aceite()`.
+
+**Não exclua nenhum `.clasp.json` legado, não mova projetos do LAB V2 e não altere Script Properties PROD.** A recuperação é necessária uma só vez para vincular o projeto V3 recém-criado.
+
 ## Proteções e comportamento
 
 - Toda gravação do V3 ocorre **apenas nas abas operacionais** `Marketing` e `Relacionamento_*`. A tabela `dgmbDesafios`, dados pessoais e o catálogo do Portal são sempre consultados, nunca modificados.
