@@ -235,6 +235,19 @@ function v3_salvarContato(dados){
    if(!V3_SITUACOES.includes(valor))throw Error('Situação inválida.');
    edit.SITUACAO=valor;audit.push(['SITUACAO',c.SITUACAO,valor]);
   }
+  if(Object.prototype.hasOwnProperty.call(dados,'resultadoContato')){
+   const resultado=v3_texto_(dados.resultadoContato).toUpperCase();
+   const permitidos=['AGUARDANDO_RESPOSTA','EM_CONVERSA','RETORNAR_DEPOIS',
+    'SEM_INTERESSE','NAO_DESEJA_CONTATO','FINALIZADO'];
+   if(!permitidos.includes(resultado))throw Error('Resultado do contato inválido.');
+   if(resultado==='RETORNAR_DEPOIS'&&edit.ETAPA!=='RETORNAR_DEPOIS')
+    throw Error('Retorno exige a etapa Retornar depois e uma data.');
+   if(['SEM_INTERESSE','NAO_DESEJA_CONTATO'].includes(resultado)&&
+      (edit.ETAPA!=='NAO_CONTATAR'||!['SEM_INTERESSE','NAO_DESEJA_CONTATO'].includes(edit.SITUACAO)))
+    throw Error('Recusa exige situação e etapa de bloqueio.');
+   edit.RESULTADO=resultado;
+   audit.push(['RESULTADO',c.RESULTADO,resultado]);
+  }
   if(Object.prototype.hasOwnProperty.call(dados,'observacao')){
    const val=v3_texto_(dados.observacao);
    if(val.length>2000)throw Error('Observação muito longa.');
