@@ -1,5 +1,9 @@
 const DG_PLANILHA_MARKETING_RELACIONAMENTO_ID =
   '1znhdMCmPsMZ6viMJtWl2wXg3G7yWh-0Xu0M8IcJ-9ao';
+const DG_LAB_MARKETING_SPREADSHEET_ID =
+  '1GGV-coN-1cNQ-0sxV-vAHFVqpfjGiKllzQEwyhGBq8Y';
+const DG_LAB_PORTAL_SPREADSHEET_ID =
+  '1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY';
 
 /**
  * O LAB deve usar duas bases de teste distintas, sem dados pessoais reais.
@@ -30,6 +34,10 @@ function dg_configPlanilhas_() {
         portalConfigurado === SPREADSHEET_ID ||
         marketingLab === portalConfigurado) {
       throw new Error('LAB não pode apontar para produção ou para uma única planilha.');
+    }
+    if (marketingLab !== DG_LAB_MARKETING_SPREADSHEET_ID ||
+        portalConfigurado !== DG_LAB_PORTAL_SPREADSHEET_ID) {
+      throw new Error('LAB deve usar somente as duas planilhas fictícias autorizadas.');
     }
     return { ambiente: ambiente, marketingId: marketingLab, portalId: portalConfigurado };
   }
