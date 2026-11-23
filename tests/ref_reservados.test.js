@@ -14,7 +14,8 @@ const marketingRows = [
   ['constructor', '', 'Canal Constructor', 'APOIADOR', 'ATIVO'],
   ['__proto__', '', 'Canal Proto', 'GRUPO', 'ATIVO'],
   ['constructor', '', 'Canal Duplicado', 'APOIADOR', 'ATIVO'],
-  ['toString', '', 'Canal Inativo', 'GRUPO', 'INATIVO']
+  ['toString', '', 'Canal Inativo', 'GRUPO', 'INATIVO'],
+  ['codigo.invalido', '', 'Código inválido', 'GRUPO', 'ATIVO']
 ];
 const marketing = {
   getSheetByName(name) {
@@ -60,4 +61,8 @@ assert.equal(opcoes.length,2,'REF ativas distintas preservadas, inclusive __prot
 assert.ok(opcoes.some(x=>x.ref==='constructor'));
 assert.ok(opcoes.some(x=>x.ref==='__proto__'));
 assert.ok(!opcoes.some(x=>x.ref==='toString'));
+assert.ok(!opcoes.some(x=>x.ref==='codigo.invalido'), 'REF inválida não pode gerar convite');
+assert.equal(ctx.montarLinkDivulgacao_('codigo.invalido'), '', 'Não oferecer link que a landing recusaria');
+assert.equal(ctx.montarLinkDivulgacao_('LAB_CORACAO'),
+  'https://desafiogiro.gmbd.com.br/?ref=LAB_CORACAO');
 console.log('OK: REF com nomes reservados não corrompe métricas ou opções de contato.');
