@@ -6,6 +6,9 @@ on:
       - '**/*.html'
       - 'appsscript.json'
       - 'tests/**'
+      - 'scripts/**'
+      - '.gitignore'
+      - '.clasp.json'
       - '.github/workflows/marketing-tests.yml'
   workflow_dispatch:
 
@@ -32,6 +35,8 @@ jobs:
           node --check RelContatosService.js
           node --check RelEsporteService.js
           node --check Router.js
+          node --check scripts/preparar-lab.cjs
+          test ! -e .clasp.json
           node -e "const m=require('./appsscript.json');if(m.webapp.access!=='MYSELF')process.exit(1);"
       - name: Executar testes (nenhum dado real)
         run: |
@@ -40,3 +45,4 @@ jobs:
           node tests/marketing_desafios_recorte.test.js
           node tests/rel_esporte_campanhas.test.js
           node tests/rel_whatsapp_campanhas.test.js
+          node tests/lab_bundle.test.js
