@@ -179,3 +179,48 @@ test('Painel de contatos inclui retorno do dia e bloqueados entre os indicadores
  assert.match(s.elem('r-indicadores').innerHTML,/Retornar hoje \/ atrasados/);
  assert.match(s.elem('r-indicadores').innerHTML,/Bloqueados para contato/);
 });
+
+test('Editar somente a etapa preserva MTB, nome e observações existentes',async()=>{
+ const t=setup();
+ t.state.opt.etapas=['PARA_CONTATAR','EM_CONVERSA','RETORNAR_DEPOIS','NAO_CONTATAR'];
+ t.state.opt.situacoes=['PODE_CONTATAR','NAO_CLASSIFICADO'];
+ const c={...base,bloqueado:false,versao:'versao-ficticia-123',
+  modalidade:'MTB',nomeContato:'Nome original',observacao:'Observação prévia',
+  retorno:'',exibicao:'(98) 99123-4501',cidadeUf:'Cidade - MA',perfil:'CICLISMO'};
+ t.context.abrirContato(c);
+ assert.equal(t.elem('edit-modalidade').value,'MTB');
+ t.elem('edit-etapa').value='EM_CONVERSA';
+ const pending=t.context.salvarContato();
+ assert.equal(t.queue.length,1);
+ assert.equal(t.queue[0].name,'v3_salvarContato');
+ const dados=t.queue[0].args[0];
+ assert.equal(dados.telefone,c.telefone);
+ assert.equal(dados.versao,c.versao);
+ assert.equal(dados.etapa,'EM_CONVERSA');
+ assert.equal(Object.hasOwn(dados,'modalidade'),false,'MTB não pode ser sobrescrito');
+ assert.equal(Object.hasOwn(dados,'nomeContato'),false);
+ assert.equal(Object.hasOwn(dados,'observacao'),false);
+ assert.equal(Object.hasOwn(dados,'situacao'),false);
+ t.queue[0].resolve({status:'OK',mensagem:'Salvo',dados:{}});
+ await pending;
+});
+test('Reativação pelo formulário envia justificativa e confirmação ao servidor',async()=>{
+ const t=setup();
+ t.state.opt.etapas=['PARA_CONTATAR','NAO_CONTATAR'];
+ t.state.opt.situacoes=['PODE_CONTATAR','NAO_DESEJA_CONTATO'];
+ const c={...base,bloqueado:true,versao:'versao-antiga',etapa:'NAO_CONTATAR',
+  situacao:'NAO_DESEJA_CONTATO',modalidade:'NAO_INFORMADO',nomeContato:'',
+  observacao:'',retorno:'',exibicao:'(98) 99123-4501',cidadeUf:'Cidade - MA',
+  perfil:'NAO_IDENTIFICADO'};
+ t.context.abrirContato(c);
+ t.elem('edit-etapa').value='PARA_CONTATAR';
+ t.elem('edit-situacao').value='PODE_CONTATAR';
+ t.context.prompt=()=> 'Solicitação documentada e confirmada pelo titular';
+ const pending=t.context.salvarContato();
+ assert.equal(t.queue[0].name,'v3_salvarContato');
+ const payload=t.queue[0].args[0];
+ assert.equal(payload.autorizarReativacao,true);
+ assert.match(payload.motivoReativacao,/Solicitação documentada/);
+ t.queue[0].resolve({status:'OK',dados:{}});
+ await pending;
+});
