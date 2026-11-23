@@ -415,3 +415,55 @@ test('Metas são gravadas no mês do formulário aberto',async()=>{
  s.queue[1].resolve({status:'OK',dados:{}});
  await grava;
 });
+
+test('Falha ao ler o novo CSV invalida o arquivo verificado anteriormente',async()=>{
+ const s=setup();
+ s.elem('csv-texto').value='Pessoa A;98991234567;Cidade;MA';
+ const analise=s.context.analisarImportacao();
+ s.queue[0].resolve({status:'OK',dados:{novos:1,repetidos:0,invalidos:0}});
+ await analise;
+ assert.equal(s.elem('csv-confirmar').disabled,false);
+ await s.context.lerCsvArquivo({target:{files:[{size:12,text:async()=>{throw Error('Falha de leitura.');}}]}});
+ assert.equal(s.elem('csv-confirmar').disabled,true);
+ assert.equal(s.elem('csv-texto').value,'');
+ assert.match(s.elem('csv-resultado').textContent,/Falha ao ler/);
+ await s.context.confirmarImportacao();
+ assert.equal(s.calls.length,1);
+});
+
+test('Importação parcial preserva origem do lote e exige nova análise antes de retomar',async()=>{
+ const s=setup();
+ s.elem('csv-origem').value='O1';
+ s.elem('csv-texto').value=Array.from({length:301},(_,i)=>'Pessoa;9899123'+String(4500+i)).join('\n');
+ const analise=s.context.analisarImportacao();
+ s.queue[0].resolve({status:'OK',dados:{novos:300,repetidos:0,invalidos:0}});
+ await flush();
+ s.queue[1].resolve({status:'OK',dados:{novos:1,repetidos:0,invalidos:0}});
+ await analise;
+ const importacao=s.context.confirmarImportacao();
+ assert.equal(s.elem('csv-origem').disabled,true);
+ s.elem('csv-origem').value='O2';
+ s.queue[2].resolve({status:'OK',dados:{gravados:300,repetidos:0,novosVinculos:300}});
+ await flush();
+ assert.equal(s.queue[3].args[0].origemId,'O1');
+ s.queue[3].reject(new Error('Conexão perdida.'));
+ await importacao;
+ assert.match(s.elem('csv-resultado').textContent,/300 contatos e 300 vínculos/);
+ assert.equal(s.elem('csv-origem').disabled,false);
+ assert.equal(s.elem('csv-confirmar').disabled,true);
+ await s.context.confirmarImportacao();
+ assert.equal(s.calls.filter(x=>x==='v3_confirmarImportacao').length,2);
+});
+
+test('Prévia identifica campos inválidos e reconhece cabeçalho português de nomes',async()=>{
+ const s=setup();
+ s.elem('csv-texto').value='Nome próprio;Sobrenome;Telefone 1 - Valor\nAna;da Silva;98991234567';
+ assert.equal(s.context.dadosCSV()[0].nome,'Ana da Silva');
+ s.elem('csv-texto').value='Pessoa;111;Cidade;INVALIDO';
+ const analise=s.context.analisarImportacao();
+ assert.equal(s.queue[0].args[0].registros[0].uf,'INVALIDO');
+ s.queue[0].resolve({status:'OK',dados:{novos:0,repetidos:0,invalidos:1,linhasInvalidas:[1]}});
+ await analise;
+ assert.match(s.elem('csv-resultado').textContent,/posições 1/);
+ assert.equal(s.elem('csv-confirmar').disabled,true);
+});

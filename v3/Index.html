@@ -42,7 +42,7 @@ td strong{display:block;font-size:14px}td small{color:var(--muted)}.scroll{overf
 .error{color:#9e2b22}.success{color:#176c42}#toast{position:fixed;bottom:23px;left:50%;transform:translateX(-50%);z-index:50;background:#111d30;color:#fff;border-radius:10px;padding:11px 20px;box-shadow:0 7px 22px #14213444;display:none;max-width:90vw}
 dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;width:min(94vw,570px);max-height:88vh;overflow:auto}dialog::backdrop{background:#17213488}
 .dialog-inner{padding:24px}.dialog-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:15px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px}
-.actions{display:flex;justify-content:end;gap:10px;margin-top:19px}.action{display:flex;gap:7px;align-items:center}
+.actions{display:flex;justify-content:end;flex-wrap:wrap;gap:10px;margin-top:19px}.action{display:flex;gap:7px;align-items:center}
 .contact{display:grid;grid-template-columns:minmax(170px,1.3fr) minmax(110px,1fr) minmax(165px,1fr) minmax(150px,1fr) auto;gap:13px;align-items:center;border-top:1px solid var(--line);padding:14px 3px}
 .contact:first-child{border-top:none}.contact .name{font-size:15px;font-weight:800}.contact .meta{color:var(--muted);font-size:12px}
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.list-header{color:#5c6b80;font-weight:700;margin-bottom:10px}
@@ -218,8 +218,8 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  <button class="btn light" style="margin-top:14px" id="convite-whats" onclick="abrirConvite()">Abrir WhatsApp</button></div>
  </div></dialog>
 <dialog id="modal-origem"><div class="dialog-inner"><div class="dialog-head"><h2>Nova origem</h2><button class="btn light mini" onclick="fechar('modal-origem')">Fechar</button></div><label>Nome</label><input id="origem-nome" maxlength="120"><label style="margin-top:12px">Tipo</label><select id="origem-tipo"><option value="GRUPO_WHATSAPP">Grupo WhatsApp</option><option value="LOJA">Loja</option><option value="EVENTO">Evento</option><option value="LISTA_MANUAL">Lista manual</option><option value="OUTRO">Outro</option></select><div class="actions"><button class="btn light" onclick="fechar('modal-origem')">Cancelar</button><button class="btn" data-edit onclick="salvarOrigem()">Salvar origem</button></div></div></dialog>
-<dialog id="modal-importacao"><div class="dialog-inner">
- <div class="dialog-head"><div><h2>Adicionar contatos</h2><p class="sub">Selecione um CSV. O sistema identifica os telefones e evita duplicados.</p></div>
+<dialog id="modal-importacao" aria-labelledby="csv-titulo"><div class="dialog-inner">
+ <div class="dialog-head"><div><h2 id="csv-titulo">Adicionar contatos</h2><p class="sub">Selecione um CSV. O sistema identifica os telefones e evita duplicados.</p></div>
   <button class="btn light mini" onclick="fechar('modal-importacao')">Fechar</button></div>
  <div class="import-step"><label for="csv-arquivo">1. Escolha o arquivo de contatos</label>
   <input id="csv-arquivo" type="file" accept=".csv,.txt,text/csv" onchange="lerCsvArquivo(event)">
@@ -230,7 +230,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  </details>
  <div class="import-step" style="margin-top:13px"><label for="csv-origem">2. Origem da lista (grupo ou agenda)</label>
   <select id="csv-origem" onchange="invalidarPreviaImportacao()"></select></div>
- <div id="csv-resultado" class="notice" hidden></div>
+ <div id="csv-resultado" role="status" class="notice" hidden></div>
  <p id="csv-aviso-lab" class="muted" style="font-size:12px"></p>
  <div class="actions">
   <button class="btn light" onclick="fechar('modal-importacao')">Cancelar</button>
@@ -746,18 +746,25 @@ async function salvarOrigem(){
   fechar('modal-origem');aviso('Origem cadastrada.');carregarContatos();
  }catch(e){aviso(e.message,true);}
 }
-function fechar(id){if(id!=='modal-resultado'||!state.salvandoResultado)E(id).close();}
+function fechar(id){
+ if(id==='modal-resultado'&&state.salvandoResultado)return;
+ if(id==='modal-importacao'&&importandoCSV)return;
+ E(id).close();
+}
 
-let importacaoPendente=null;
+let importacaoPendente=null,importandoCSV=false,leituraCSV=0;
 let csvResumoLocal={semTelefone:0,repetidos:0,formato:''};
 function invalidarPreviaImportacao(){
  state.consultaImportacao++;
+ leituraCSV++;
  importacaoPendente=null;
  E('csv-resultado').hidden=true;
  E('csv-confirmar').disabled=true;
 }
 function abrirImportacao(){
+ if(importandoCSV)return;
  invalidarPreviaImportacao();
+ E('csv-arquivo').value='';E('csv-texto').value='';
  E('csv-aviso-lab').textContent=state.opt.ambiente==='LAB'?
   'LAB: é permitido analisar um arquivo, mas somente contatos fictícios identificados com LAB ou TESTE poderão ser gravados. Nunca importe sua agenda real neste ambiente.':
   'Antes de importar, o sistema compara os números com os já cadastrados. Nenhum contato existente será substituído.';
@@ -765,12 +772,20 @@ function abrirImportacao(){
  E('modal-importacao').showModal();
 }
 async function lerCsvArquivo(ev){
- const file=ev.target.files?.[0];if(!file)return;
- const texto=await file.text();
- if(texto.length>2500000){aviso('Arquivo muito grande. Separe em arquivos CSV menores que 2,5 MB.',true);return;}
- E('csv-texto').value=texto;
+ const file=ev.target.files?.[0];if(!file||importandoCSV)return;
  invalidarPreviaImportacao();
- await analisarImportacao();
+ E('csv-texto').value='';
+ const leitura=leituraCSV;
+ feedbackContato('csv-resultado','Lendo arquivo…');
+ try{
+  if(file.size>2500000)throw Error('Arquivo muito grande. Divida o CSV em arquivos de até 2,5 MB.');
+  const texto=await file.text();
+  if(leitura!==leituraCSV)return;
+  E('csv-texto').value=texto;
+  await analisarImportacao();
+ }catch(e){
+  if(leitura===leituraCSV)feedbackContato('csv-resultado','Falha ao ler o arquivo. '+e.message,'error');
+ }
 }
 function separadorCSV(texto){
  // Conta delimitadores da primeira linha lógica, ignorando campos entre aspas.
@@ -834,20 +849,20 @@ function dadosCSV(){
  const entries=[];
  let semTelefone=0,dup=0;
  const vistos=new Set();
- if(!hasHeaders&&rows[0].length>4){
+ if(!hasHeaders&&(phoneCols.length||rows[0].length>4)){
   throw Error('Não consegui identificar as colunas deste CSV. Exporte novamente em CSV do Google Contatos ou use a lista simples Nome;Telefone;Cidade;UF.');
  }
  const starting=hasHeaders?1:0;
  const nameCol=hasHeaders?headers.findIndex(h=>h==='name'||h==='nome'||h==='nome completo'):0;
- const givenCol=headers.findIndex(h=>h==='given name'||h==='first name');
- const familyCol=headers.findIndex(h=>h==='family name'||h==='last name');
+ const givenCol=headers.findIndex(h=>['given name','first name','nome proprio'].includes(h));
+ const familyCol=headers.findIndex(h=>['family name','last name','sobrenome'].includes(h));
  const cityCol=hasHeaders?headers.findIndex(h=>/^(city|cidade|address \d+ - city)$/.test(h)):2;
  const ufCol=hasHeaders?headers.findIndex(h=>/^(state|uf|estado|address \d+ - region)$/.test(h)):3;
  for(const row of rows.slice(starting)){
   const nome=(nameCol>=0?row[nameCol]:'')||
    [givenCol>=0?row[givenCol]:'',familyCol>=0?row[familyCol]:''].filter(Boolean).join(' ');
   const cidade=(row[cityCol]||'').trim(),ufRaw=(row[ufCol]||'').trim();
-  const uf=/^[A-Z]{2}$/i.test(ufRaw)?ufRaw.toUpperCase():'';
+  const uf=hasHeaders&&!/^[A-Z]{2}$/i.test(ufRaw)?'':ufRaw.toUpperCase();
   const valores=hasHeaders?phoneCols.flatMap(i=>String(row[i]||'').split(/\s*:::\s*/)):[row[1]||''];
   const numeros=valores.map(x=>String(x||'').trim()).filter(Boolean);
   if(!numeros.length){semTelefone++;continue;}
@@ -873,33 +888,39 @@ function dadosFicticiosCSV(registros){
   normalizarTituloCSV(r.nome).toUpperCase()));
 }
 async function analisarImportacao(){
+ if(importandoCSV)return;
  invalidarPreviaImportacao();
  const versao=state.consultaImportacao;
  try{
   const registros=dadosCSV(),lotes=lotesCSV(registros);
-  let novos=0,repetidos=0,invalidos=0,vinculos=0; const origemId=E('csv-origem').value;
+  let novos=0,repetidos=0,invalidos=0,vinculos=0;
+  const itensInvalidos=[],origemId=E('csv-origem').value;
+  feedbackContato('csv-resultado','Verificando '+registros.length+' telefones…');
   for(let i=0;i<lotes.length;i++){
    const res=await api('v3_analisarImportacao',{registros:lotes[i],origemId});
    if(versao!==state.consultaImportacao)return;
    if(res.status!=='OK')throw Error(res.mensagem);
+   for(const linha of res.dados.linhasInvalidas||[]){
+    if(itensInvalidos.length<15)itensInvalidos.push(i*300+linha);
+   }
    novos+=res.dados.novos;repetidos+=res.dados.repetidos;invalidos+=res.dados.invalidos;vinculos+=Number(res.dados.novosVinculos||0);
   }
-  importacaoPendente={registros,conteudo:E('csv-texto').value,origemId};
+  const podeImportar=invalidos===0&&(novos>0||vinculos>0);
+  if(podeImportar)importacaoPendente={registros,conteudo:E('csv-texto').value,origemId};
   const labReal=state.opt.ambiente==='LAB'&&!dadosFicticiosCSV(registros);
   E('csv-resultado').hidden=false;
   E('csv-resultado').className='notice '+(labReal||invalidos?'preview-warn':'preview-ok');
-  E('csv-resultado').textContent='ANÁLISE CONCLUÍDA — nenhuma gravação. '+registros.length+' telefones únicos analisados · '+novos+' novos · '+repetidos+' existentes · '+csvResumoLocal.repetidos+' duplicados no arquivo · '+invalidos+' inválidos · '+csvResumoLocal.semTelefone+' sem telefone · '+vinculos+' novos vínculos. '+(labReal?'LAB: arquivo real identificado. Use uma lista fictícia LAB ou TESTE para confirmar.':invalidos?'Corrija os registros inválidos antes de confirmar.':novos===0&&vinculos===0?'Nada a adicionar.':!state.opt.edicao?'Produção somente leitura.':'Próximo passo: confirmar importação.');
+  E('csv-resultado').textContent='ANÁLISE CONCLUÍDA — nenhuma gravação. '+registros.length+' telefones únicos analisados · '+novos+' novos · '+repetidos+' existentes · '+csvResumoLocal.repetidos+' duplicados no arquivo · '+invalidos+' inválidos · '+csvResumoLocal.semTelefone+' sem telefone · '+vinculos+' novos vínculos. '+(labReal?'LAB: arquivo real identificado. Use uma lista fictícia LAB ou TESTE para confirmar.':invalidos?'Corrija os campos dos itens inválidos da lista analisada'+(itensInvalidos.length?' (posições '+itensInvalidos.join(', ')+')':'')+' e verifique novamente.':novos===0&&vinculos===0?'Nada a adicionar.':!state.opt.edicao?'Produção somente leitura.':'Próximo passo: confirmar importação.');
   E('csv-confirmar').disabled=!state.opt.edicao||invalidos>0||(novos===0&&vinculos===0)||labReal;
   aviso('Análise concluída. Nenhum registro foi alterado.');
  }catch(e){
   if(versao===state.consultaImportacao){
-   E('csv-resultado').hidden=false;E('csv-resultado').textContent=e.message;
-   aviso(e.message,true);
+   feedbackContato('csv-resultado','Falha na análise. '+e.message,'error');
   }
  }
 }
 async function confirmarImportacao(){
- if(!importacaoPendente||!state.opt.edicao)return;
+ if(importandoCSV||!importacaoPendente||!state.opt.edicao)return;
  let atual;
  try{atual=dadosCSV();}catch(e){invalidarPreviaImportacao();aviso(e.message,true);return;}
  if(E('csv-origem').value!==importacaoPendente.origemId||E('csv-texto').value!==importacaoPendente.conteudo||
@@ -910,25 +931,31 @@ async function confirmarImportacao(){
   aviso('LAB aceita apenas contatos fictícios identificados como LAB ou TESTE.',true);return;
  }
  if(!confirm('Adicionar novos contatos e novos vínculos de origem? Os dados e históricos existentes serão preservados.'))return;
- const lotes=lotesCSV(atual),versao=state.consultaImportacao;
- E('csv-confirmar').disabled=true;E('csv-analisar').disabled=true;
+ const lotes=lotesCSV(atual),origemId=importacaoPendente.origemId;
+ importandoCSV=true;importacaoPendente=null;
+ const controles=['csv-arquivo','csv-texto','csv-origem','csv-analisar'];
+ controles.forEach(id=>E(id).disabled=true);
+ E('csv-confirmar').disabled=true;
  let gravados=0,repetidos=0,vinculos=0;
  try{
   for(let i=0;i<lotes.length;i++){
    E('csv-resultado').textContent='Importando lote '+(i+1)+' de '+lotes.length+'...';
    const res=await api('v3_confirmarImportacao',{
-    registros:lotes[i],origemId:importacaoPendente.origemId,confirmarFicticio:state.opt.ambiente==='LAB'
+    registros:lotes[i],origemId,confirmarFicticio:state.opt.ambiente==='LAB'
    });
    if(res.status!=='OK')throw Error(res.mensagem);
    gravados+=res.dados.gravados;repetidos+=res.dados.repetidos;vinculos+=Number(res.dados.novosVinculos||0);
   }
-  importacaoPendente=null;
   E('csv-resultado').className='notice preview-ok';E('csv-resultado').textContent='IMPORTAÇÃO CONCLUÍDA — '+gravados+' novos contatos; '+repetidos+' já cadastrados; '+vinculos+' novos vínculos. Feche esta janela para consultar a lista.';aviso('Importação concluída.');
   filtrarContatos();
  }catch(e){
-  aviso('Importação interrompida: '+e.message+'. Lotes anteriores podem ter sido gravados.',true);
-  E('csv-resultado').textContent='Importação parcial: '+gravados+' novos incluídos. Analise o arquivo novamente antes de continuar.';
- }finally{E('csv-analisar').disabled=false;}
+  feedbackContato('csv-resultado','Importação interrompida. Os lotes confirmados incluíram '+gravados+
+   ' contatos e '+vinculos+' vínculos. Verifique a lista novamente antes de retomar. '+e.message,'error');
+  if(gravados||vinculos)carregarContatos();
+ }finally{
+  importandoCSV=false;
+  controles.forEach(id=>E(id).disabled=false);
+ }
 }
 async function vincularOrigem(){
  const id=E('edit-origem').value;if(!id){aviso('Escolha uma origem.',true);return;}
@@ -955,6 +982,8 @@ async function carregarHistorico(){
 
 (async function iniciar(){
  E('modal-resultado').addEventListener('cancel',event=>{if(state.salvandoResultado)event.preventDefault();});
+ E('modal-importacao').addEventListener('cancel',event=>{if(importandoCSV)event.preventDefault();});
+ E('modal-importacao').addEventListener('close',invalidarPreviaImportacao);
  try{state.opt=await api('v3_opcoes');initFiltros();trocar(state.tab);}
  catch(e){aviso('Não foi possível inicializar o sistema: '+e.message,true);}
 })();
