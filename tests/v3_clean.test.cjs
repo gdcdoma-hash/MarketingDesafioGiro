@@ -546,3 +546,74 @@ test('Se Google fornece ID mas não salva .clasp.json, instalador recupera sem c
   assert.equal(vm.runInContext("vinculoSeCriado(result,tempDir)",sandbox),out);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('Instalador V3 cria projeto em temp FORA do .clasp.json legado',()=>{
+ const file=path.join(root,'scripts/instalar-v3-lab.cjs');
+ const source=fs.readFileSync(file,'utf8').replace(/^#![^\n]*\n/,'')
+  .split("try{install();}catch(e)")[0];
+ let destination='',pushes=0;
+ const logs=[];
+ const sandbox=vm.createContext({require,
+  process:{...process,argv:['node',file,'--confirmar-novo-lab=SIM'],env:process.env},
+  console:{log(...args){logs.push(args.join(' '));},error(...args){logs.push(args.join(' '));}},
+  __dirname:path.join(root,'scripts')
+ });
+ vm.runInContext(source,sandbox,{filename:'installer-temp-flow.js'});
+ sandbox.onCommand=(args,cwd)=>{
+  if(args[0]==='list-scripts')return {status:0,stdout:'',stderr:''};
+  if(args[0]==='create-script'){
+   destination=cwd;
+   fs.writeFileSync(path.join(cwd,'.clasp.json'),JSON.stringify({
+    scriptId:'1V3_SAFE_'+'X'.repeat(38),rootDir:'.'
+   }),{flag:'wx'});
+   return {status:0,stdout:'Created script',stderr:''};
+  }
+  if(args[0]==='push'){pushes++;return {status:0,stdout:'Pushed 6 files',stderr:''};}
+  throw Error('Comando imprevisto: '+args.join(' '));
+ };
+ vm.runInContext('command=(args,cwd)=>onCommand(args,cwd)',sandbox);
+ try{
+  vm.runInContext('install()',sandbox);
+  assert.ok(destination,'Deve criar pasta');
+  assert.ok(path.relative(root,destination).startsWith('..')||
+    path.isAbsolute(path.relative(root,destination)),
+    'Destino nunca pode estar sob a árvore do repositório legado');
+  assert.equal(pushes,1);
+  assert.deepEqual(fs.readdirSync(destination).sort(),[
+   '.clasp.json','Config.gs','Importacao.gs','Index.html',
+   'Marketing.gs','Relacionamento.gs','appsscript.json'
+  ]);
+  assert.ok(logs.some(x=>x.includes('LAB V3 criado e código enviado')));
+ }finally{
+  const base=path.join(require('node:os').tmpdir(),'DG-V3-LAB-INSTALACOES');
+  if(destination&&path.dirname(destination)===base)fs.rmSync(destination,{recursive:true,force:true});
+ }
+});
+test('Clasp informa Project file already exists com status 0: instalador RECUSA e não faz push',()=>{
+ const file=path.join(root,'scripts/instalar-v3-lab.cjs');
+ const source=fs.readFileSync(file,'utf8').replace(/^#![^\n]*\n/,'')
+  .split("try{install();}catch(e)")[0];
+ let destination='',pushes=0;
+ const sandbox=vm.createContext({require,
+  process:{...process,argv:['node',file,'--confirmar-novo-lab=SIM'],env:process.env},
+  console:{log(){},error(){}},
+  __dirname:path.join(root,'scripts')
+ });
+ vm.runInContext(source,sandbox,{filename:'installer-project-exists.js'});
+ sandbox.onCommand=(args,cwd)=>{
+  destination=cwd;
+  if(args[0]==='list-scripts')return {status:0,stdout:'',stderr:''};
+  if(args[0]==='create-script')return {status:0,stdout:'',
+    stderr:'Project file already exists.'};
+  if(args[0]==='push'){pushes++;return {status:0,stdout:'',stderr:''};}
+  throw Error('Comando imprevisto');
+ };
+ vm.runInContext('command=(args,cwd)=>onCommand(args,cwd)',sandbox);
+ try{
+  assert.throws(()=>vm.runInContext('install()',sandbox),/Clasp encontrou .clasp.json existente/);
+  assert.equal(pushes,0);
+ }finally{
+  const base=path.join(require('node:os').tmpdir(),'DG-V3-LAB-INSTALACOES');
+  if(destination&&path.dirname(destination)===base)fs.rmSync(destination,{recursive:true,force:true});
+ }
+});
