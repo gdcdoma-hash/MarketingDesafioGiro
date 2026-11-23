@@ -213,11 +213,11 @@ test('Pacote v3 é limpo e não possui serviços antigos ou projeto anterior',()
 
 test('CSV/contatos: pré-análise não grava, duplica nem substitui a agenda',()=>{
  const c=context();const before=c.updates;
- const dados={registros:[
-  {nome:'João Novo',telefone:'98991234577',cidade:'Cidade Fictícia',uf:'MA'},
-  {nome:'Outra Pessoa',telefone:'5598991234501',cidade:'',uf:'MA'},
-  {nome:'Duplicado no lote',telefone:'5598991234577',cidade:'',uf:'MA'},
-  {nome:'Invalido',telefone:'123'}
+ const dados={confirmarFicticio:true,registros:[
+  {nome:'LAB João Novo',telefone:'98991234577',cidade:'Cidade Fictícia',uf:'MA'},
+  {nome:'LAB Outra Pessoa',telefone:'5598991234501',cidade:'',uf:'MA'},
+  {nome:'LAB Duplicado no lote',telefone:'5598991234577',cidade:'',uf:'MA'},
+  {nome:'LAB Invalido',telefone:'123'}
  ]};
  const preview=c.ctx.v3_analisarImportacao(dados).dados;
  assert.equal(preview.total,4);
@@ -226,7 +226,7 @@ test('CSV/contatos: pré-análise não grava, duplica nem substitui a agenda',()
  assert.equal(preview.invalidos,1);
  assert.equal(c.updates,before,'A prévia nunca grava dados');
  assert.throws(()=>c.ctx.v3_confirmarImportacao(dados),/Corrija/);
- const fix={registros:dados.registros.slice(0,3),origemId:'O1'};
+ const fix={registros:dados.registros.slice(0,3),origemId:'O1',confirmarFicticio:true};
  const done=c.ctx.v3_confirmarImportacao(fix).dados;
  assert.equal(done.gravados,1);
  assert.equal(done.repetidos,2);
@@ -282,7 +282,7 @@ test('Ciclista confirmado manualmente pode ser reconhecido sem inscrição hist�
   E_CICLISTA:'NAO_CONFIRMADO'},idx),'NAO_IDENTIFICADO');
 });
 test('Nomes iniciados por fórmula são gravados como texto em planilha, nunca interpretados',()=>{
- const c=context();
+ const c=context('PROD','SIM');
  c.ctx.v3_confirmarImportacao({registros:[{telefone:'98991234688',nome:'=IMPORTXML("https://x","/")',cidade:'Cidade Teste',uf:'MA'}]});
  const row=c.fixtures.mark.Relacionamento_Contatos.at(-1);
  assert.match(row[4],/^'=IMPORTXML/);
@@ -652,4 +652,63 @@ test('Recuperação V3 nunca chama create-script; escolhe volume do projeto e ex
  assert.ok(script.includes("clasp.cmd push"));
  assert.doesNotMatch(js,/command\(['"]create-script/);
  assert.ok(script.includes("if (absolute !== real)"));
+});
+
+test('LAB não importa agenda real mesmo que alguém chame servidor diretamente',()=>{
+ const c=context();
+ const payload={registros:[{nome:'Pessoa Real',telefone:'98991234655',cidade:'',uf:'MA'}],
+  confirmarFicticio:true};
+ const before=c.updates;
+ assert.equal(c.ctx.v3_analisarImportacao(payload).status,'OK');
+ assert.throws(()=>c.ctx.v3_confirmarImportacao(payload),/LAB aceita somente contatos fictícios/);
+ assert.equal(c.updates,before);
+ assert.throws(()=>c.ctx.v3_confirmarImportacao({
+  registros:[{nome:'LAB Exemplo',telefone:'98991234655'}]
+ }),/LAB aceita somente contatos fictícios/);
+ assert.equal(c.updates,before);
+});
+test('Registro rápido aguardar resposta persiste resultado e histórico, sem marcar envio automático',()=>{
+ const c=context(),tel='5598991234501',antes=c.updates;
+ const done=c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'AGUARDANDO_RESPOSTA',resultadoContato:'AGUARDANDO_RESPOSTA'});
+ assert.equal(done.status,'OK');
+ const rows=c.fixtures.mark.Relacionamento_Contatos;
+ const h=rows[0],r=rows[1];
+ assert.equal(r[h.indexOf('ETAPA')],'AGUARDANDO_RESPOSTA');
+ assert.equal(r[h.indexOf('RESULTADO')],'AGUARDANDO_RESPOSTA');
+ assert.equal(r[h.indexOf('DATA_PRIMEIRA_MENSAGEM')],'','O sistema não pode afirmar que mensagem foi enviada');
+ assert.ok(c.ctx.v3_historicoContato(tel).dados.eventos.some(x=>x.tipo==='RESULTADO'));
+ assert.ok(c.updates>antes);
+});
+test('Resultado rápido de retorno exige data e não bloqueia futuras abordagens',()=>{
+ const c=context(),tel='5598991234501',v=versaoContato(c,tel);
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:v,
+  etapa:'RETORNAR_DEPOIS',resultadoContato:'RETORNAR_DEPOIS'}),/data/);
+ assert.equal(c.updates,before);
+ c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'RETORNAR_DEPOIS',
+  retorno:'2026-12-20',resultadoContato:'RETORNAR_DEPOIS'});
+ const rec=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros.find(x=>x.telefone===tel);
+ assert.equal(rec.retorno,'2026-12-20');
+ assert.equal(rec.bloqueado,false);
+});
+test('Resultado Sem Interesse impede mensagens e bloqueia contato até reativação justificada',()=>{
+ const c=context(),tel='5598991234501',v=versaoContato(c,tel);
+ const ok=c.ctx.v3_salvarContato({telefone:tel,versao:v,
+  etapa:'NAO_CONTATAR',situacao:'SEM_INTERESSE',resultadoContato:'SEM_INTERESSE'});
+ assert.equal(ok.status,'OK');
+ const rec=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros.find(x=>x.telefone===tel);
+ assert.equal(rec.bloqueado,true);
+ assert.ok(c.ctx.v3_contatos({}).dados.registros.every(x=>x.telefone!==tel));
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'PARA_CONTATAR',situacao:'PODE_CONTATAR',resultadoContato:'EM_CONVERSA'}),/Reativação exige/);
+ assert.equal(c.updates,before);
+});
+test('Servidor rejeita resultado de recusa sem bloquear a situação/etapa',()=>{
+ const c=context(),tel='5598991234501';
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'EM_CONVERSA',resultadoContato:'SEM_INTERESSE'}),/Recusa exige/);
+ assert.equal(c.updates,before);
 });
