@@ -35,6 +35,29 @@ function rel_contatos_situacao_(valor) {
   return REL_CONFIG.ENUMS.SITUACAO.indexOf(situacao) >= 0 ? situacao : 'NAO_CLASSIFICADO';
 }
 
+/**
+ * Referências existentes na planilha operacional do Marketing; não inventa
+ * códigos de divulgação a partir do telefone do destinatário.
+ */
+function rel_contatos_referenciasMarketing_() {
+  const registros = lerAbaComoObjetos_(
+    dg_abrirPlanilhaMarketingRelacionamento_(), 'Marketing'
+  );
+  const vistos = {};
+  return registros.filter(item => {
+    const ref = rel_contatos_texto_(item.REF);
+    const ativo = rel_contatos_texto_(item.STATUS).toUpperCase() === 'ATIVO';
+    if (!ref || !ativo || vistos[ref]) return false;
+    vistos[ref] = true;
+    return true;
+  }).map(item => ({
+    ref: rel_contatos_texto_(item.REF),
+    nome: rel_contatos_texto_(item.NOME_ORIGEM) ||
+      rel_contatos_texto_(item.ID_DGMB) ||
+      rel_contatos_texto_(item.REF)
+  })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
 function rel_contatos_listar_(filtros) {
   const entrada = filtros || {};
   const pagina = Math.max(1, Number(entrada.pagina) || 1);
@@ -165,7 +188,7 @@ function rel_contatos_listar_(filtros) {
   const inicio = (paginaValida - 1) * porPagina;
   return rel_contatos_resposta_('OK', '', {
     contatos: contatos.slice(inicio, inicio + porPagina).map(contato => { delete contato.idsOrigens; delete contato.ordemAntiguidade; return contato; }),
-    pagina: paginaValida, porPagina: porPagina, total: total, totalPaginas: totalPaginas, origens: opcoesOrigem
+    pagina: paginaValida, porPagina: porPagina, total: total, totalPaginas: totalPaginas, origens: opcoesOrigem, referenciasMarketing: rel_contatos_referenciasMarketing_()
   });
 }
 
