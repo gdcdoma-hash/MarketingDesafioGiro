@@ -46,7 +46,36 @@ function rel_esporte_perfil_(flags) {
   return 'NAO_IDENTIFICADO';
 }
 
-function rel_esporte_carregarIndicesPortal_() {
+/**
+ * Índice leve (somente telefone normalizado e sinais esportivos), válido por
+ * 2 minutos. Evita reler três abas do Portal a cada mudança de filtro/página.
+ * O LAB usa outro projeto Apps Script e, portanto, cache próprio.
+ * Não armazena nomes, CPF ou histórico individual de inscrições.
+ */
+const REL_ESPORTE_CACHE_CHAVE = 'DG_REL_ESPORTE_V2_20261123';
+function rel_esporte_cache_() {
+  try {
+    return typeof CacheService === 'undefined' ? null : CacheService.getScriptCache();
+  } catch (erro) {
+    return null;
+  }
+}
+
+function rel_esporte_carregarIndicesPortal_(forcarAtualizacao) {
+  const cache = rel_esporte_cache_();
+  if (cache && forcarAtualizacao !== true) {
+    try {
+      const salvo = cache.get(REL_ESPORTE_CACHE_CHAVE);
+      if (salvo) {
+        const indice = JSON.parse(salvo);
+        if (indice && typeof indice === 'object' && !Array.isArray(indice)) {
+          return indice;
+        }
+      }
+    } catch (erro) {
+      // Falha do cache não deve impedir a listagem de contatos.
+    }
+  }
   const portal = dg_abrirPlanilhaPortal_();
   const pessoas = lerAbaComoObjetos_(portal, 'DadosPessoais');
   const inscricoes = lerAbaComoObjetos_(portal, 'dgmbDesafios');
@@ -101,6 +130,16 @@ function rel_esporte_carregarIndicesPortal_() {
     resultado[telefone] = modalidadePorId[ids[0]] ||
       { ciclismo: false, corrida: false };
   });
+  if (cache) {
+    try {
+      const serializado = JSON.stringify(resultado);
+      // CacheService limita o tamanho por chave; bases maiores seguem
+      // funcionando sem cache, sem fragmentar nem armazenar dados pessoais.
+      if (serializado.length <= 85000) cache.put(REL_ESPORTE_CACHE_CHAVE, serializado, 120);
+    } catch (erro) {
+      // Cache é apenas otimização, não fonte de verdade.
+    }
+  }
   return resultado;
 }
 
