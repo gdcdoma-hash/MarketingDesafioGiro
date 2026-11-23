@@ -86,6 +86,22 @@ function install(){
  fs.mkdirSync(base,{recursive:true});
  const dir=fs.mkdtempSync(path.join(base,'v3-lab-novo-'));
  console.log('Projeto local isolado:',dir);
+ // Consultar projetos existentes antes de criar outro com o mesmo título.
+ let projetos=command(['list-scripts'],dir);
+ if(projetos.status!==0 &&
+   /unknown command|is not a command|invalid command/i.test(projetos.stderr+' '+projetos.stdout))
+  projetos=command(['list'],dir);
+ if(projetos.status!==0){
+  diagnosticoComando('clasp list-scripts',projetos,dir);
+  refuse('Não foi possível conferir projetos já criados. Nenhum novo projeto criado.');
+ }
+ const duplicados=projetos.stdout.split(/\r?\n/).filter(line=>
+  line.includes('DG-Marketing-Relacionamento-V3-LAB'));
+ if(duplicados.length){
+  console.log('Projeto V3 LAB já aparece na conta Google:');
+  duplicados.forEach(line=>console.log(line.trim().slice(0,280)));
+  refuse('Projeto com este nome já existe. Envie a linha acima para recuperação sem duplicar.');
+ }
  console.log('Criando novo Apps Script privado na conta autenticada pelo clasp.');
  // Criar projeto uma única vez. Fallback só quando a CLI NÃO reconhece
  // o comando; se criou o script mas não salvou o vínculo, jamais duplicar.
