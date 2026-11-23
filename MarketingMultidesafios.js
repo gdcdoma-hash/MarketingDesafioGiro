@@ -10,7 +10,7 @@ function mdg_normalizarCabecalho_(valor) {
 }
 
 function mdg_valorCampo_(obj, nomes) {
-  const mapa = {};
+  const mapa = Object.create(null);
   Object.keys(obj || {}).forEach(chave => {
     mapa[mdg_normalizarCabecalho_(chave)] = obj[chave];
   });
@@ -36,7 +36,7 @@ function mdg_tipoDesafio_(item) {
 }
 
 function mdg_catalogoDesafios_(lista) {
-  const mapa = {};
+  const mapa = Object.create(null);
 
   (lista || []).forEach(item => {
     const id = String(item.id_Desafio_lista || '').trim();
@@ -173,7 +173,7 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
   const inscricoes = lerAbaComoObjetos_(planilhaPortal, ABAS.DESAFIOS);
   const lista = lerAbaComoObjetos_(planilhaPortal, ABAS.LISTA_DESAFIOS);
 
-  const pessoasPorId = {};
+  const pessoasPorId = Object.create(null);
   pessoas.forEach(item => {
     const id = String(item.ID_DGMB || '').trim();
     if (id) pessoasPorId[id] = item;
@@ -188,13 +188,15 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
   const periodos = Array.from(periodosSet).sort((a, b) => chavePeriodo_(b) - chavePeriodo_(a));
   const periodoSelecionado = String(periodoSolicitado || '').trim() || periodos[0] || '';
   const idDesafioSelecionado = String(idDesafioSolicitado || '').trim();
+  const filtroDesafioInvalido = Boolean(idDesafioSelecionado &&
+    (!catalogo[idDesafioSelecionado] || catalogo[idDesafioSelecionado].periodo !== periodoSelecionado));
 
   const metasTodas = mdg_obterMetas_();
   const metasPeriodo = metasTodas[periodoSelecionado] || {};
   const metaGeral = mdg_metaGeralPeriodo_(metasPeriodo);
   const metasDesafios = metasPeriodo.desafios || {};
 
-  const origens = {};
+  const origens = Object.create(null);
   marketing.forEach(item => {
     const ref = String(item.REF || '').trim();
     if (!ref) return;
@@ -218,7 +220,7 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
     };
   });
 
-  const desafiosResumo = {};
+  const desafiosResumo = Object.create(null);
   Object.values(catalogo)
     .filter(desafio => desafio.periodo === periodoSelecionado)
     .forEach(desafio => {
@@ -228,6 +230,7 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
         inscricoes: 0,
         atribuidas: 0,
         direto: 0,
+        refNaoCadastradas: 0,
         percentual: 0
       };
     });
@@ -236,18 +239,17 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
   let totalPeriodo = 0;
   let totalAtribuidas = 0;
   let totalDireto = 0;
+  let totalRefNaoCadastradas = 0;
   const totaisPorTipo = {};
   const totaisPorCidade = {};
   const totaisPorUf = {};
 
   inscricoes.forEach(inscricao => {
-    const status = String(
-      inscricao.Status_Usuario_Desafio || inscricao.Status_Desafio || ''
-    ).toUpperCase();
-    if (status.includes('CANCEL')) return;
+    if (!dg_marketing_inscricaoElegivel_(inscricao)) return;
 
     const ref = String(inscricao.REF_MARKETING || '').trim();
-    if (ref && origens[ref]) origens[ref].totalHistorico++;
+    const origem = ref ? origens[ref] : null;
+    if (origem) origem.totalHistorico++;
 
     const idDesafio = extrairIdDesafio_(inscricao.Observacao);
     const catalogado = catalogo[idDesafio];
@@ -267,19 +269,20 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
         inscricoes: 0,
         atribuidas: 0,
         direto: 0,
+        refNaoCadastradas: 0,
         percentual: 0
       };
     }
 
     const resumoDesafio = desafiosResumo[idDesafio];
     resumoDesafio.inscricoes++;
-    if (ref) resumoDesafio.atribuidas++;
-    else resumoDesafio.direto++;
+    if (!ref) resumoDesafio.direto++;
+    else if (origem) resumoDesafio.atribuidas++;
+    else resumoDesafio.refNaoCadastradas++;
 
-    if (idDesafioSelecionado && idDesafio !== idDesafioSelecionado) return;
+    if (filtroDesafioInvalido || (idDesafioSelecionado && idDesafio !== idDesafioSelecionado)) return;
 
     totalPeriodo++;
-    const origem = ref ? origens[ref] : null;
     const tipo = !ref
       ? 'DIRETO'
       : String(origem && origem.tipo || '').trim() || 'NAO_CLASSIFICADO';
@@ -303,8 +306,9 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
       return;
     }
 
+    if (!origem) { totalRefNaoCadastradas++; return; }
     totalAtribuidas++;
-    if (origens[ref]) origens[ref].inscricoes++;
+    origem.inscricoes++;
   });
 
   const listaDesafios = Object.values(desafiosResumo)
@@ -323,7 +327,7 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
     ? listaDesafios.find(item => String(item.id) === idDesafioSelecionado) || null
     : null;
 
-  const meta = desafioSelecionado ? Number(desafioSelecionado.meta || 0) : metaGeral;
+  const meta = idDesafioSelecionado ? Number(desafioSelecionado && desafioSelecionado.meta || 0) : metaGeral;
   const percentualMeta = meta > 0 ? Math.min(100, (totalPeriodo / meta) * 100) : 0;
 
   const divulgadores = Object.values(origens).sort((a, b) => {
@@ -353,6 +357,8 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
     totalGeralPeriodo,
     totalAtribuidas,
     totalDireto,
+    totalRefNaoCadastradas,
+    filtroDesafioInvalido,
     percentualMeta,
     divulgadores,
     principaisOrigens,
