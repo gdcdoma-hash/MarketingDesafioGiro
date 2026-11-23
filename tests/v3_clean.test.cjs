@@ -203,7 +203,7 @@ test('CSV/contatos: pré-análise não grava, duplica nem substitui a agenda',()
  const dados={registros:[
   {nome:'João Novo',telefone:'98991234577',cidade:'Cidade Fictícia',uf:'MA'},
   {nome:'Outra Pessoa',telefone:'5598991234501',cidade:'',uf:'MA'},
-  {nome:'Duplicado no lote',telefone:'55989991234577',cidade:'',uf:'MA'},
+  {nome:'Duplicado no lote',telefone:'5598991234577',cidade:'',uf:'MA'},
   {nome:'Invalido',telefone:'123'}
  ]};
  const preview=c.ctx.v3_analisarImportacao(dados).dados;
@@ -217,7 +217,7 @@ test('CSV/contatos: pré-análise não grava, duplica nem substitui a agenda',()
  const done=c.ctx.v3_confirmarImportacao(fix).dados;
  assert.equal(done.gravados,1);
  assert.equal(done.repetidos,2);
- assert.ok(c.fixtures.mark.Relacionamento_Contatos.some(x=>x[0]==='55989991234577'));
+ assert.ok(c.fixtures.mark.Relacionamento_Contatos.some(x=>x[0]==='5598991234577'));
  assert.equal(c.fixtures.mark.Relacionamento_ContatoOrigens.length,3);
  assert.ok(c.updates>before);
  const back=c.ctx.v3_contatos({etapa:'TODOS',busca:'91234577'}).dados;
@@ -250,5 +250,5 @@ test('HTML de dois módulos não inclui serviço legado ou envio automático',()
  assert.doesNotMatch(source,/messages\.send|\.sendMessage\(/i);
  const script=source.match(/<script>([\s\S]*?)<\/script>/)?.[1];
  assert.ok(script);
- assert.doesNotThrow(()=>new vm.Script(script.replace(/<\?=[^>]+?\?>/g,"'LAB'")));
+ assert.doesNotThrow(()=>new vm.Script(script.replace(/<\?=[^>]+?\?>/g,"LAB")));
 });
