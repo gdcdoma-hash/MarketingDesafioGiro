@@ -1,0 +1,9 @@
+# Nunca versionar o alvo de um clasp push nem suas credenciais.
+.clasp.json
+.clasprc.json
+**/.clasp.json
+**/.clasprc.json
+
+# Pacotes locais de LAB: gerados em diretório separado do código-fonte.
+/build/
+/node_modules/

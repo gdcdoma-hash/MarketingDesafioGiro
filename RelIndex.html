@@ -6,6 +6,10 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+  <script>window.DG_AMBIENTE = '<?= ambiente ?>';</script>
+  <? if (ambiente === 'LAB') { ?>
+  <p role="status" style="margin:0;padding:12px;text-align:center;background:#fff3cc;color:#603c00;font-weight:700;">AMBIENTE LAB — dados fictícios. WhatsApp bloqueado.</p>
+  <? } ?>
   <div id="rel-app" class="rel-app">
     <header class="rel-header">
       <div class="rel-header-content">
@@ -148,7 +152,7 @@
         <div id="rel-nova-cidade-campos" class="rel-new-city" hidden><label>Nova cidade<input id="rel-nova-cidade" maxlength="100"></label><button id="rel-cadastrar-cidade" class="rel-button" type="button">Cadastrar cidade</button></div>
         <div class="rel-contact-form-grid">
           <label>É ciclista?<select id="rel-contato-ciclista"><option value="NAO_CONFIRMADO">Não confirmado</option><option value="SIM">Sim</option><option value="NAO">Não</option></select></label>
-          <label>Modalidade<select id="rel-contato-modalidade"><option value="NAO_INFORMADO">Não informado</option><option value="MTB">MTB</option><option value="SPEED">Speed</option><option value="GRAVEL">Gravel</option><option value="URBANO">Urbano</option><option value="MULTIPLAS">Múltiplas</option></select></label>
+          <label>Modalidade<select id="rel-contato-modalidade"><option value="NAO_INFORMADO">Não informado</option><option value="MTB">MTB</option><option value="SPEED">Speed</option><option value="GRAVEL">Gravel</option><option value="URBANO">Urbano</option><option value="MULTIPLAS">Múltiplas modalidades de ciclismo</option><option value="CICLISMO">Ciclismo</option><option value="CAMINHADA">Caminhada</option><option value="CORRIDA">Corrida</option><option value="CAMINHADA_CORRIDA">Corrida e caminhada</option><option value="CICLISMO_E_CAMINHADA_CORRIDA">Ciclismo e corrida/caminhada</option></select></label>
         </div>
         <label>Observação (opcional)<textarea id="rel-contato-observacao" maxlength="500" rows="3"></textarea></label>
         <div id="rel-contato-form-aviso" class="rel-alert" role="alert" hidden></div>

@@ -1,6 +1,6 @@
-const SPREADSHEET_ID = '18UCv96cqQMShaSabAhnX0AOLILAOcujCj-yBLUT1eJs';
+const SPREADSHEET_ID = '1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ';
 const URL_PUBLICA_DESAFIO_GIRO =
-  'https://desafiogiro.giromotosbikes.com.br';
+  'https://desafiogiro.gmbd.com.br/';
 const CHAVE_URL_GAS_PORTAL = 'URL_GAS_PORTAL';
 
 const ABAS = {
@@ -152,7 +152,7 @@ function testarMetricasMarketing() {
     periodoPorDesafio[id] = periodo;
   });
 
-  const metricasPorRef = {};
+  const metricasPorRef = Object.create(null);
 
   marketing.forEach(item => {
     const ref = String(item.REF || '').trim();
@@ -289,9 +289,17 @@ function obterUrlGasPortal_() {
 }
 
 
+function dg_marketing_normalizarRef_(valor) {
+  const codigo = String(valor || '').trim();
+  return /^[A-Za-z0-9_-]{1,100}$/.test(codigo) ? codigo : '';
+}
+
 function montarLinkDivulgacao_(ref) {
-  return URL_PUBLICA_DESAFIO_GIRO +
-    '?ref=' + encodeURIComponent(String(ref || '').trim());
+  // Em LAB a interface jamais deve oferecer um link que leve a inscrições reais.
+  if (dg_configPlanilhas_().ambiente === 'LAB') return '';
+  const codigo = dg_marketing_normalizarRef_(ref);
+  if (!codigo) return '';
+  return URL_PUBLICA_DESAFIO_GIRO + '?ref=' + encodeURIComponent(codigo);
 }
 
 
@@ -302,7 +310,29 @@ function include(nomeArquivo) {
 }
 
 
-function obterDadosPainel(periodoSolicitado) {
+/**
+ * Inscrições válidas para divulgação. Não conta desistências, cancelamentos
+ * nem inscrições expiradas; pagamento pendente permanece distinguível no Portal.
+ */
+function dg_marketing_inscricaoElegivel_(inscricao) {
+  const estados = [inscricao.Status_Usuario_Desafio, inscricao.Status_Desafio]
+    .map(valor => String(valor || '').trim().toUpperCase());
+  return !estados.some(valor =>
+    valor.includes('CANCEL') || valor.includes('DESISTENT') || valor.includes('EXPIRAD')
+  );
+}
+
+/**
+ * Identifica o desafio pela Observacao atual. Usa periodo_desafio como
+ * fallback apenas para o período, nunca para atribuir um desafio incorreto.
+ */
+function dg_marketing_periodoInscricao_(inscricao, periodoPorDesafio) {
+  const id = extrairIdDesafio_(inscricao.Observacao);
+  return periodoPorDesafio[id] ||
+    String(inscricao.periodo_desafio || '').trim();
+}
+
+function obterDadosPainel(periodoSolicitado, idDesafioSolicitado) {
   const planilhaOperacional = dg_abrirPlanilhaMarketingRelacionamento_();
   const planilhaPortal = dg_abrirPlanilhaPortal_();
 
@@ -319,47 +349,54 @@ function obterDadosPainel(periodoSolicitado) {
 
   const periodoPorDesafio = {};
   const periodosSet = new Set();
+  const catalogoDesafios = [];
 
   lista.forEach(item => {
     const id = String(item.id_Desafio_lista || '').trim();
     const periodo = String(item.Periodo || '').trim();
-
-    if (id && periodo) {
-      periodoPorDesafio[id] = periodo;
-      periodosSet.add(periodo);
-    }
+    if (!id || !periodo) return;
+    periodoPorDesafio[id] = periodo;
+    periodosSet.add(periodo);
+    catalogoDesafios.push({
+      id: id,
+      nome: String(item.Nome_Desafio || id).trim(),
+      periodo: periodo,
+      tipo: String(item.Tipo || '').trim()
+    });
   });
 
-  const periodos = Array.from(periodosSet).sort((a, b) => {
-    return chavePeriodo_(b) - chavePeriodo_(a);
-  });
+  const periodos = Array.from(periodosSet).sort((a, b) =>
+    chavePeriodo_(b) - chavePeriodo_(a)
+  );
+  catalogoDesafios.sort((a, b) =>
+    chavePeriodo_(b.periodo) - chavePeriodo_(a.periodo) ||
+    Number(b.id) - Number(a.id)
+  );
 
-  const periodoSelecionado =
-    String(periodoSolicitado || '').trim() ||
-    periodos[0] ||
-    '';
+  const periodoSelecionado = String(periodoSolicitado || '').trim() ||
+    periodos[0] || '';
+  const idSolicitado = String(idDesafioSolicitado || '').trim();
+  const desafioSelecionado = catalogoDesafios.find(item =>
+    item.id === idSolicitado && item.periodo === periodoSelecionado
+  );
+  // Se a UI pediu um desafio inexistente neste período, nunca ampliar
+  // silenciosamente a consulta para "todos os desafios".
+  const filtroDesafioInvalido = Boolean(idSolicitado && !desafioSelecionado);
+  const idDesafioSelecionado = idSolicitado;
 
-  const origens = {};
-
+  const origens = Object.create(null);
   marketing.forEach(item => {
     const ref = String(item.REF || '').trim();
     if (!ref) return;
-
     const idDgmb = String(item.ID_DGMB || '').trim();
     const pessoa = idDgmb ? pessoasPorId[idDgmb] : null;
-
     origens[ref] = {
-      ref,
-      idDgmb,
-      nome: pessoa
-        ? String(pessoa.nome || '').trim()
-        : String(item.NOME_ORIGEM || ref).trim(),
-      cidadeUf: pessoa
-        ? String(pessoa['Cidade-UF'] || '').trim()
-        : '',
-      whatsapp: pessoa
-        ? String(pessoa.whatsapp || '').trim()
-        : '',
+      ref: ref,
+      idDgmb: idDgmb,
+      nome: pessoa ? String(pessoa.nome || '').trim() :
+        String(item.NOME_ORIGEM || ref).trim(),
+      cidadeUf: pessoa ? String(pessoa['Cidade-UF'] || '').trim() : '',
+      whatsapp: pessoa ? String(pessoa.whatsapp || '').trim() : '',
       tipo: String(item.TIPO || '').trim(),
       status: String(item.STATUS || '').trim(),
       inscricoes: 0,
@@ -371,111 +408,74 @@ function obterDadosPainel(periodoSolicitado) {
   let totalPeriodo = 0;
   let totalAtribuidas = 0;
   let totalDireto = 0;
+  let totalRefNaoCadastradas = 0;
   const totaisPorTipo = {};
   const totaisPorCidade = {};
   const totaisPorUf = {};
 
   desafios.forEach(inscricao => {
-    // Se houver uma inscrição explicitamente cancelada, não entra na métrica.
-    const status = String(
-      inscricao.Status_Usuario_Desafio ||
-      inscricao.Status_Desafio ||
-      ''
-    ).toUpperCase();
-
-    if (status.includes('CANCEL')) return;
+    if (!dg_marketing_inscricaoElegivel_(inscricao)) return;
 
     const ref = String(inscricao.REF_MARKETING || '').trim();
-
-    if (ref && origens[ref]) {
-      origens[ref].totalHistorico++;
-    }
+    const origem = ref ? origens[ref] : null;
+    if (origem) origem.totalHistorico++;
 
     const idDesafio = extrairIdDesafio_(inscricao.Observacao);
-    const periodo = periodoPorDesafio[idDesafio] || '';
-
-    if (periodo !== periodoSelecionado) return;
+    const periodo = dg_marketing_periodoInscricao_(inscricao, periodoPorDesafio);
+    if (filtroDesafioInvalido || periodo !== periodoSelecionado) return;
+    if (idDesafioSelecionado && idDesafio !== idDesafioSelecionado) return;
 
     totalPeriodo++;
-
-    const origem = ref ? origens[ref] : null;
-    const tipo = !ref
-      ? 'DIRETO'
-      : String(origem && origem.tipo || '').trim() || 'NAO_CLASSIFICADO';
-
+    const tipo = !ref ? 'DIRETO' :
+      (origem && origem.tipo) || 'NAO_CLASSIFICADO';
     totaisPorTipo[tipo] = (totaisPorTipo[tipo] || 0) + 1;
 
     const idDgmb = String(inscricao.ID_DGMB || '').trim();
     const pessoa = idDgmb ? pessoasPorId[idDgmb] : null;
     const cidadeUf = String(pessoa && pessoa['Cidade-UF'] || '').trim();
     const cidade = cidadeUf || 'NÃO INFORMADO';
-    const partesCidade = cidadeUf.split(' - ');
-    const ufExtraida = partesCidade.length > 1
-      ? String(partesCidade[partesCidade.length - 1] || '').trim().toUpperCase()
-      : '';
-    const uf = /^[A-Z]{2}$/.test(ufExtraida)
-      ? ufExtraida
-      : 'NÃO INFORMADO';
-
+    const partes = cidadeUf.match(/-\s*([A-Za-z]{2})\s*$/);
+    const uf = partes ? partes[1].toUpperCase() : 'NÃO INFORMADO';
     totaisPorCidade[cidade] = (totaisPorCidade[cidade] || 0) + 1;
     totaisPorUf[uf] = (totaisPorUf[uf] || 0) + 1;
 
-    if (!ref) {
-      totalDireto++;
-      return;
-    }
-
-    totalAtribuidas++;
-
-    if (origens[ref]) {
-      origens[ref].inscricoes++;
+    if (!ref) totalDireto++;
+    else if (!origem) totalRefNaoCadastradas++;
+    else {
+      totalAtribuidas++;
+      origem.inscricoes++;
     }
   });
 
-  const divulgadores = Object.values(origens)
-    .sort((a, b) => {
-      if (b.inscricoes !== a.inscricoes) {
-        return b.inscricoes - a.inscricoes;
-      }
-
-      return a.nome.localeCompare(b.nome, 'pt-BR');
-    });
-
-  const principaisOrigens = divulgadores
-    .filter(item => item.inscricoes > 0)
-    .slice(0, 10);
-
+  const divulgadores = Object.values(origens).sort((a, b) =>
+    b.inscricoes - a.inscricoes || a.nome.localeCompare(b.nome, 'pt-BR')
+  );
   const ordenarMetricas = totais => Object.keys(totais)
-    .map(nome => ({ nome, inscricoes: totais[nome] }))
-    .sort((a, b) => {
-      if (b.inscricoes !== a.inscricoes) {
-        return b.inscricoes - a.inscricoes;
-      }
-
-      return a.nome.localeCompare(b.nome, 'pt-BR');
-    });
-
-  const metricasPorTipo = ordenarMetricas(totaisPorTipo);
-  const metricasPorCidade = ordenarMetricas(totaisPorCidade);
-  const metricasPorUf = ordenarMetricas(totaisPorUf);
-
-  const percentualMeta = META_MARKETING > 0
-    ? Math.min(100, (totalPeriodo / META_MARKETING) * 100)
-    : 0;
+    .map(nome => ({ nome: nome, inscricoes: totais[nome] }))
+    .sort((a, b) =>
+      b.inscricoes - a.inscricoes || a.nome.localeCompare(b.nome, 'pt-BR')
+    );
 
   return {
-    periodoSelecionado,
-    periodos,
+    periodoSelecionado: periodoSelecionado,
+    periodos: periodos,
+    catalogoDesafios: catalogoDesafios,
+    idDesafioSelecionado: idDesafioSelecionado,
+    nomeDesafioSelecionado: desafioSelecionado ? desafioSelecionado.nome :
+      (filtroDesafioInvalido ? 'Desafio não encontrado neste período' : ''),
+    filtroDesafioInvalido: filtroDesafioInvalido,
     meta: META_MARKETING,
-    totalPeriodo,
-    totalAtribuidas,
-    totalDireto,
-    percentualMeta,
-    divulgadores,
-    principaisOrigens,
-    metricasPorTipo,
-    metricasPorCidade,
-    metricasPorUf
+    totalPeriodo: totalPeriodo,
+    totalAtribuidas: totalAtribuidas,
+    totalDireto: totalDireto,
+    totalRefNaoCadastradas: totalRefNaoCadastradas,
+    percentualMeta: META_MARKETING > 0 ?
+      Math.min(100, 100 * totalPeriodo / META_MARKETING) : 0,
+    divulgadores: divulgadores,
+    principaisOrigens: divulgadores.filter(item => item.inscricoes > 0).slice(0, 10),
+    metricasPorTipo: ordenarMetricas(totaisPorTipo),
+    metricasPorCidade: ordenarMetricas(totaisPorCidade),
+    metricasPorUf: ordenarMetricas(totaisPorUf)
   };
 }
 
@@ -511,7 +511,7 @@ function chavePeriodo_(periodo) {
 }
 
 
-function buscarDivulgadorOuPessoaMarketing(termoBusca, periodoSolicitado) {
+function buscarDivulgadorOuPessoaMarketing(termoBusca, periodoSolicitado, idDesafioSolicitado) {
   const termo = normalizarBuscaMarketing_(termoBusca);
 
   if (!termo) {
@@ -540,7 +540,8 @@ function buscarDivulgadorOuPessoaMarketing(termoBusca, periodoSolicitado) {
       tipoResultado: 'DIVULGADOR',
       divulgador: montarResumoDivulgadorMarketing_(
         cadastro,
-        periodoSolicitado
+        periodoSolicitado,
+        idDesafioSolicitado
       )
     };
   }
@@ -549,7 +550,7 @@ function buscarDivulgadorOuPessoaMarketing(termoBusca, periodoSolicitado) {
 }
 
 
-function montarResumoDivulgadorMarketing_(cadastro, periodoSolicitado) {
+function montarResumoDivulgadorMarketing_(cadastro, periodoSolicitado, idDesafioSolicitado) {
   const ref = String(cadastro.REF || '').trim();
   const idDgmb = String(cadastro.ID_DGMB || '').trim();
 
@@ -578,14 +579,15 @@ function montarResumoDivulgadorMarketing_(cadastro, periodoSolicitado) {
     inscricoes: contarInscricoesMarketing_(
       ref,
       periodoSolicitado,
-      planilhaPortal
+      planilhaPortal,
+      idDesafioSolicitado
     ),
     link: montarLinkDivulgacao_(ref)
   };
 }
 
 
-function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal) {
+function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal, idDesafioSolicitado) {
   const refNormalizada = String(ref || '').trim();
 
   if (!refNormalizada) return 0;
@@ -620,6 +622,11 @@ function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal) {
     String(periodoSolicitado || '').trim() ||
     periodos[0] ||
     '';
+  const filtro = String(idDesafioSolicitado || '').trim();
+  if (filtro && !lista.some(item =>
+    String(item.id_Desafio_lista || '').trim() === filtro &&
+    String(item.Periodo || '').trim() === periodoSelecionado
+  )) return 0;
 
   return desafios.filter(inscricao => {
     const status = String(
@@ -628,7 +635,7 @@ function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal) {
       ''
     ).toUpperCase();
 
-    if (status.includes('CANCEL')) return false;
+    if (!dg_marketing_inscricaoElegivel_(inscricao)) return false;
 
     const refInscricao = String(
       inscricao.REF_MARKETING || ''
@@ -637,9 +644,9 @@ function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal) {
     if (refInscricao !== refNormalizada) return false;
 
     const idDesafio = extrairIdDesafio_(inscricao.Observacao);
-    const periodo = periodoPorDesafio[idDesafio] || '';
-
-    return periodo === periodoSelecionado;
+    const periodo = dg_marketing_periodoInscricao_(inscricao, periodoPorDesafio);
+    if (periodo !== periodoSelecionado) return false;
+    return !filtro || idDesafio === filtro;
   }).length;
 }
 
@@ -808,7 +815,8 @@ function salvarDivulgadorMarketing(dados) {
       mensagem: 'Este divulgador já está cadastrado.',
       divulgador: montarResumoDivulgadorMarketing_(
         cadastroExistente,
-        dados && dados.periodo
+        dados && dados.periodo,
+        dados && dados.idDesafio
       )
     };
   }
@@ -832,7 +840,8 @@ function salvarDivulgadorMarketing(dados) {
         TIPO: tipo,
         STATUS: 'ATIVO'
       },
-      dados && dados.periodo
+      dados && dados.periodo,
+      dados && dados.idDesafio
     )
   };
 }

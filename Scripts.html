@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-function carregarDados(periodo) {
+function carregarDados(periodo, idDesafio) {
   document.getElementById('conteudo').innerHTML =
     '<div class="carregando">Carregando dados...</div>';
 
@@ -21,7 +21,7 @@ function carregarDados(periodo) {
       document.getElementById('conteudo').innerHTML =
         '<div class="erro">Não foi possível carregar os dados.</div>';
     })
-    .obterDadosPainel(periodo);
+    .obterDadosPainel(periodo, idDesafio || '');
 }
 
 
@@ -37,32 +37,14 @@ function renderizar(dados) {
   const divulgadores = filtrarDivulgadores(dados.divulgadores);
 
   document.getElementById('conteudo').innerHTML = `
+    ${dados.filtroDesafioInvalido ?
+      '<div role="alert" class="erro">O desafio solicitado não pertence ao período selecionado. Nenhum resultado foi contabilizado. Abra Configurações e escolha um desafio válido.</div>'
+      : ''}
     <section class="meta-card">
       <div class="meta-topo">
-
         <div>
-          <div class="meta-label">
-            Meta do período
-          </div>
-
-          <div class="meta-numero">
-            ${dados.totalPeriodo} / ${dados.meta}
-          </div>
-        </div>
-
-        <div class="meta-percentual">
-          ${Number(dados.percentualMeta || 0).toFixed(1)}%
-        </div>
-
-      </div>
-
-      <div class="barra">
-        <div
-          class="barra-preenchida"
-          style="width:${Math.min(
-            100,
-            Number(dados.percentualMeta || 0)
-          )}%">
+          <div class="meta-label">Inscrições válidas no recorte</div>
+          <div class="meta-numero">${dados.totalPeriodo}</div>
         </div>
       </div>
     </section>
@@ -88,6 +70,11 @@ function renderizar(dados) {
           Direto / sem referência
         </div>
       </div>
+
+      ${Number(dados.totalRefNaoCadastradas || 0) > 0 ?
+        '<div class="resumo-card"><div class="resumo-numero">' +
+        dados.totalRefNaoCadastradas +
+        '</div><div class="resumo-label">REF sem cadastro de origem</div></div>' : ''}
 
     </section>
 
@@ -118,7 +105,7 @@ function renderizar(dados) {
         </h2>
 
         <div class="secao-info">
-          ${esc(dados.periodoSelecionado || '')}
+          ${esc(dados.periodoSelecionado || '')}${dados.nomeDesafioSelecionado ? ' — ' + esc(dados.nomeDesafioSelecionado) : ''}
         </div>
 
       </div>
@@ -190,21 +177,33 @@ function renderizarBlocoMetricas(titulo, conteudo) {
 
 function renderizarPeriodos(dados) {
   const select = document.getElementById('periodo-configuracoes');
-
   document.getElementById('periodo-atual').textContent =
-    dados.periodoSelecionado || '';
+    (dados.periodoSelecionado || '') +
+    (dados.nomeDesafioSelecionado ? ' — ' + dados.nomeDesafioSelecionado : '');
 
-  select.innerHTML = dados.periodos
-    .map(periodo => `
-      <option
-        value="${esc(periodo)}"
-        ${periodo === dados.periodoSelecionado
-          ? 'selected'
-          : ''}>
-        ${esc(periodo)}
-      </option>
-    `)
+  select.innerHTML = (dados.periodos || [])
+    .map(periodo => '<option value="' + esc(periodo) + '"' +
+      (periodo === dados.periodoSelecionado ? ' selected' : '') +
+      '>' + esc(periodo) + '</option>')
     .join('');
+
+  atualizarDesafiosConfiguracoes(dados.idDesafioSelecionado || '');
+}
+
+function atualizarDesafiosConfiguracoes(selecionarId) {
+  const periodo = document.getElementById('periodo-configuracoes').value;
+  const select = document.getElementById('desafio-configuracoes');
+  const catalogo = dadosAtuais && Array.isArray(dadosAtuais.catalogoDesafios)
+    ? dadosAtuais.catalogoDesafios : [];
+  const desafios = catalogo.filter(item => item.periodo === periodo);
+  const escolhido = String(selecionarId || '').trim();
+  const idEncontrado = desafios.some(item => item.id === escolhido);
+  select.innerHTML = '<option value="">Todos os desafios do período</option>' +
+    (escolhido && !idEncontrado ?
+      '<option value="' + esc(escolhido) + '" selected disabled>Desafio indisponível neste período</option>' : '') +
+    desafios.map(item => '<option value="' + esc(item.id) + '"' +
+      (item.id === escolhido ? ' selected' : '') + '>' +
+      esc(item.nome) + ' (#' + esc(item.id) + ')' + '</option>').join('');
 }
 
 
@@ -224,9 +223,10 @@ function fecharConfiguracoes() {
 
 function aplicarConfiguracoes() {
   const periodo = document.getElementById('periodo-configuracoes').value;
+  const idDesafio = document.getElementById('desafio-configuracoes').value;
 
   fecharConfiguracoes();
-  carregarDados(periodo);
+  carregarDados(periodo, idDesafio);
 }
 
 
@@ -714,7 +714,8 @@ function buscarNovoDivulgador() {
     })
     .buscarDivulgadorOuPessoaMarketing(
       termo,
-      dadosAtuais ? dadosAtuais.periodoSelecionado : ''
+      dadosAtuais ? dadosAtuais.periodoSelecionado : '',
+      dadosAtuais ? dadosAtuais.idDesafioSelecionado : ''
     );
 }
 
@@ -791,9 +792,8 @@ function confirmarNovoDivulgador() {
       );
 
       carregarDados(
-        dadosAtuais
-          ? dadosAtuais.periodoSelecionado
-          : ''
+        dadosAtuais ? dadosAtuais.periodoSelecionado : '',
+        dadosAtuais ? dadosAtuais.idDesafioSelecionado : ''
       );
     })
     .withFailureHandler(erro => {
@@ -809,7 +809,8 @@ function confirmarNovoDivulgador() {
     .salvarDivulgadorMarketing({
       idDgmb: novoDivulgadorAtual.idDgmb,
       tipo: tipo,
-      periodo: dadosAtuais ? dadosAtuais.periodoSelecionado : ''
+      periodo: dadosAtuais ? dadosAtuais.periodoSelecionado : '',
+      idDesafio: dadosAtuais ? dadosAtuais.idDesafioSelecionado : ''
     });
 }
 

@@ -12,6 +12,9 @@
 </head>
 
 <body>
+  <? if (ambiente === 'LAB') { ?>
+  <p role="status" style="margin:0;padding:12px;background:#fff3cc;color:#603c00;text-align:center;font-weight:700;">AMBIENTE LAB — dados fictícios. Não utilize links de teste para inscrições reais.</p>
+  <? } ?>
 
   <div class="app">
 
@@ -86,8 +89,16 @@
 
       <select
         id="periodo-configuracoes"
-        class="campo-input">
+        class="campo-input"
+        onchange="atualizarDesafiosConfiguracoes()">
         <option>Carregando...</option>
+      </select>
+
+      <label class="campo-label" for="desafio-configuracoes">
+        Desafio
+      </label>
+      <select id="desafio-configuracoes" class="campo-input">
+        <option value="">Todos os desafios do período</option>
       </select>
 
       <button

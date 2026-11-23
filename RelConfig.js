@@ -103,6 +103,11 @@ const REL_CONFIG = Object.freeze({
       'GRAVEL',
       'URBANO',
       'MULTIPLAS',
+      'CICLISMO',
+      'CAMINHADA',
+      'CORRIDA',
+      'CAMINHADA_CORRIDA',
+      'CICLISMO_E_CAMINHADA_CORRIDA',
       'NAO_INFORMADO'
     ]),
     EXPORTACAO_GOOGLE_STATUS: Object.freeze([

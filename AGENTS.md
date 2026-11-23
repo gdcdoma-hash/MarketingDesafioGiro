@@ -1,5 +1,23 @@
 # MARKETING DESAFIO GIRO — CONTEXTO DO PROJETO
 
+> **Estado operacional validado em 23/11/2026:** Este projeto tem **planilha independente**
+> `MarketingContatoRelacionamento` (ID `1znhdMCmPsMZ6viMJtWl2wXg3G7yWh-0Xu0M8IcJ-9ao`).
+> Sua aba `Marketing` contém `REF`, `ID_DGMB`, `NOME_ORIGEM`, `TIPO`, `STATUS`.
+> As abas `Relacionamento_*` guardam os contatos, as origens e os históricos.
+> O Portal Giro é apenas **fonte consultada**, pela planilha de produção
+> `DGMB_PROD_FINAL_20260929_141812` (ID `1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ`)
+> configurável pela propriedade `DG_PORTAL_SPREADSHEET_ID`.
+> As consultas a `DadosPessoais`, `dgmbDesafios` e `ListaDesafios`
+> **não devem gravar** no Portal. A gravação da REF em `dgmbDesafios.REF_MARKETING`
+> acontece exclusivamente no **fluxo de inscrição do Portal Giro**.
+> Não migrar planilhas. Campanhas seguintes: Medalha **Transmissão** (pedalada,
+> duas etapas) e **Coração** (corrida/caminhada, uma etapa). Selim/50 km não
+> tiveram divulgação operacional por este mini sistema.
+> Não publicar o módulo Relacionamento com acesso anônimo; para o painel
+> administrativo a configuração segura proposta é `webapp.access = MYSELF`.
+> Consultar `REATIVACAO_MARKETING_RELACIONAMENTO_2026_11_23.md` antes do deploy.
+>
+
 ## OBJETIVO
 
 Este projeto é um mini sistema auxiliar de marketing do Desafio Giro.
@@ -32,9 +50,11 @@ O Portal Giro continua sendo um projeto separado.
 
 ## PLANILHA
 
-ID da planilha:
+**Planilha independente para gravações:** `MarketingContatoRelacionamento` (`1znhdMCmPsMZ6viMJtWl2wXg3G7yWh-0Xu0M8IcJ-9ao`).
 
-18UCv96cqQMShaSabAhnX0AOLILAOcujCj-yBLUT1eJs
+**Planilha consultada (Portal produção):** `DGMB_PROD_FINAL_20260929_141812` (`1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ`).
+
+O ID anterior `18UCv96cqQMShaSabAhnX0AOLILAOcujCj-yBLUT1eJs` não deve ser usado como fonte atual de inscrições.
 
 Abas utilizadas:
 
@@ -94,7 +114,7 @@ Exemplo:
 
 ## REF_MARKETING
 
-O Portal Giro já grava REF_MARKETING na inscrição.
+O código do Portal Giro inclui a gravação de REF_MARKETING na inscrição; é obrigatória homologação ponta a ponta com link `?ref=CODIGO` no LAB antes de considerar a atribuição validada.
 
 Exemplo:
 
@@ -114,7 +134,7 @@ REF pode ser:
 - WHATSAPP;
 - outro código de origem.
 
-O mini sistema MarketingDesafioGiro apenas lê essa informação.
+O mini sistema MarketingDesafioGiro grava seus códigos de referência na aba `Marketing` da planilha própria e consulta `REF_MARKETING` no Portal. Não grava dados de inscrição no Portal.
 
 ---
 

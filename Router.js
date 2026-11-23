@@ -33,11 +33,11 @@ function doGet(e) {
 function dg_router_criarPaginaDivulgadores_() {
   const template = HtmlService.createTemplateFromFile('Index');
   template.webAppUrl = ScriptApp.getService().getUrl();
+  template.ambiente = dg_configPlanilhas_().ambiente;
 
   const output = template
     .evaluate()
-    .setTitle('Marketing — Desafio Giro')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setTitle('Marketing — Desafio Giro');
 
   output.addMetaTag(
     'viewport',
@@ -51,6 +51,7 @@ function dg_router_criarPaginaDivulgadores_() {
 function rel_criarPaginaContatos_() {
   const template = HtmlService.createTemplateFromFile('RelIndex');
   template.webAppUrl = ScriptApp.getService().getUrl();
+  template.ambiente = dg_configPlanilhas_().ambiente;
 
   return template
     .evaluate()

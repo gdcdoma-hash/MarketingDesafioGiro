@@ -35,6 +35,31 @@ function rel_contatos_situacao_(valor) {
   return REL_CONFIG.ENUMS.SITUACAO.indexOf(situacao) >= 0 ? situacao : 'NAO_CLASSIFICADO';
 }
 
+/**
+ * Referências existentes na planilha operacional do Marketing; não inventa
+ * códigos de divulgação a partir do telefone do destinatário.
+ */
+function rel_contatos_referenciasMarketing_() {
+  const registros = lerAbaComoObjetos_(
+    dg_abrirPlanilhaMarketingRelacionamento_(), 'Marketing'
+  );
+  const vistos = Object.create(null);
+  return registros.filter(item => {
+    const ref = rel_contatos_texto_(item.REF);
+    const ativo = rel_contatos_texto_(item.STATUS).toUpperCase() === 'ATIVO';
+    // O convite deve respeitar o mesmo formato seguro da landing e do Portal.
+    const valido = /^[A-Za-z0-9_-]{1,100}$/.test(ref);
+    if (!valido || !ativo || vistos[ref]) return false;
+    vistos[ref] = true;
+    return true;
+  }).map(item => ({
+    ref: rel_contatos_texto_(item.REF),
+    nome: rel_contatos_texto_(item.NOME_ORIGEM) ||
+      rel_contatos_texto_(item.ID_DGMB) ||
+      rel_contatos_texto_(item.REF)
+  })).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
 function rel_contatos_listar_(filtros) {
   const entrada = filtros || {};
   const pagina = Math.max(1, Number(entrada.pagina) || 1);
@@ -43,6 +68,7 @@ function rel_contatos_listar_(filtros) {
   const etapa = rel_contatos_texto_(entrada.etapa || 'PADRAO').toUpperCase();
   const situacao = rel_contatos_texto_(entrada.situacao || 'TODOS').toUpperCase();
   const idOrigem = rel_contatos_texto_(entrada.idOrigem);
+  const esporte = rel_contatos_texto_(entrada.esporte || 'TODOS').toUpperCase();
   const busca = rel_contatos_normalizar_(entrada.busca);
   const retornoPendente = entrada.retornoPendente === true || rel_contatos_texto_(entrada.retornoPendente).toLowerCase() === 'true';
   if (['TODOS', 'IDENTIFICADO_PORTAL', 'CONTATO_NOVO'].indexOf(classificacao) < 0) {
@@ -55,7 +81,11 @@ function rel_contatos_listar_(filtros) {
     return rel_contatos_resposta_('ERRO_VALIDACAO', 'Situação inválida.');
   }
 
+  if (['TODOS', 'CICLISMO', 'CAMINHADA_CORRIDA', 'AMBOS', 'NAO_IDENTIFICADO'].indexOf(esporte) < 0) {
+    return rel_contatos_resposta_('ERRO_VALIDACAO', 'Filtro esportivo inválido.');
+  }
   const base = rel_contatos_carregarListagem_();
+  const indiceEsporte = rel_esporte_carregarIndicesPortal_();
   const mc = base.contatos.mapa;
   const mo = base.origens.mapa;
   const mv = base.vinculos.mapa;
@@ -103,7 +133,7 @@ function rel_contatos_listar_(filtros) {
     const uf = rel_contatos_texto_(valor('UF')).toUpperCase();
     const idsOrigens = vinculosPorTelefone[telefoneNormalizado] || [];
     const proximo = rel_contatos_dataIso_(valor('DATA_PROXIMO_RETORNO'));
-    return {
+    const contato = {
       telefoneNormalizado: telefoneNormalizado,
       telefoneExibicao: rel_contatos_texto_(valor('TELEFONE_EXIBICAO')) || telefoneNormalizado,
       idDgmb: idDgmb,
@@ -128,6 +158,7 @@ function rel_contatos_listar_(filtros) {
       idsOrigens: idsOrigens,
       ordemAntiguidade: rel_contatos_dataIso_(valor('DATA_PRIMEIRA_IMPORTACAO')) || String(indice).padStart(8, '0')
     };
+    return Object.assign(contato, rel_esporte_classificarContato_(contato, indiceEsporte));
   }).filter(contato => {
     if (classificacao !== 'TODOS' && contato.classificacao !== classificacao) return false;
     if (retornoPendente) {
@@ -138,6 +169,7 @@ function rel_contatos_listar_(filtros) {
     if (!retornoPendente && etapa !== 'PADRAO' && etapa !== 'TODOS' && contato.etapa !== etapa) return false;
     if (situacao !== 'TODOS' && contato.situacao !== situacao) return false;
     if (idOrigem && contato.idsOrigens.indexOf(idOrigem) < 0) return false;
+    if (!rel_esporte_filtrar_(contato.perfilEsportivo, esporte)) return false;
     if (!busca) return true;
     return [contato.telefoneNormalizado, contato.telefoneExibicao, contato.idDgmb, contato.nomePortal,
       contato.nomeContato, contato.nomeGoogleContatos, contato.cidadeUfExibicao, contato.cidade, contato.uf]
@@ -158,7 +190,7 @@ function rel_contatos_listar_(filtros) {
   const inicio = (paginaValida - 1) * porPagina;
   return rel_contatos_resposta_('OK', '', {
     contatos: contatos.slice(inicio, inicio + porPagina).map(contato => { delete contato.idsOrigens; delete contato.ordemAntiguidade; return contato; }),
-    pagina: paginaValida, porPagina: porPagina, total: total, totalPaginas: totalPaginas, origens: opcoesOrigem
+    pagina: paginaValida, porPagina: porPagina, total: total, totalPaginas: totalPaginas, origens: opcoesOrigem, referenciasMarketing: rel_contatos_referenciasMarketing_()
   });
 }
 
