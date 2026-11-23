@@ -289,10 +289,15 @@ function obterUrlGasPortal_() {
 }
 
 
+function dg_marketing_normalizarRef_(valor) {
+  const codigo = String(valor || '').trim();
+  return /^[A-Za-z0-9_-]{1,100}$/.test(codigo) ? codigo : '';
+}
+
 function montarLinkDivulgacao_(ref) {
   // Em LAB a interface jamais deve oferecer um link que leve a inscrições reais.
   if (dg_configPlanilhas_().ambiente === 'LAB') return '';
-  const codigo = String(ref || '').trim();
+  const codigo = dg_marketing_normalizarRef_(ref);
   if (!codigo) return '';
   return URL_PUBLICA_DESAFIO_GIRO + '?ref=' + encodeURIComponent(codigo);
 }
