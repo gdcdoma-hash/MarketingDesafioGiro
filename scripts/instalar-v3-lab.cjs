@@ -34,15 +34,44 @@ function validate(){
   refuse('Configuração automática e isolamento LAB não estão presentes.');
  return files;
 }
-function command(args,cwd,quiet){
- const result=cp.spawnSync('clasp',args,{
-  cwd,encoding:'utf8',shell:process.platform==='win32',
-  env:process.env,
-  stdio:quiet?['inherit','pipe','pipe']:'inherit',
-  timeout:120000
+function command(args,cwd){
+ // Windows: chamar o wrapper real clasp.cmd por cmd.exe, sem shell:true
+ // (evita DEP0190, perda de argumentos e problemas com caminhos com espaços).
+ // Todos os argumentos são literais controlados por este instalador.
+ for(const a of args)if(!/^[A-Za-z0-9_.-]+$/.test(a))
+  refuse('Argumento inesperado no comando clasp: '+a);
+ const win=process.platform==='win32';
+ const bin=win?(process.env.ComSpec||'cmd.exe'):'clasp';
+ const argv=win?['/d','/s','/c','clasp.cmd '+args.join(' ')]:args;
+ const result=cp.spawnSync(bin,argv,{
+  cwd,encoding:'utf8',shell:false,env:process.env,
+  stdio:['inherit','pipe','pipe'],timeout:120000,windowsHide:true
  });
- if(result.error)return {status:1,error:result.error.message,stdout:result.stdout||'',stderr:result.stderr||''};
- return {status:result.status,stdout:result.stdout||'',stderr:result.stderr||''};
+ return {status:result.status===null?1:result.status,
+  error:result.error?.message||'',
+  stdout:result.stdout||'',stderr:result.stderr||'',
+  signal:result.signal||''};
+}
+function diagnosticoComando(nome,result,dir){
+ const arquivos=fs.readdirSync(dir);
+ console.log(nome+' → status '+result.status+'; arquivos locais: '+arquivos.join(', '));
+ if(result.stdout.trim())console.log('Saída clasp: '+result.stdout.trim().slice(0,1600));
+ if(result.stderr.trim())console.error('Erro clasp: '+result.stderr.trim().slice(0,1600));
+ if(result.error)console.error('Erro de execução: '+result.error);
+}
+function vinculoSeCriado(result,dir){
+ const arquivo=path.join(dir,'.clasp.json');
+ if(fs.existsSync(arquivo))return arquivo;
+ // Algumas instalações do clasp retornam o ID na URL mas não salvam a
+ // configuração local. Recuperamos SOMENTE ID presente na saída da criação.
+ const match=(result.stdout+'\n'+result.stderr)
+  .match(/https:\/\/script\.google\.com\/(?:d\/|home\/projects\/)([A-Za-z0-9_-]{30,150})(?:\/edit)?/);
+ if(!match)return null;
+ const scriptId=match[1];
+ if(oldIds.has(scriptId))refuse('Criação retornou ID conhecido de projeto anterior. Envio recusado.');
+ fs.writeFileSync(arquivo,JSON.stringify({scriptId,rootDir:'.'},null,2)+'\n',{flag:'wx'});
+ console.log('Vínculo local recuperado do ID retornado pelo Google.');
+ return arquivo;
 }
 function install(){
  validate();
@@ -58,19 +87,22 @@ function install(){
  const dir=fs.mkdtempSync(path.join(base,'v3-lab-novo-'));
  console.log('Projeto local isolado:',dir);
  console.log('Criando novo Apps Script privado na conta autenticada pelo clasp.');
- // A versão atual do clasp usa "create-script"; versões antigas "create".
- let result=command(['create-script','--title','DG-Marketing-Relacionamento-V3-LAB','--type','standalone'],dir,true);
+ // Criar projeto uma única vez. Fallback só quando a CLI NÃO reconhece
+ // o comando; se criou o script mas não salvou o vínculo, jamais duplicar.
+ let result=command(['create-script','--title','DG-Marketing-Relacionamento-V3-LAB','--type','standalone'],dir);
+ diagnosticoComando('clasp create-script',result,dir);
  if(result.status!==0){
-  if(fs.existsSync(path.join(dir,'.clasp.json')))
-   refuse('O comando criou vínculo mas retornou erro. Verifique a pasta; não criaremos um segundo script.');
+  if(vinculoSeCriado(result,dir))
+   refuse('O Google retornou ID mas clasp apresentou erro. Revise a pasta; não criamos segundo projeto.');
   if(!/unknown command|unknown option|is not a command|invalid command/i.test(result.stderr+' '+result.stdout))
-   refuse('Não foi possível criar o projeto. Verifique login/API/clasp. '+(result.stderr||result.error||'').slice(0,400));
-  result=command(['create','--title','DG-Marketing-Relacionamento-V3-LAB','--type','standalone'],dir,true);
+   refuse('Falha na criação. O erro completo foi mostrado acima. NADA foi enviado.');
+  result=command(['create','--title','DG-Marketing-Relacionamento-V3-LAB','--type','standalone'],dir);
+  diagnosticoComando('clasp create',result,dir);
   if(result.status!==0)
-   refuse('Falha na criação usando clasp. '+(result.stderr||result.error||'').slice(0,400));
+   refuse('Falha também na sintaxe antiga. NADA foi enviado.');
  }
- const claspFile=path.join(dir,'.clasp.json');
- if(!fs.existsSync(claspFile))refuse('Clasp não criou .clasp.json; nenhum push realizado.');
+ const claspFile=vinculoSeCriado(result,dir);
+ if(!claspFile)refuse('O comando retornou sucesso, mas não forneceu ID nem .clasp.json. Confira a saída acima e o projeto em script.google.com/home. NADA foi enviado.');
  const cfg=JSON.parse(fs.readFileSync(claspFile,'utf8'));
  const id=cfg.scriptId||'';
  if(!/^[A-Za-z0-9_-]{30,150}$/.test(id)||oldIds.has(id))
@@ -91,9 +123,10 @@ function install(){
  if(extra.length)refuse('Arquivos inesperados no projeto novo: '+extra.join(', '));
  console.log('ID do NOVO Apps Script:',id);
  console.log('Enviando 6 arquivos para o novo projeto isolado.');
- const pushed=command(['push'],dir,false);
+ const pushed=command(['push'],dir);
+ diagnosticoComando('clasp push',pushed,dir);
  if(pushed.status!==0)
-  refuse('Clasp push não concluído. Projeto novo: '+id+'. Revise o erro e execute na pasta informada.');
+  refuse('Clasp push não concluído. Projeto novo: '+id+'. Nenhum deploy realizado.');
  console.log('');
  console.log('LAB V3 criado e código enviado (nenhuma implantação Web realizada).');
  console.log('Editor: https://script.google.com/home/projects/'+id+'/edit');
