@@ -152,7 +152,7 @@ function testarMetricasMarketing() {
     periodoPorDesafio[id] = periodo;
   });
 
-  const metricasPorRef = {};
+  const metricasPorRef = Object.create(null);
 
   marketing.forEach(item => {
     const ref = String(item.REF || '').trim();
@@ -376,7 +376,7 @@ function obterDadosPainel(periodoSolicitado, idDesafioSolicitado) {
   );
   const idDesafioSelecionado = desafioSelecionado ? desafioSelecionado.id : '';
 
-  const origens = {};
+  const origens = Object.create(null);
   marketing.forEach(item => {
     const ref = String(item.REF || '').trim();
     if (!ref) return;
