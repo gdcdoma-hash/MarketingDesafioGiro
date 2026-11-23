@@ -69,7 +69,10 @@ function context(env='LAB',edit='',f=fixtures()){
    const values=sets[name];if(!values)return null;
    return {getDataRange(){return {getDisplayValues(){return values}};},
      getRange(row,col){
-      return {setValue(value){updates++;values[row-1][col-1]=String(value);return this;}};
+      return {
+       setValue(value){updates++;values[row-1][col-1]=String(value);return this;},
+       setValues(matrix){updates++;matrix.forEach((r,i)=>{values[row-1+i]=r.map(v=>String(v));});return this;}
+      };
      },
      appendRow(row){updates++;values.push(row.map(v=>String(v)));},
      getLastRow(){return values.length;}
@@ -90,7 +93,7 @@ function context(env='LAB',edit='',f=fixtures()){
   Session:{getEffectiveUser(){return {getEmail(){return 'lab@example.test'}}},
    getScriptTimeZone(){return 'America/Fortaleza';}}
  });
- for(const name of ['Config.gs','Marketing.gs','Relacionamento.gs']){
+ for(const name of ['Config.gs','Marketing.gs','Relacionamento.gs','Importacao.gs']){
   vm.runInContext(file(name),ctx,{filename:name});
  }
  return {ctx,props,fixtures:f,get updates(){return updates}};
@@ -173,7 +176,7 @@ test('Pacote v3 é limpo e não possui serviços antigos ou projeto anterior',()
  const script=path.join(root,'scripts/preparar-v3-limpa.cjs');
  const run=args=>cp.spawnSync(process.execPath,[script,...args],{cwd:root,encoding:'utf8'});
  const dry=run(['--dry-run']);
- assert.equal(dry.status,0,dry.stderr);assert.match(dry.stdout,/5 arquivos/);
+ assert.equal(dry.status,0,dry.stderr);assert.match(dry.stdout,/6 arquivos/);
  const old=run(['--script-id=1qOTRjWCldsxcu2cRa_nNzZPhoUHFO_NoEcCs0IQcItK7a87yR1tcTHYk',
   '--confirm-new-project=SIM']);
  assert.notEqual(old.status,0);assert.match(old.stderr,/bloqueado/);
@@ -186,11 +189,66 @@ test('Pacote v3 é limpo e não possui serviços antigos ou projeto anterior',()
  try {
   assert.ok(fs.existsSync(path.join(dir,'.clasp.json')));
   const files=fs.readdirSync(dir).sort();
-  assert.deepEqual(files,['.clasp.json','Config.gs','Index.html','Marketing.gs','Relacionamento.gs','appsscript.json']);
+  assert.deepEqual(files,['.clasp.json','Config.gs','Importacao.gs','Index.html','Marketing.gs','Relacionamento.gs','appsscript.json']);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'.clasp.json'),'utf8')).scriptId,id);
   assert.ok(!files.includes('MigracaoBaseMarketingRelacionamento.js'));
  }finally{
   if(path.dirname(dir)===path.join(root,'build')&&path.basename(dir).startsWith('v3-clean-'))
    fs.rmSync(dir,{force:true,recursive:true});
  }
+});
+
+test('CSV/contatos: pré-análise não grava, duplica nem substitui a agenda',()=>{
+ const c=context();const before=c.updates;
+ const dados={registros:[
+  {nome:'João Novo',telefone:'98991234577',cidade:'Cidade Fictícia',uf:'MA'},
+  {nome:'Outra Pessoa',telefone:'5598991234501',cidade:'',uf:'MA'},
+  {nome:'Duplicado no lote',telefone:'55989991234577',cidade:'',uf:'MA'},
+  {nome:'Invalido',telefone:'123'}
+ ]};
+ const preview=c.ctx.v3_analisarImportacao(dados).dados;
+ assert.equal(preview.total,4);
+ assert.equal(preview.novos,1);
+ assert.equal(preview.repetidos,2);
+ assert.equal(preview.invalidos,1);
+ assert.equal(c.updates,before,'A prévia nunca grava dados');
+ assert.throws(()=>c.ctx.v3_confirmarImportacao(dados),/Corrija/);
+ const fix={registros:dados.registros.slice(0,3),origemId:'O1'};
+ const done=c.ctx.v3_confirmarImportacao(fix).dados;
+ assert.equal(done.gravados,1);
+ assert.equal(done.repetidos,2);
+ assert.ok(c.fixtures.mark.Relacionamento_Contatos.some(x=>x[0]==='55989991234577'));
+ assert.equal(c.fixtures.mark.Relacionamento_ContatoOrigens.length,3);
+ assert.ok(c.updates>before);
+ const back=c.ctx.v3_contatos({etapa:'TODOS',busca:'91234577'}).dados;
+ assert.equal(back.total,1);
+});
+test('Importação e vínculo são bloqueados por padrão em produção',()=>{
+ const c=context('PROD');
+ assert.throws(()=>c.ctx.v3_confirmarImportacao({registros:[]}),/somente leitura/);
+ assert.throws(()=>c.ctx.v3_vincularOrigem({telefone:'5598991234501',origemId:'O1'}),/somente leitura/);
+ const p=c.ctx.v3_analisarImportacao({registros:[{nome:'Novo',telefone:'98991234587'}]}).dados;
+ assert.equal(p.novos,1);
+ assert.equal(c.updates,0);
+});
+test('Vínculo com origem evita duplicação e o histórico é consultável',()=>{
+ const c=context();
+ const old=c.ctx.v3_vincularOrigem({telefone:'5598991234501',origemId:'O1'});
+ assert.match(old.mensagem,/já vinculada/);
+ c.ctx.v3_salvarContato({telefone:'5598991234501',etapa:'EM_CONVERSA'});
+ const r=c.ctx.v3_historicoContato('5598991234501');
+ assert.equal(r.status,'OK');
+ assert.ok(r.dados.eventos.some(x=>x.tipo==='ETAPA'));
+});
+test('HTML de dois módulos não inclui serviço legado ou envio automático',()=>{
+ const source=file('Index.html');
+ for(const x of ['Marketing','Relacionamento','v3_analisarImportacao','v3_confirmarImportacao',
+  'v3_historicoContato','v3_vincularOrigem','v3_painel','v3_contatos']){
+  assert.ok(source.includes(x),x);
+ }
+ assert.match(source,/state\.opt\.ambiente==='LAB'/);
+ assert.doesNotMatch(source,/messages\.send|\.sendMessage\(/i);
+ const script=source.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+ assert.ok(script);
+ assert.doesNotThrow(()=>new vm.Script(script.replace(/<\?=[^>]+?\?>/g,"'LAB'")));
 });
