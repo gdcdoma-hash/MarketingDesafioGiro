@@ -43,7 +43,7 @@ function dg_lab_autoteste() {
     montarLinkDivulgacao_('LAB_TRANSMISSAO') === '' &&
     montarLinkDivulgacao_('LAB_CORACAO') === '');
 
-  const indice = rel_esporte_carregarIndicesPortal_();
+  const indice = rel_esporte_carregarIndicesPortal_(true);
   const classificar = numero => rel_esporte_classificarContato_({
     telefoneNormalizado: numero, modalidade: 'NAO_INFORMADO', eCiclista: 'NAO_CONFIRMADO'
   }, indice).perfilEsportivo;
