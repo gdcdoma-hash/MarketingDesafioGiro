@@ -5,12 +5,12 @@
     const situacoes = { NAO_CLASSIFICADO: 'Não classificado', PODE_CONTATAR: 'Pode contatar', NAO_FAZ_DESAFIO: 'Não faz desafio', NAO_E_CICLISTA: 'Não é ciclista', SEM_INTERESSE: 'Sem interesse', NAO_DESEJA_CONTATO: 'Não deseja contato', CONTATO_INADEQUADO: 'Contato inadequado', OUTRO: 'Outro' };
     const regioes = { PARA: 'Pará', IMPERATRIZ: 'Imperatriz', SAO_LUIS: 'São Luís', PINHEIRO: 'Pinheiro', CURURUPU: 'Cururupu', SANTA_INES: 'Santa Inês', BR: 'BR' };
     const ufs = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
-    const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, contatos: {}, contatosAguardandoSituacao: {}, retornoPendente: false, indicadorAtivo: '' };
+    const estado = { pagina: 1, totalPaginas: 1, origensCarregadas: false, referenciasCarregadas: false, contatos: {}, contatosAguardandoSituacao: {}, retornoPendente: false, indicadorAtivo: '' };
     const e = {};
     let buscaTimer = null;
 
     function mensagem(texto, erro) { e.aviso.textContent = texto || ''; e.aviso.hidden = !texto; e.aviso.classList.toggle('rel-alert-error', !!erro); }
-    function filtros() { return { busca: e.busca.value, classificacao: e.classificacao.value, etapa: e.etapa.value, situacao: e.situacao.value, idOrigem: e.origem.value, retornoPendente: estado.retornoPendente, pagina: estado.pagina, porPagina: 50 }; }
+    function filtros() { return { busca: e.busca.value, classificacao: e.classificacao.value, esporte: e.esporte.value, etapa: e.etapa.value, situacao: e.situacao.value, idOrigem: e.origem.value, retornoPendente: estado.retornoPendente, pagina: estado.pagina, porPagina: 50 }; }
     function dataCurta(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? valor : data.toLocaleDateString('pt-BR'); }
     function valorData(valor) { if (!valor) return ''; const data = new Date(valor); return Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10); }
     function criar(tag, classe, texto) { const el = document.createElement(tag); if (classe) el.className = classe; if (texto !== undefined) el.textContent = texto; return el; }
@@ -41,6 +41,15 @@
       if (!estado.origensCarregadas) {
         substituirOrigens(dados.origens || []);
         estado.origensCarregadas = true;
+      }
+      if (!estado.referenciasCarregadas && e.ref) {
+        const atual = e.ref.value;
+        const opcoes = [new Option('Sem referência / convite geral', '')];
+        (dados.referenciasMarketing || []).forEach(item =>
+          opcoes.push(new Option(item.nome + ' — ' + item.ref, item.ref)));
+        e.ref.replaceChildren(...opcoes);
+        if (Array.from(e.ref.options).some(opcao => opcao.value === atual)) e.ref.value = atual;
+        estado.referenciasCarregadas = true;
       }
       const contatos = (dados.contatos || []).slice();
       Object.keys(estado.contatosAguardandoSituacao).forEach(telefone => {
@@ -90,18 +99,36 @@
       topo.appendChild(copiarBtn);
       const whatsappBtn = criar('button', 'rel-button rel-whatsapp-button', '💬 WhatsApp');
       whatsappBtn.type = 'button'; whatsappBtn.dataset.whatsapp = ''; whatsappBtn.setAttribute('aria-label', 'Abrir WhatsApp de ' + contato.telefoneExibicao);
-      whatsappBtn.disabled = !normalizarTelefoneWhatsApp(contato.telefoneNormalizado);
+      whatsappBtn.disabled = !normalizarTelefoneWhatsApp(contato.telefoneNormalizado) ||
+        contato.etapa === 'NAO_CONTATAR' || contato.situacao === 'NAO_DESEJA_CONTATO' ||
+        contato.situacao === 'CONTATO_INADEQUADO';
       topo.appendChild(whatsappBtn); identidade.appendChild(topo);
       identidade.appendChild(criar('strong', contato.nomeExibicao === 'Nome não informado' ? 'rel-contact-name is-empty' : 'rel-contact-name', contato.nomeExibicao));
       identidade.appendChild(criar('span', contato.cidadeUfExibicao === 'Cidade não informada' ? 'rel-contact-city is-empty' : 'rel-contact-city', contato.cidadeUfExibicao));
       const chips = criar('div', 'rel-contact-chips');
       const nomeGoogle = contato.origemNomeExibicao === 'GOOGLE_CONTATOS';
       chips.appendChild(criar('span', 'rel-contact-chip rel-contact-badge ' + (identificado ? 'is-portal' : ''), identificado ? 'Identificado no Portal' : (nomeGoogle ? 'Na sua agenda' : 'Contato novo')));
+      const perfis = { CICLISMO: 'Pedalada', CAMINHADA_CORRIDA: 'Corrida/caminhada', AMBOS: 'Pedalada e corrida/caminhada', NAO_IDENTIFICADO: 'Esporte não identificado' };
+      chips.appendChild(criar('span', 'rel-contact-chip', perfis[contato.perfilEsportivo] || perfis.NAO_IDENTIFICADO));
       const origens = contato.origens && contato.origens.length ? contato.origens : ['Origem não informada'];
       origens.forEach(origem => chips.appendChild(criar('span', 'rel-contact-chip', origem)));
       identidade.appendChild(chips);
 
       const acoes = criar('div', 'rel-contact-actions');
+      const conviteWrap = criar('label', 'rel-contact-action-field');
+      conviteWrap.appendChild(criar('span', '', 'Mensagem para'));
+      const convite = criar('select');
+      convite.dataset.convite = '';
+      convite.setAttribute('aria-label', 'Escolher medalha para convite');
+      convite.replaceChildren(
+        new Option('Escolher desafio', ''),
+        new Option('Transmissão — pedalada', 'TRANSMISSAO'),
+        new Option('Coração — corrida/caminhada', 'CORACAO')
+      );
+      convite.value = contato.perfilEsportivo === 'CICLISMO' ? 'TRANSMISSAO' :
+        (contato.perfilEsportivo === 'CAMINHADA_CORRIDA' ? 'CORACAO' : '');
+      conviteWrap.appendChild(convite);
+      acoes.appendChild(conviteWrap);
       const etapaWrap = criar('label', 'rel-contact-action-field'); etapaWrap.appendChild(criar('span', '', 'Etapa'));
       const select = criar('select'); select.dataset.etapa = ''; select.setAttribute('aria-label', 'Etapa');
       Object.keys(etapas).forEach(etapa => { const opt = new Option(etapas[etapa], etapa); opt.selected = etapa === contato.etapa; select.add(opt); });
@@ -125,17 +152,44 @@
       const numeroComPais = numero.indexOf('55') === 0 ? numero : '55' + numero;
       return /^55\d{10,11}$/.test(numeroComPais) ? numeroComPais : '';
     }
-    function abrirWhatsApp(telefone) {
-      const numero = normalizarTelefoneWhatsApp(telefone);
-      if (!numero) return;
-      const link = document.createElement('a');
-      link.href = 'whatsapp://send?phone=' + numero;
-      link.target = '_blank';
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+    function montarMensagemConvite(contato, desafio, ref) {
+      if (desafio !== 'TRANSMISSAO' && desafio !== 'CORACAO') return '';
+      const primeiroNome = String(contato.nomeExibicao || '').trim().split(/\s+/)[0];
+      const saudacao = primeiroNome && primeiroNome !== 'Nome' ?
+        'Olá, ' + primeiroNome + '!' : 'Olá!';
+      const url = 'https://desafiogiro.gmbd.com.br/' +
+        (ref ? '?ref=' + encodeURIComponent(ref) : '');
+      if (desafio === 'TRANSMISSAO') {
+        return saudacao + '\nO Desafio Giro está preparando a Medalha Transmissão, voltada à pedalada. ' +
+          'Gostaria de conhecer a proposta e acompanhar as novidades? ' +
+          'Confira no Portal Giro:\n' + url;
+      }
+      return saudacao + '\nO Desafio Giro está preparando a Medalha Coração, ' +
+        'para quem corre ou caminha, no próprio ritmo. ' +
+        'Gostaria de conhecer a proposta e acompanhar as novidades? ' +
+        'Confira no Portal Giro:\n' + url;
     }
+
+    function abrirWhatsApp(contato, desafio) {
+      const numero = normalizarTelefoneWhatsApp(contato.telefoneNormalizado);
+      if (!numero) return;
+      if (contato.etapa === 'NAO_CONTATAR' || contato.situacao === 'NAO_DESEJA_CONTATO' ||
+          contato.situacao === 'CONTATO_INADEQUADO') {
+        mensagem('Contato marcado para não receber mensagens.', true);
+        return;
+      }
+      if (!desafio) {
+        mensagem('Selecione Transmissão ou Coração antes de abrir o WhatsApp.', true);
+        return;
+      }
+      const ref = e.ref && e.ref.value ? String(e.ref.value).trim() : '';
+      const texto = montarMensagemConvite(contato, desafio, ref);
+      if (!texto) return;
+      // Abre mensagem editável: nunca envia ou registra mensagem enviada.
+      window.open('https://wa.me/' + numero + '?text=' + encodeURIComponent(texto),
+        '_blank', 'noopener,noreferrer');
+    }
+
     async function copiar(contato, botao) {
       const texto = textoCopiar(contato);
       try {
@@ -209,20 +263,20 @@
         e.modal.close(); mensagem('Dados do contato salvos.'); relResumoOperacional.carregar(); carregar();
       } catch (erro) { avisoForm(erro.message, true); } finally { relOperacao.finalizar(); }
     }
-    function limparFiltros() { limparContatosAguardandoSituacao(); e.busca.value = ''; e.classificacao.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
+    function limparFiltros() { limparContatosAguardandoSituacao(); e.busca.value = ''; e.classificacao.value = 'TODOS'; e.esporte.value = 'TODOS'; e.etapa.value = 'PADRAO'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.retornoPendente = false; estado.indicadorAtivo = ''; atualizarIndicador(); carregar(); }
     function aplicarIndicador(indicador) {
       limparContatosAguardandoSituacao();
-      e.busca.value = ''; e.classificacao.value = 'TODOS'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.indicadorAtivo = indicador;
+      e.busca.value = ''; e.classificacao.value = 'TODOS'; e.esporte.value = 'TODOS'; e.situacao.value = 'TODOS'; e.origem.value = ''; estado.pagina = 1; estado.indicadorAtivo = indicador;
       estado.retornoPendente = indicador === 'RETORNAR_HOJE'; e.etapa.value = estado.retornoPendente ? 'TODOS' : indicador;
       atualizarIndicador(); carregar();
     }
 
     function iniciar() {
-      Object.assign(e, { filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), etapa: document.querySelector('#rel-contatos-etapa'), situacao: document.querySelector('#rel-contatos-situacao'), origem: document.querySelector('#rel-contatos-origem'), limpar: document.querySelector('#rel-contatos-limpar'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
+      Object.assign(e, { filtros: document.querySelector('#rel-contatos-filtros'), busca: document.querySelector('#rel-contatos-busca'), classificacao: document.querySelector('#rel-contatos-classificacao'), esporte: document.querySelector('#rel-contatos-esporte'), ref: document.querySelector('#rel-contatos-ref'), etapa: document.querySelector('#rel-contatos-etapa'), situacao: document.querySelector('#rel-contatos-situacao'), origem: document.querySelector('#rel-contatos-origem'), limpar: document.querySelector('#rel-contatos-limpar'), aviso: document.querySelector('#rel-contatos-aviso'), lista: document.querySelector('#rel-contatos-lista'), vazio: document.querySelector('#rel-contatos-vazio'), anterior: document.querySelector('#rel-contatos-anterior'), proxima: document.querySelector('#rel-contatos-proxima'), pagina: document.querySelector('#rel-contatos-pagina'), modal: document.querySelector('#rel-contato-modal'), form: document.querySelector('#rel-contato-form'), telefone: document.querySelector('#rel-contato-telefone'), nome: document.querySelector('#rel-contato-nome'), uf: document.querySelector('#rel-contato-uf'), regiao: document.querySelector('#rel-contato-regiao'), cidade: document.querySelector('#rel-contato-cidade'), novaCidadeCampos: document.querySelector('#rel-nova-cidade-campos'), novaCidade: document.querySelector('#rel-nova-cidade'), cadastrarCidade: document.querySelector('#rel-cadastrar-cidade'), ciclista: document.querySelector('#rel-contato-ciclista'), modalidade: document.querySelector('#rel-contato-modalidade'), observacao: document.querySelector('#rel-contato-observacao'), formAviso: document.querySelector('#rel-contato-form-aviso'), salvar: document.querySelector('#rel-contato-salvar') });
       ufs.forEach(uf => e.uf.add(new Option(uf, uf)));
-      e.filtros.addEventListener('submit', evento => evento.preventDefault()); e.busca.addEventListener('input', filtrarBusca); [e.classificacao, e.etapa, e.situacao, e.origem].forEach(campo => campo.addEventListener('change', filtrarAgora)); e.limpar.addEventListener('click', limparFiltros);
+      e.filtros.addEventListener('submit', evento => evento.preventDefault()); e.busca.addEventListener('input', filtrarBusca); [e.classificacao, e.esporte, e.etapa, e.situacao, e.origem].forEach(campo => campo.addEventListener('change', filtrarAgora)); e.limpar.addEventListener('click', limparFiltros);
       e.anterior.addEventListener('click', () => { limparContatosAguardandoSituacao(); estado.pagina--; carregar(); }); e.proxima.addEventListener('click', () => { limparContatosAguardandoSituacao(); estado.pagina++; carregar(); });
-      e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-whatsapp]')) abrirWhatsApp(contato.telefoneNormalizado); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
+      e.lista.addEventListener('click', evento => { const linha = evento.target.closest('.rel-contact-row'); if (!linha) return; const contato = estado.contatos[linha.dataset.telefone]; if (evento.target.matches('[data-copiar]')) copiar(contato, evento.target); if (evento.target.matches('[data-whatsapp]')) abrirWhatsApp(contato, linha.querySelector('[data-convite]').value); if (evento.target.matches('[data-editar]')) abrirEdicao(contato); });
       e.lista.addEventListener('change', evento => { const linha = evento.target.closest('.rel-contact-row'); if (evento.target.matches('[data-etapa]')) alterarEtapa(linha, evento.target); if (evento.target.matches('[data-situacao]')) alterarSituacao(linha, evento.target); if (evento.target.matches('[data-retorno]')) { const select = linha.querySelector('[data-etapa]'); if (select.value === 'RETORNAR_DEPOIS') alterarEtapa(linha, select); } });
       e.uf.addEventListener('change', carregarCidades); e.regiao.addEventListener('change', carregarCidades); e.cidade.addEventListener('change', () => { e.novaCidadeCampos.hidden = e.cidade.value !== '__NOVA__'; });
       e.cadastrarCidade.addEventListener('click', cadastrarCidade); e.form.addEventListener('submit', salvar); document.querySelectorAll('[data-contato-fechar]').forEach(botao => botao.addEventListener('click', () => e.modal.close()));
