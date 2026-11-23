@@ -379,7 +379,10 @@ function obterDadosPainel(periodoSolicitado, idDesafioSolicitado) {
   const desafioSelecionado = catalogoDesafios.find(item =>
     item.id === idSolicitado && item.periodo === periodoSelecionado
   );
-  const idDesafioSelecionado = desafioSelecionado ? desafioSelecionado.id : '';
+  // Se a UI pediu um desafio inexistente neste período, nunca ampliar
+  // silenciosamente a consulta para "todos os desafios".
+  const filtroDesafioInvalido = Boolean(idSolicitado && !desafioSelecionado);
+  const idDesafioSelecionado = idSolicitado;
 
   const origens = Object.create(null);
   marketing.forEach(item => {
@@ -419,7 +422,7 @@ function obterDadosPainel(periodoSolicitado, idDesafioSolicitado) {
 
     const idDesafio = extrairIdDesafio_(inscricao.Observacao);
     const periodo = dg_marketing_periodoInscricao_(inscricao, periodoPorDesafio);
-    if (periodo !== periodoSelecionado) return;
+    if (filtroDesafioInvalido || periodo !== periodoSelecionado) return;
     if (idDesafioSelecionado && idDesafio !== idDesafioSelecionado) return;
 
     totalPeriodo++;
@@ -458,7 +461,9 @@ function obterDadosPainel(periodoSolicitado, idDesafioSolicitado) {
     periodos: periodos,
     catalogoDesafios: catalogoDesafios,
     idDesafioSelecionado: idDesafioSelecionado,
-    nomeDesafioSelecionado: desafioSelecionado ? desafioSelecionado.nome : '',
+    nomeDesafioSelecionado: desafioSelecionado ? desafioSelecionado.nome :
+      (filtroDesafioInvalido ? 'Desafio não encontrado neste período' : ''),
+    filtroDesafioInvalido: filtroDesafioInvalido,
     meta: META_MARKETING,
     totalPeriodo: totalPeriodo,
     totalAtribuidas: totalAtribuidas,
@@ -617,6 +622,11 @@ function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal, idDe
     String(periodoSolicitado || '').trim() ||
     periodos[0] ||
     '';
+  const filtro = String(idDesafioSolicitado || '').trim();
+  if (filtro && !lista.some(item =>
+    String(item.id_Desafio_lista || '').trim() === filtro &&
+    String(item.Periodo || '').trim() === periodoSelecionado
+  )) return 0;
 
   return desafios.filter(inscricao => {
     const status = String(
@@ -636,7 +646,6 @@ function contarInscricoesMarketing_(ref, periodoSolicitado, planilhaPortal, idDe
     const idDesafio = extrairIdDesafio_(inscricao.Observacao);
     const periodo = dg_marketing_periodoInscricao_(inscricao, periodoPorDesafio);
     if (periodo !== periodoSelecionado) return false;
-    const filtro = String(idDesafioSolicitado || '').trim();
     return !filtro || idDesafio === filtro;
   }).length;
 }
