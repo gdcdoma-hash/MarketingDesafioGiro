@@ -71,6 +71,19 @@ function v3_gravarCampos_(tabela,registro,alteracoes){
  }
 }
 function v3_resposta_(status,dados,mensagem){return {status:status,dados:dados||{},mensagem:mensagem||''};}
+/**
+ * Reserva espaço antes de qualquer escrita em lote.
+ * O Apps Script não amplia automaticamente todas as abas ao usar setValues.
+ */
+function v3_prepararEspaco_(sheet,quantidade){
+ if(!Number.isSafeInteger(quantidade)||quantidade<1)throw Error('Quantidade de linhas inválida.');
+ const inicio=sheet.getLastRow()+1,necessario=inicio+quantidade-1;
+ if(typeof sheet.getMaxRows==='function'){
+  const max=sheet.getMaxRows();
+  if(necessario>max)sheet.insertRowsAfter(max,necessario-max);
+ }
+ return inicio;
+}
 function v3_lock_(f){
  const lock=LockService.getScriptLock();lock.waitLock(20000);
  try{return f();}finally{lock.releaseLock();}
@@ -125,19 +138,34 @@ function doGet(e){
 }
 function v3_autoteste(){
  const b=v3_bases_(),catalogo=v3_catalogo_(b.portal);
- const marketing=v3_tabela_(b.marketing,'Marketing',['REF','ID_DGMB','NOME_ORIGEM','TIPO','STATUS']);
+ const marketing=v3_tabela_(b.marketing,'Marketing',
+  ['REF','ID_DGMB','NOME_ORIGEM','TIPO','STATUS']);
  const contatos=v3_tabela_(b.marketing,'Relacionamento_Contatos',
-   ['TELEFONE_NORMALIZADO','ETAPA','SITUACAO']);
- const inscritos=v3_tabela_(b.portal,'dgmbDesafios',['ID_DGMB','Observacao','REF_MARKETING']);
+  ['TELEFONE_NORMALIZADO','ETAPA','SITUACAO','ATUALIZADO_EM',
+   'MODALIDADE','NOME_CONTATO','DATA_PROXIMO_RETORNO','OBSERVACAO']);
+ const origens=v3_tabela_(b.marketing,'Relacionamento_Origens',
+  ['ID_ORIGEM','NOME_ORIGEM','TIPO_ORIGEM','STATUS']);
+ const vinculos=v3_tabela_(b.marketing,'Relacionamento_ContatoOrigens',
+  ['TELEFONE_NORMALIZADO','ID_ORIGEM','DATA_PRIMEIRA_IDENTIFICACAO',
+   'DATA_ULTIMA_IDENTIFICACAO','QUANTIDADE_OCORRENCIAS']);
+ const historico=v3_tabela_(b.marketing,'Relacionamento_Historico',
+  ['ID_EVENTO','TELEFONE_NORMALIZADO','TIPO_EVENTO','DATA_HORA',
+   'VALOR_ANTERIOR','VALOR_NOVO','DETALHE','USUARIO']);
+ const inscritos=v3_tabela_(b.portal,'dgmbDesafios',
+  ['ID_DGMB','Observacao','REF_MARKETING','Modalidade_Esportiva',
+   'Status_Usuario_Desafio','Status_Desafio']);
+ const refs=marketing.records.map(r=>v3_texto_(r.REF));
  const ok=[catalogo.items.length>0,marketing.records.length>0,contatos.records.length>0,
   inscritos.records.length>0,b.config.portalId!==b.config.marketingId,
-  marketing.records.every(r=>!!v3_ref_(r.REF))];
+  refs.every(r=>!!v3_ref_(r)),new Set(refs).size===refs.length,
+  !!origens.sheet,!!vinculos.sheet,!!historico.sheet,catalogo.periodos.length>0];
  return {status:ok.every(Boolean)?'OK':'FALHA',ambiente:b.config.ambiente,
-   edicao:b.config.edicao,verificacoes:ok.length,aprovadas:ok.filter(Boolean).length,
-   totais:{desafios:catalogo.items.length,referencias:marketing.records.length,
-     contatos:contatos.records.length,inscricoes:inscritos.records.length}};
+  edicao:b.config.edicao,verificacoes:ok.length,aprovadas:ok.filter(Boolean).length,
+  totais:{desafios:catalogo.items.length,referencias:marketing.records.length,
+   contatos:contatos.records.length,inscricoes:inscritos.records.length,
+   origens:origens.records.length,vinculos:vinculos.records.length,
+   eventosHistorico:historico.records.length}};
 }
-
 
 /**
  * Aceite das planilhas fictícias exclusivas da V3.
