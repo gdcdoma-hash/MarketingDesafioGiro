@@ -84,3 +84,38 @@ Gerar e acompanhar uma inscrição fictícia em um **Portal LAB verdadeiramente 
 - CI landing de REF: https://github.com/gdcdoma-hash/desafiogiro/actions/runs/45173930527
 
 **Estado desta missão:** bases LAB reais (nativas e separadas) criadas e verificadas com dados fictícios; código pronto no GitHub; nenhuma implantação do Apps Script LAB foi feita por falta de ferramenta para criar/configurar projetos Apps Script autenticados. Não marcar como homologação funcional concluída até a execução dentro de um projeto LAB distinto.
+
+
+## Missão ampliada — integridade de atribuição, segmentação e desempenho (23/11/2026)
+
+### Comportamento conferido no código
+
+- **Filtro inválido não amplia a consulta.** Se um ID de desafio não pertence ao período selecionado, o painel devolve totais zero, \`filtroDesafioInvalido=true\` e aviso visível. A contagem individual por REF também retorna zero. Antes, o painel podia cair silenciosamente em "Todos os desafios".
+- **Etapas independentes.** Os testes usam IDs estritamente fictícios \`9001\` e \`9002\` para duas etapas de Transmissão, e \`9003\` para a única etapa de Coração. Inscrições diretas e atribuídas não se cruzam; inscrições canceladas/desistentes não entram no total.
+- **Modalidade esportiva.** A ordem de identificação agora é: \`dgmbDesafios.Modalidade_Esportiva\` registrada pelo atleta, depois \`ListaDesafios.Modalidade_Esportiva\` oficial, depois nome inequívoco do desafio histórico. Não deduzir esporte pelo nome do contato, cidade, DDD ou origem de grupo. Telefones partilhados continuam ambíguos sem confirmação manual.
+- **Cache opcional, sem custo extra.** O índice esportivo consulta somente a primeira vez e pode ser reutilizado por 120 segundos via \`CacheService\`; usa apenas telefone normalizado e sinais \`ciclismo/corrida/ambiguo\`. Não armazena nomes, CPF ou histórico. Em caso de cache indisponível, corrompido ou maior que o limite, a leitura direta é mantida. O autoteste força dados frescos. **Não foi medida a velocidade no Web App real**.
+- **Atribuição exclusiva da visita.** A PR #190 da landing ignora \`ref\` existente na URL configurada do botão quando o visitante não chegou com referência, substitui uma referência antiga pela atual, descarta pares duplicados \`?ref=A&ref=B\` e recusa links que não sejam da origem HTTPS exata do Portal.
+- **Redirecionamento inicial.** A PR #190 cobre a home \`https://desafiogiro.gmbd.com.br/?ref=...\` e verifica que a query é encaminhada à URL do Apps Script sem perda de referência. O caminho do domínio antigo também possui cenário de teste, sem autorização para reativar o domínio antigo.
+- **Portal backend (PR #492).** \`normalizarRefMarketingInscricao_\` verifica formato antes de gravar \`REF_MARKETING\`, impedindo que fórmula ou parâmetro malformado seja persistido. Sem REF válida, a inscrição continua sem atribuição.
+
+### Evidência de dados oficiais — somente leitura
+
+A aba \`ListaDesafios\` no Portal oficial contém a coluna \`Modalidade_Esportiva\`, preenchida para as medalhas de novembro: Selim com \`CICLISMO\` e 50 km com \`CAMINHADA_CORRIDA\`. Não é necessário copiar dados pessoais para identificar essa modalidade no índice.
+
+A aba \`LandingCampanhas\` do Portal, lida nesta missão, contém somente os slugs publicados/editados \`selim\` e \`50tao\`. **Coração e Transmissão não estavam configuradas ali na leitura.** Não criar ou divulgar \`/desafios/coracao/\` ou \`/desafios/transmissao/\` como páginas já publicadas. O módulo de Relacionamento mantém convites informativos usando a página inicial oficial.
+
+### Testes automatizados do projeto
+
+- Marketing: https://github.com/gdcdoma-hash/MarketingDesafioGiro/actions/runs/45183476328 — **SUCCESS** com testes de filtro inválido, 2+1 etapas, modalidade oficial, cache de 120 segundos, bloqueio LAB e compatibilidade da REF.
+- Landing: https://github.com/gdcdoma-hash/desafiogiro/actions/runs/45183070567 — **SUCCESS**, incluindo herança de REF remota, referências duplicadas, origem HTTPS e redirecionamento da home.
+- Portal: https://github.com/gdcdoma-hash/dgmb-inscricoes-repescagem/pull/492 — PR **DRAFT**; os testes isolados passam, mas a execução GitHub Actions foi marcada **FAILURE antes de apresentar passos**, impedindo tratá-la como CI aprovado.
+
+### Critérios para ativação de campanha (sem inventar vagas, etapas ou links)
+
+1. Criar um **Apps Script LAB distinto** do script de produção, com os dois IDs das bases fictícias, manifesto proprietário \`MYSELF\` e execução de \`dg_lab_autoteste()\`.
+2. Homologar o fluxo de login e inscrição no Portal **LAB**, salvando REF em \`dgmbDesafios\` fictícia; sem registro real de teste.
+3. Antes de apresentar inscrição aberta nas páginas, configurar as novas campanhas no módulo Admin do Portal, usando IDs de desafios reais, modalidade correta e quantidade de etapas (Transmissão duas, Coração uma), e validar lotes/vagas com a própria API do Portal.
+4. Enquanto a campanha não estiver publicada e sincronizada, a comunicação por WhatsApp deve indicar **preparação da medalha**, não disponibilidade de inscrições.
+5. Revisar, testar no LAB e aprovar separadamente as PRs #50, #190 e #492. A implantação deve usar projeto Apps Script LAB distinto; \`clasp push\` nunca na raiz do repositório e nunca com o script antigo.
+
+**Nenhuma dessas três PRs foi mesclada ou aplicada à produção nesta missão.**
