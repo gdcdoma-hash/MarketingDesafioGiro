@@ -501,3 +501,48 @@ test('Configuração automática do LAB exige projeto sem propriedades prévias'
  c.props.DG_AMBIENTE='PROD';
  assert.throws(()=>c.ctx.v3_instalarLab(),/Instalação LAB recusada/);
 });
+
+test('Instalador Windows invoca clasp.cmd sem shell:true e preserva argumentos',()=>{
+ const source=fs.readFileSync(path.join(root,'scripts/instalar-v3-lab.cjs'),'utf8');
+ const clean=source.replace(/^#![^\n]*\n/,'').split("try{install();}catch(e)")[0];
+ const calls=[];
+ const sandbox=vm.createContext({
+  require(name){
+   if(name==='node:child_process')return {spawnSync(bin,args,opts){
+    calls.push({bin,args,opts});
+    return {status:0,stdout:'Created new script: https://script.google.com/d/'+('A'.repeat(45))+'/edit',stderr:''};
+   }};
+   return require(name);
+  },
+  process:{platform:'win32',env:{ComSpec:'C:\\Windows\\System32\\cmd.exe'}},
+  console:{log(){},error(){}},
+  __dirname:path.join(root,'scripts')
+ });
+ vm.runInContext(clean,sandbox,{filename:'installer-windows.js'});
+ const res=vm.runInContext("command(['create-script','--title','DG-Marketing-Relacionamento-V3-LAB','--type','standalone'],'C:\\\\Projetos\\\\DG REL')",sandbox);
+ assert.equal(res.status,0);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].bin,'C:\\Windows\\System32\\cmd.exe');
+ assert.equal(calls[0].opts.shell,false);
+ assert.deepEqual(Array.from(calls[0].args.slice(0,3)),['/d','/s','/c']);
+ assert.match(calls[0].args[3],/^clasp\.cmd create-script --title /);
+ assert.equal(calls[0].opts.cwd,'C:\\Projetos\\DG REL');
+ assert.equal(calls[0].opts.stdio[1],'pipe');
+});
+test('Se Google fornece ID mas não salva .clasp.json, instalador recupera sem criar outro',()=>{
+ const source=fs.readFileSync(path.join(root,'scripts/instalar-v3-lab.cjs'),'utf8');
+ const clean=source.replace(/^#![^\n]*\n/,'').split("try{install();}catch(e)")[0];
+ const sandbox=vm.createContext({require,process,console:{log(){},error(){}},
+  __dirname:path.join(root,'scripts')});
+ vm.runInContext(clean,sandbox,{filename:'installer-recovery.js'});
+ const dir=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'dg-v3-recovery-'));
+ try{
+  const id='1LAB_V3_'+'A'.repeat(43);
+  sandbox.result={status:0,stdout:'Created new script: https://script.google.com/d/'+id+'/edit',stderr:''};
+  sandbox.tempDir=dir;
+  const out=vm.runInContext("vinculoSeCriado(result,tempDir)",sandbox);
+  assert.equal(out,path.join(dir,'.clasp.json'));
+  assert.equal(JSON.parse(fs.readFileSync(out,'utf8')).scriptId,id);
+  assert.equal(vm.runInContext("vinculoSeCriado(result,tempDir)",sandbox),out);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
