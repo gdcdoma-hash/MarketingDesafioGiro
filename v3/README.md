@@ -97,6 +97,25 @@ A função de aceite recusa executar em PROD. Ela não grava nenhuma célula. Se
 - Indicadores por competência são independentes da data de abertura da inscrição.
 - Índice esportivo mantém cache opcional de 120 segundos, com consulta direta como fallback.
 
+## Auditoria de compatibilidade com a estrutura oficial — 23/11/2026
+
+Conferência de **categorias e contagens agregadas**, sem copiar nomes, telefones ou registros pessoais:
+
+- Marketing PROD: **171 REF válidas, sem duplicações e sem código fora do padrão** permitido na V3.
+- Relacionamento PROD: **1.011 contatos** com etapa cadastrada. Etapas verificadas: `PARA_CONTATAR` (709), `AGUARDANDO_RESPOSTA` (212), `NAO_CONTATAR` (40), `FINALIZADO` (25), `EM_CONVERSA` (25).
+- Há **um contato com `SEM_INTERESSE`** na coluna `SITUACAO`, além da etapa. A V3 impede que contatos assim apareçam na **fila padrão de abordagem**, sem apagar ou reclassificar os registros; ainda são localizáveis em `Todas`.
+- Modalidades explícitas da base: `MTB` e `NAO_INFORMADO`; confirmação `E_CICLISTA=SIM` é respeitada como ciclismo, inclusive quando a inscrição histórica não estabelece modalidade.
+- Portal PROD: **64 entradas de desafios com período**, distribuídas em oito competências de `abril/2026` a `novembro/2026`, todas no padrão `mês/ano`. **Nenhum desafio de dezembro constava nessa leitura**. Dezembro aparecerá automaticamente na V3 assim que constar em `ListaDesafios.Periodo`, independentemente do mês de inscrição.
+
+A V3 não renomeia, normaliza em massa ou migra essas informações. A conferência não altera nenhuma planilha real.
+
+## Fila operacional e retornos
+
+- `Para contatar` padrão exclui recusas, contatos inadequados, números explicitamente inválidos, etapa `NAO_CONTATAR` e contatos finalizados, sem mudar a etapa ou situação armazenada.
+- `Todas` mantém acesso aos registros para análise administrativa e auditoria.
+- Indicadores separados: `Bloqueados para contato` e `Retornar hoje / atrasados`, este último considerando retorno agendado até a data local e excluindo recusas.
+- A data de retorno é validada por calendário, inclusive anos bissextos. CSV editado após pré-análise exige nova prévia; o servidor rejeita linhas inválidas.
+
 ## Homologação antes da produção
 
 - GitHub Actions executa testes isolados, sem tocar as planilhas, verificando modo LAB/PROD, período de realização, REF, casos de cancelamento, contatos, perfis esportivos, escrita com histórico, importação deduplicada e empacotamento.
