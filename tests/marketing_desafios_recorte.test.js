@@ -79,6 +79,21 @@ assert.equal(todos.totalPeriodo, 4, 'Total do mês soma desafios válidos');
 assert.equal(todos.catalogoDesafios.length, 2, 'Retorna catálogo de desafios para o filtro');
 assert.equal(context.contarInscricoesMarketing_('200', 'novembro/2026', planilhaPortal, '166'), 1);
 
+// Filtro impossível não deve cair em "todos os desafios": erro operacional silencioso.
+const idInvalido = context.obterDadosPainel('novembro/2026', '9999');
+assert.equal(idInvalido.totalPeriodo, 0, 'ID de desafio inexistente não soma inscrições de outros desafios');
+assert.equal(idInvalido.totalAtribuidas, 0);
+assert.equal(idInvalido.totalDireto, 0);
+assert.equal(idInvalido.idDesafioSelecionado, '9999');
+assert.equal(idInvalido.filtroDesafioInvalido, true);
+assert.match(idInvalido.nomeDesafioSelecionado, /não encontrado/i);
+assert.equal(context.contarInscricoesMarketing_('200', 'novembro/2026', planilhaPortal, '9999'), 0);
+const periodoIncorreto = context.obterDadosPainel('outubro/2026', '166');
+assert.equal(periodoIncorreto.totalPeriodo, 0);
+assert.equal(periodoIncorreto.filtroDesafioInvalido, true);
+assert.equal(context.contarInscricoesMarketing_('200', 'outubro/2026', planilhaPortal, '166'), 0);
+
+
 const contextoConfiguracao = vm.createContext({
   PropertiesService: {
     getScriptProperties() {
