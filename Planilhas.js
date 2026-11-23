@@ -56,3 +56,24 @@ function dg_abrirPlanilhaPortal_() {
 function dg_abrirPlanilhaMarketingRelacionamento_() {
   return SpreadsheetApp.openById(dg_configPlanilhas_().marketingId);
 }
+
+
+/**
+ * Inicialização segura de um Web App de produção separado:
+ * pode consultar dados reais em modo leitura, mas alterações só são
+ * liberadas após homologação e aprovação explícita de operação.
+ * No LAB, todas as escritas continuam restritas às planilhas fictícias.
+ */
+function dg_edicaoPermitida_() {
+  const config = dg_configPlanilhas_();
+  if (config.ambiente === 'LAB') return true;
+  const valor = PropertiesService.getScriptProperties()
+    .getProperty('DG_PROD_EDICAO_LIBERADA');
+  return String(valor || '').trim().toUpperCase() === 'SIM';
+}
+
+function dg_assertEscritaPermitida_() {
+  if (!dg_edicaoPermitida_()) {
+    throw new Error('Produção em modo somente leitura: habilite DG_PROD_EDICAO_LIBERADA=SIM após homologação.');
+  }
+}

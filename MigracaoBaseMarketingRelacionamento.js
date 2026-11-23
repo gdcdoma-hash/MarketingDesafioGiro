@@ -3,6 +3,7 @@
  * Esta função administrativa deve ser executada manualmente.
  */
 function dg_migrarBaseMarketingRelacionamento() {
+  dg_assertEscritaPermitida_();
   dg_validarConfiguracaoPlanilhas_();
   const portal = dg_abrirPlanilhaPortal_();
   const destino = dg_abrirPlanilhaMarketingRelacionamento_();
@@ -109,6 +110,7 @@ function dg_auditarBaseMarketingRelacionamento() {
  * Função administrativa manual: não é chamada pelo front-end nem por gatilhos.
  */
 function dg_removerAbasAntigasRelacionamentoPortal() {
+  dg_assertEscritaPermitida_();
   dg_validarConfiguracaoPlanilhas_();
   const portal = dg_abrirPlanilhaPortal_();
   const operacional = dg_abrirPlanilhaMarketingRelacionamento_();
@@ -251,6 +253,7 @@ function dg_abaEstaTotalmenteVazia_(aba) {
 }
 
 function dg_copiarConteudoAba_(origem, destino) {
+  dg_assertEscritaPermitida_();
   const linhas = origem.getMaxRows();
   const colunas = origem.getMaxColumns();
   if (destino.getMaxRows() < linhas) {

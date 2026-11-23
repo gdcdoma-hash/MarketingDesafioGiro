@@ -59,6 +59,7 @@ const ctx=vm.createContext({
   dg_abrirPlanilhaMarketingRelacionamento_:()=>marketing,
   dg_abrirPlanilhaPortal_:()=>portal,
   dg_configPlanilhas_:()=>({ambiente:'PROD'}),
+  dg_assertEscritaPermitida_:()=>{}, // simula edição autorizada neste teste isolado
   PropertiesService:{getScriptProperties(){return {
     getProperty:k=>propriedades[k]||'',
     setProperty(k,v){gravacoes++;propriedades[k]=v}

@@ -10,6 +10,10 @@
   <? if (ambiente === 'LAB') { ?>
   <p role="status" style="margin:0;padding:12px;text-align:center;background:#fff3cc;color:#603c00;font-weight:700;">AMBIENTE LAB — dados fictícios. WhatsApp bloqueado.</p>
   <? } ?>
+  <? if (ambiente === 'PROD' && !edicaoPermitida) { ?>
+  <p role="status" style="margin:0;padding:12px;background:#fff3cc;color:#603c00;text-align:center;font-weight:700;">PRODUÇÃO — SOMENTE LEITURA. Alterações de contatos, importações e origens estão temporariamente bloqueadas.</p>
+  <? } ?>
+
   <div id="rel-app" class="rel-app">
     <header class="rel-header">
       <div class="rel-header-content">

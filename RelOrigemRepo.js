@@ -43,6 +43,7 @@ function rel_origem_listarRegistros_() {
 }
 
 function rel_origem_inserir_(origem) {
+  dg_assertEscritaPermitida_();
   const aba = rel_origem_obterAba_();
   const mapa = rel_origem_obterMapaCabecalhos_(aba);
   const linha = new Array(aba.getLastColumn()).fill('');
@@ -56,6 +57,7 @@ function rel_origem_inserir_(origem) {
 }
 
 function rel_origem_atualizarStatus_(linha, status) {
+  dg_assertEscritaPermitida_();
   const aba = rel_origem_obterAba_();
   const mapa = rel_origem_obterMapaCabecalhos_(aba);
   aba.getRange(linha, mapa.STATUS + 1).setValue(status);

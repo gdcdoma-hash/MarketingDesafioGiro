@@ -119,6 +119,7 @@ function obterMetasPeriodoMarketingV2(periodoSolicitado) {
 }
 
 function salvarMetasMarketingV2(dados) {
+  dg_assertEscritaPermitida_();
   const periodo = String(dados && dados.periodo || '').trim();
   const desafiosPeriodo = periodo ? mdg_desafiosDoPeriodo_(periodo) : [];
   if (!desafiosPeriodo.length) {

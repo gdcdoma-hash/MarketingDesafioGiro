@@ -3,6 +3,7 @@
  * Abas existentes são auditadas, mas nunca alteradas.
  */
 function rel_configurarEstruturaInicial() {
+  dg_assertEscritaPermitida_();
   const planilha = dg_abrirPlanilhaMarketingRelacionamento_();
   const resumo = rel_listarEstruturas_().map(estrutura => {
     const abaExistente = planilha.getSheetByName(estrutura.NOME);
@@ -56,6 +57,7 @@ function rel_auditarEstrutura() {
  * As colunas são anexadas para não mover nem regravar registros anteriores.
  */
 function rel_migrarEstruturaContatosSituacaoGoogle() {
+  dg_assertEscritaPermitida_();
   const planilha = dg_abrirPlanilhaMarketingRelacionamento_();
   const configuracao = REL_CONFIG.ABAS.CONTATOS;
   const aba = planilha.getSheetByName(configuracao.NOME);

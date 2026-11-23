@@ -19,6 +19,7 @@ function criarContexto() {
   }
   const contexto = {
     dg_configPlanilhas_: () => ({ ambiente: 'LAB' }),
+    dg_edicaoPermitida_: () => true,
     console: { info() { chamadas.diagnosticos++; } },
     HtmlService: {
       XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' },

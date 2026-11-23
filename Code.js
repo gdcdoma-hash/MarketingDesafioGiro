@@ -737,6 +737,7 @@ function normalizarBuscaMarketing_(valor) {
 
 
 function salvarDivulgadorMarketing(dados) {
+  dg_assertEscritaPermitida_();
   const idDgmb = String(
     dados && dados.idDgmb || ''
   ).trim();
@@ -848,6 +849,7 @@ function salvarDivulgadorMarketing(dados) {
 
 
 function alterarStatusOrigemMarketing(ref, novoStatus) {
+  dg_assertEscritaPermitida_();
   const refNormalizada = String(ref || '').trim();
   const statusNormalizado = String(novoStatus || '').trim().toUpperCase();
 

@@ -34,6 +34,7 @@ function rel_importacao_lerRegistros_(tabela, campos) {
 }
 
 function rel_importacao_inserirLinhas_(tabela, registros) {
+  dg_assertEscritaPermitida_();
   if (!registros.length) return;
   const linhas = registros.map(registro => {
     const linha = new Array(tabela.ultimaColuna).fill('');
@@ -47,6 +48,7 @@ function rel_importacao_inserirLinhas_(tabela, registros) {
 }
 
 function rel_importacao_atualizarContatos_(tabela, contatos, data) {
+  dg_assertEscritaPermitida_();
   if (!contatos.length) return;
   const quantidade = tabela.aba.getLastRow() - 1;
   const ultimaImportacao = tabela.aba
@@ -74,6 +76,7 @@ function rel_importacao_atualizarContatos_(tabela, contatos, data) {
 }
 
 function rel_importacao_atualizarVinculos_(tabela, vinculos, data) {
+  dg_assertEscritaPermitida_();
   if (!vinculos.length) return;
   const quantidade = tabela.aba.getLastRow() - 1;
   const ultimaIdentificacao = tabela.aba
