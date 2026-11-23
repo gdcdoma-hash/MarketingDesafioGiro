@@ -74,6 +74,27 @@ node .\scripts\preparar-v3-limpa.cjs --script-id=ID_DO_PROJETO_V3_NOVO --confirm
 
 Dentro da pasta `build\v3-clean-...` resultante, conferir o `.clasp.json` e executar `clasp push`. Depois executar `v3_instalarLab()` no editor e seguir a homologação anterior. O gerador manual **não faz push**, ao contrário do instalador rápido.
 
+## Solução para erro de criação no Windows: .clasp.json não encontrado
+
+Versões anteriores do instalador chamavam `clasp` com `shell:true` no Windows, causando o aviso `DEP0190` e ocultando a saída de diagnóstico. O instalador atual usa `cmd.exe /d /s /c clasp.cmd`, sem `shell:true`, mostra a saída do `clasp` e recupera o `scriptId` caso o Google retorne a URL mas não grave `.clasp.json`.
+
+**Não executar a versão antiga novamente.** Primeiro, no PowerShell da pasta original, conferir se um projeto V3 LAB já foi criado remotamente:
+
+```powershell
+clasp.cmd list-scripts | Select-String 'DG-Marketing-Relacionamento-V3-LAB'
+```
+
+- Se houver resultado, **não criar outro**; use o ID existente para recuperar o vínculo com segurança.
+- Se não houver resultado, atualizar **somente** o instalador no ZIP já extraído:
+
+```powershell
+Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/gdcdoma-hash/MarketingDesafioGiro/clean/marketing-relacionamento-v3-20261123/scripts/instalar-v3-lab.cjs' -OutFile '.\scripts\instalar-v3-lab.cjs'
+node .\scripts\instalar-v3-lab.cjs --dry-run
+node .\scripts\instalar-v3-lab.cjs --confirmar-novo-lab=SIM
+```
+
+O novo instalador também consulta `clasp list-scripts` antes de criar, impedindo repetir o mesmo nome de projeto. Se não conseguir listar, recusa a criação e mostra o motivo. Ele nunca publica o Web App ou altera as bases oficiais.
+
 ## Proteções e comportamento
 
 - Toda gravação do V3 ocorre **apenas nas abas operacionais** `Marketing` e `Relacionamento_*`. A tabela `dgmbDesafios`, dados pessoais e o catálogo do Portal são sempre consultados, nunca modificados.
