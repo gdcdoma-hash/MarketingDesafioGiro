@@ -231,7 +231,29 @@ function renderizarDivulgadores(lista) {
   }).join('');
 }
 
+let mdgConsultasMetasPendentes = 0;
+
+/**
+ * Os dados abaixo pertencem à competência selecionada, não ao mês da
+ * inscrição. A mudança do seletor consulta somente catálogo e metas.
+ */
+function mdgRenderizarCamposMetas_(dados) {
+  const metaGeral = document.getElementById('meta-geral-configuracoes');
+  if (metaGeral) metaGeral.value = Number(dados.metaGeral ?? 0);
+  const area = document.getElementById('metas-desafios-configuracoes');
+  if (!area) return;
+  area.innerHTML = (dados.desafios || []).map(item => `
+    <div class="meta-config-item">
+      <div>
+        <div class="meta-config-nome">${esc(item.nome)}</div>
+        <div class="meta-config-codigo">Cód. ${esc(item.codigo)} · ${esc(item.tipo)}</div>
+      </div>
+      <input class="campo-input meta-desafio-input" type="number" min="0" step="1" data-id-desafio="${esc(item.id)}" value="${item.meta || ''}" placeholder="Sem meta">
+    </div>`).join('') || '<div class="metrica-vazia">Sem desafios neste período.</div>';
+}
+
 function renderizarPeriodos(dados) {
+  mdgConsultasMetasPendentes++;
   const select = document.getElementById('periodo-configuracoes');
   document.getElementById('periodo-atual').textContent = dados.periodoSelecionado || '';
 
@@ -240,23 +262,41 @@ function renderizarPeriodos(dados) {
     <option value="${esc(periodo)}" ${periodo === dados.periodoSelecionado ? 'selected' : ''}>${esc(periodo)}</option>
   `).join('');
 
-  const metaGeral = document.getElementById('meta-geral-configuracoes');
-  if (metaGeral) metaGeral.value = Number(dados.metaGeral || 0) || '';
+  mdgRenderizarCamposMetas_(dados);
+  const botao = document.getElementById('btn-aplicar-configuracoes');
+  if (botao) botao.disabled = false;
+}
 
+function mdgTrocarMesDoDesafio() {
+  const select = document.getElementById('periodo-configuracoes');
+  const periodo = select ? select.value : '';
   const area = document.getElementById('metas-desafios-configuracoes');
-  if (area) {
-    area.innerHTML = (dados.desafios || []).map(item => `
-      <div class="meta-config-item">
-        <div>
-          <div class="meta-config-nome">${esc(item.nome)}</div>
-          <div class="meta-config-codigo">Cód. ${esc(item.codigo)} · ${esc(item.tipo)}</div>
-        </div>
-        <input class="campo-input meta-desafio-input" type="number" min="0" step="1" data-id-desafio="${esc(item.id)}" value="${item.meta || ''}" placeholder="Sem meta">
-      </div>`).join('') || '<div class="metrica-vazia">Sem desafios neste período.</div>';
-  }
+  const botao = document.getElementById('btn-aplicar-configuracoes');
+  const consulta = ++mdgConsultasMetasPendentes;
+  if (botao) botao.disabled = true;
+  if (area) area.textContent = 'Carregando os desafios e as metas deste mês...';
+
+  google.script.run
+    .withSuccessHandler(dados => {
+      if (consulta !== mdgConsultasMetasPendentes || !select || select.value !== periodo) return;
+      if (!dados || dados.status !== 'OK' || dados.periodo !== periodo) {
+        if (area) area.textContent = dados && dados.mensagem || 'Não foi possível consultar as metas deste mês.';
+        return;
+      }
+      mdgRenderizarCamposMetas_(dados);
+      if (botao) botao.disabled = false;
+    })
+    .withFailureHandler(erro => {
+      if (consulta !== mdgConsultasMetasPendentes || !select || select.value !== periodo) return;
+      console.error(erro);
+      if (area) area.textContent = 'Falha ao consultar as metas. Escolha novamente o mês.';
+    })
+    .obterMetasPeriodoMarketingV2(periodo);
 }
 
 function aplicarConfiguracoes() {
+  const botaoAplicar = document.getElementById('btn-aplicar-configuracoes');
+  if (botaoAplicar && botaoAplicar.disabled) return;
   const periodo = document.getElementById('periodo-configuracoes').value;
   const metaGeral = document.getElementById('meta-geral-configuracoes').value;
   const metasDesafios = {};
