@@ -51,7 +51,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 @media(max-width:720px){.top{padding:12px 14px;align-items:flex-start;flex-direction:column}main{padding:18px 12px 50px}.titlebar{margin-bottom:14px}.cards{grid-template-columns:repeat(2,1fr)}.filters,.filters.six,.split,.grid2{grid-template-columns:1fr 1fr}.contact{display:block;padding:16px 4px}.contact>*{margin-bottom:10px}h1{font-size:24px}nav{width:100%}nav button{flex:1}.panel{padding:15px}}
 @media(max-width:390px){.filters,.filters.six,.grid2{grid-template-columns:1fr}}
 .quick-toolbar{padding:17px 20px}.quick-search{display:flex;align-items:end;gap:10px}.quick-search input{font-size:16px;min-height:46px}
-.quick-search .btn{min-height:46px}.check-inline{display:flex;align-items:center;font-size:13px;cursor:pointer;gap:8px}
+.quick-search .grow{min-width:0}.quick-search .btn{min-height:46px}.check-inline{display:flex;align-items:center;font-size:13px;cursor:pointer;gap:8px}
 .check-inline input{width:auto}.advanced-filters summary{font-size:13px;font-weight:700;color:#263e65;cursor:pointer}
 .compact-cards{grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin:13px 0}
 .compact-cards .card{padding:13px 15px}.compact-cards .card .k{font-size:25px}
@@ -63,7 +63,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 .result-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .result-options button{border:1px solid #d7deeb;background:#fff;border-radius:10px;padding:13px 10px;text-align:left;font-weight:650;cursor:pointer}
 .result-options button.selected{background:#eaf1ff;color:#153c85;border-color:#4b77bf;box-shadow:inset 0 0 0 1px #4b77bf}
-.quick-dialog{padding:22px}.quick-dialog .actions{margin-top:15px}
+.quick-dialog{padding:22px}.quick-dialog .actions{margin-top:15px;flex-wrap:wrap}
 @media(max-width:720px){.quick-search{align-items:stretch}.quick-search .btn{align-self:end}.contact{display:flex;flex-wrap:wrap;align-items:center}.contact .contact-main{flex:1 1 175px}.contact .contact-badges{flex:1 1 125px}.contact .actions-inline{width:100%;justify-content:stretch}.contact .actions-inline .btn{flex:1}.campaign-row{display:block}.campaign-row .grow{margin-bottom:10px}}
 @media(max-width:390px){.result-options{grid-template-columns:1fr}.quick-search{flex-direction:column}.quick-search .btn{width:100%}}
 /* Mesa operacional: menos altura, largura aproveitada e estados com texto. */
@@ -91,6 +91,17 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 .preview-ok{background:#e8f5e9;color:#14532d}.preview-warn{background:#fff4d5;color:#735000}
 @media(max-width:900px){#relacionamento .compact-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){#relacionamento .advanced-filters .filters{grid-template-columns:repeat(2,minmax(0,1fr))}#relacionamento .contact{display:flex;flex-wrap:wrap}#relacionamento .contact-main{min-width:0}#relacionamento .contact .actions-inline .btn{min-height:40px}}
+#relacionamento .card{text-align:left;color:var(--ink)}
+#relacionamento .card .k,#relacionamento .card .label{display:block}
+#relacionamento .card[aria-pressed="true"]{background:#edf3ff;box-shadow:inset 0 0 0 1px var(--status)}
+#relacionamento .pagination{padding:4px 0}
+#relacionamento .pagination .btn{padding:5px 10px}
+.feedback{margin:6px 0;padding:7px 10px;border-radius:7px;background:#edf3ff;color:#263e65}
+.feedback.success{background:#e8f5e9;color:#14532d}
+.feedback.error{background:#fff0ee;color:#922820}
+.result-options button[data-outcome="SEM_INTERESSE"],.result-options button[data-outcome="NAO_DESEJA_CONTATO"]{color:#982d29}
+@media(max-width:720px){.top{display:grid;grid-template-columns:1fr auto;gap:6px}.top nav{grid-row:2;grid-column:1/-1}.top .env{grid-row:1;grid-column:2}}
+@media(max-width:390px){#relacionamento .quick-search{flex-direction:row;align-items:end}#relacionamento .quick-search .btn{width:auto}}
 </style>
 </head>
 <body>
@@ -131,11 +142,11 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
    <input id="r-busca" placeholder="Digite nome, telefone, cidade ou ID" onkeydown="if(event.key==='Enter')filtrarContatos()" oninput="buscaRapida()" autocomplete="off"></div>
    <button class="btn" onclick="filtrarContatos()">Buscar</button></div>
   <div class="toolbar" style="margin-top:11px">
-   <label class="row check-inline"><input type="checkbox" id="r-retorno" onchange="filtrarContatos()"> Retornos para hoje ou atrasados</label>
-   <details class="advanced-filters" open><summary>Filtros de relacionamento</summary>
+   <button class="btn light" type="button" onclick="limparFiltrosContatos()">Limpar filtros</button>
+   <details class="advanced-filters"><summary>Filtros <span id="r-filtros-ativos"></span></summary>
     <div class="filters" style="margin-top:12px">
      <div><label>Esporte</label><select id="r-esporte" onchange="filtrarContatos()"><option value="TODOS">Todos</option><option value="CICLISMO">Ciclismo</option><option value="CAMINHADA_CORRIDA">Corrida/caminhada</option><option value="AMBOS">Ambos</option><option value="NAO_IDENTIFICADO">Não identificado</option></select></div>
-     <div><label>Etapa</label><select id="r-etapa" onchange="filtrarContatos()"></select></div>
+     <div><label>Etapa</label><select id="r-etapa" onchange="state.filaEspecial='';filtrarContatos()"></select></div>
      <div><label>Situação</label><select id="r-situacao" onchange="filtrarContatos()"></select></div>
      <div><label>Origem</label><select id="r-origem" onchange="filtrarContatos()"><option value="">Todas</option></select></div>
     </div>
@@ -150,15 +161,17 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
    <div class="grow"><label for="r-ref-convite">Referência (opcional)</label><select id="r-ref-convite"></select></div>
    <span class="muted" style="font-size:12px;max-width:230px">O WhatsApp abre uma mensagem para você revisar e enviar manualmente.</span>
   </div></details>
+  <p id="r-operacao" class="feedback" role="status" hidden></p>
+  <p id="r-consulta" class="feedback" role="status" hidden></p>
+  <div class="toolbar pagination" aria-label="Paginação de contatos"><button class="btn light" id="r-prev" onclick="pagina(-1)">Anterior</button><span class="muted" id="r-pagina"></span><button class="btn light" id="r-next" onclick="pagina(1)">Próxima</button></div>
   <div id="r-lista"></div>
-  <div class="toolbar" style="margin-top:15px"><button class="btn light" id="r-prev" onclick="pagina(-1)">Anterior</button><span class="muted" id="r-pagina"></span><button class="btn light" id="r-next" onclick="pagina(1)">Próxima</button></div>
  </div>
 </section>
 </main>
 <dialog id="modal-metas"><div class="dialog-inner"><div class="dialog-head"><h2>Metas do desafio</h2><button class="btn light mini" onclick="fechar('modal-metas')">Fechar</button></div><p class="muted" id="metas-periodo"></p><div><label>Meta geral do mês</label><input type="number" min="0" step="1" id="metas-geral"></div><div id="metas-lista" style="margin-top:15px"></div><div class="actions"><button class="btn light" onclick="fechar('modal-metas')">Cancelar</button><button class="btn" data-edit onclick="salvarMetas()">Salvar metas</button></div></div></dialog>
 <dialog id="modal-divulgador"><div class="dialog-inner"><div class="dialog-head"><h2>Novo divulgador</h2><button class="btn light mini" onclick="fechar('modal-divulgador')">Fechar</button></div><label>Nome da origem</label><input id="novo-nome" maxlength="100"><div class="grid2" style="margin-top:13px"><div><label>REF (vazio = automática)</label><input id="novo-ref" maxlength="100"></div><div><label>Tipo</label><select id="novo-tipo"><option value="APOIADOR">Apoiador</option><option value="PARTICIPANTE">Participante</option><option value="LOJA">Loja</option><option value="GRUPO">Grupo</option><option value="OUTRO">Outro</option></select></div></div><label style="margin-top:13px">ID_DGMB (opcional)</label><input id="novo-id"><div class="actions"><button class="btn light" onclick="fechar('modal-divulgador')">Cancelar</button><button class="btn" data-edit onclick="salvarDivulgador()">Cadastrar</button></div></div></dialog>
-<dialog id="modal-resultado"><div class="dialog-inner quick-dialog">
- <div class="dialog-head"><div><h2>Resultado do contato</h2><div class="muted" id="resultado-nome"></div></div>
+<dialog id="modal-resultado" aria-labelledby="resultado-titulo"><div class="dialog-inner quick-dialog">
+ <div class="dialog-head"><div><h2 id="resultado-titulo">Resultado do contato</h2><div class="muted" id="resultado-nome"></div></div>
   <button class="btn light mini" onclick="fechar('modal-resultado')">Fechar</button></div>
  <p class="muted" style="margin-top:0">Depois de conversar, escolha o que aconteceu:</p>
  <div id="resultado-opcoes" class="result-options">
@@ -173,7 +186,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
   <input type="date" id="resultado-data"></div>
  <div style="margin-top:13px"><label for="resultado-nota">Anotação (opcional)</label>
   <textarea id="resultado-nota" rows="2" maxlength="2000" placeholder="Ex.: pediu para falar na próxima semana"></textarea></div>
- <p class="notice" id="resultado-aviso" hidden></p>
+ <p class="notice" id="resultado-aviso" role="status" hidden></p>
  <div class="actions quick-actions"><button class="btn light" onclick="abrirDetalhesDoResultado()">Mais detalhes</button>
  <button class="btn" id="resultado-salvar" onclick="salvarResultadoRapido()" disabled>Salvar resultado</button></div>
  </div></dialog>
@@ -192,7 +205,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  <div style="margin-top:12px"><label>Observações</label><textarea rows="3" id="edit-obs" maxlength="2000"></textarea></div>
  <div class="actions" style="flex-wrap:wrap"><button class="btn light" id="edit-reativar" hidden data-edit onclick="reativarContatoComAutorizacao()">Reativar com autorização</button>
  <button class="btn light" onclick="fechar('modal-contato')">Cancelar</button><button class="btn" data-edit onclick="salvarContato()">Salvar alterações</button></div>
- <div class="panel" style="margin-top:15px;margin-bottom:0;background:#f7f9fc"><h3>Origem e histórico</h3>
+ <div class="panel" style="margin-top:15px;margin-bottom:0;background:#f7f9fc"><h3>Origem e histórico</h3><p id="edit-fontes" class="muted" hidden></p>
  <div class="row"><div class="grow"><label>Vincular contato à origem</label><select id="edit-origem"></select></div>
  <button class="btn light" onclick="vincularOrigem()" data-edit>Vincular</button><button class="btn light" onclick="carregarHistorico()">Histórico</button></div>
  <div id="edit-historico" class="muted" style="margin-top:12px"></div>
@@ -223,13 +236,13 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
   <button class="btn" id="csv-confirmar" onclick="confirmarImportacao()" disabled data-edit>Confirmar importação</button>
  </div>
  </div></dialog>
- <dialog id="modal-portal"><div class="dialog-inner"><div class="dialog-head"><h2>Comparar atletas do Portal</h2><button class="btn light" onclick="fechar('modal-portal')">Fechar</button></div><p id="portal-resumo" role="status"></p><div class="actions"><button class="btn light" onclick="abrirPortalSync()">Comparar novamente</button><button class="btn" id="portal-confirmar" onclick="sincronizarPortal()" disabled>Sincronizar</button></div></div></dialog>
+ <dialog id="modal-portal"><div class="dialog-inner"><div class="dialog-head"><h2>Comparar atletas do Portal</h2><button class="btn light" onclick="fechar('modal-portal')">Fechar</button></div><p id="portal-resumo" role="status"></p><div class="actions"><button class="btn light" id="portal-comparar" onclick="abrirPortalSync()">Comparar novamente</button><button class="btn" id="portal-confirmar" onclick="sincronizarPortal()" disabled>Sincronizar</button></div></div></dialog>
  <div id="toast" role="status" aria-live="polite"></div>
 <script>
 'use strict';
 const E=id=>document.getElementById(id),state={tab:'<?= area ?>',opt:null,painel:null,contatos:null,ultimo:null,
  periodo:'',desafio:'',pagina:1,consultaMarketing:0,consultaContatos:0,consultaImportacao:0,
- resultadoSelecionado:'',resultadoContato:null};
+ resultadoSelecionado:'',resultadoContato:null,salvandoResultado:false,filaEspecial:''};
 const esc=s=>String(s===null||s===undefined?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=n=>Number(n||0).toLocaleString('pt-BR');
 function api(nome,...args){return new Promise((resolve,reject)=>{
@@ -344,24 +357,61 @@ async function salvarMetas(){
 }
 function filtroContatos(){return {busca:E('r-busca').value,esporte:E('r-esporte').value,
  etapa:E('r-etapa').value,situacao:E('r-situacao').value,origem:E('r-origem').value,
- retornoPendente:!!E('r-retorno').checked,
+ retornoPendente:state.filaEspecial==='RETORNAR_HOJE',somenteBloqueados:state.filaEspecial==='BLOQUEADOS',
  pagina:state.pagina,porPagina:8};}
-function filtrarContatos(){state.pagina=1;carregarContatos();}
+function feedbackContato(id,mensagem,tipo=''){
+ const el=E(id);
+ el.textContent=mensagem;
+ el.className='feedback '+tipo;
+ el.hidden=!mensagem;
+}
+function limparFiltrosContatos(){
+ E('r-busca').value='';E('r-esporte').value='TODOS';E('r-etapa').value='PADRAO';
+ E('r-situacao').value='TODOS';E('r-origem').value='';state.filaEspecial='';
+ filtrarContatos();
+}
+function selecionarFila(fila){
+ const atual=state.filaEspecial||E('r-etapa').value;
+ state.filaEspecial=fila!==atual&&['BLOQUEADOS','RETORNAR_HOJE'].includes(fila)?fila:'';
+ E('r-etapa').value=state.filaEspecial?'TODOS':fila===atual?'PADRAO':fila;
+ filtrarContatos();
+}
+function filtrarContatos(){
+ clearTimeout(buscaPendente);
+ state.pagina=1;carregarContatos();
+}
 async function carregarContatos(){
  const versao=++state.consultaContatos;
  const filtros=filtroContatos();
+ const ativos=[filtros.esporte!=='TODOS',filtros.etapa!=='PADRAO'||!!state.filaEspecial,
+  filtros.situacao!=='TODOS',!!filtros.origem].filter(Boolean).length;
+ E('r-filtros-ativos').textContent=ativos?'('+ativos+')':'';
+ E('r-prev').disabled=true;E('r-next').disabled=true;E('r-lista').inert=true;
+ feedbackContato('r-consulta','Consultando contatos…');
  try{
   const res=await api('v3_contatos',filtros);
   if(versao!==state.consultaContatos)return;
   if(res.status!=='OK')throw Error(res.mensagem);
-  state.contatos=res.dados;renderContatos();
- }catch(e){if(versao===state.consultaContatos)aviso('Erro ao consultar contatos: '+e.message,true);}
+  state.contatos=res.dados;state.pagina=res.dados.pagina;
+  renderContatos();
+  E('r-lista').inert=false;
+  feedbackContato('r-consulta','');
+ }catch(e){
+  if(versao!==state.consultaContatos)return;
+  E('r-lista').innerHTML='';E('r-total').textContent='';E('r-pagina').textContent='';
+  feedbackContato('r-consulta','A consulta falhou. Use Buscar para tentar novamente. '+e.message,'error');
+ }
 }
 function renderContatos(){
  const d=state.contatos;
  const nomes={PARA_CONTATAR:'Para contatar',AGUARDANDO_RESPOSTA:'Aguardando resposta',
   EM_CONVERSA:'Em conversa',RETORNAR_HOJE:'Retornar hoje / atrasados',FINALIZADO:'Finalizados',BLOQUEADOS:'Bloqueados para contato'};
- E('r-indicadores').innerHTML=Object.keys(nomes).map(k=>'<div class="card status-'+k+'"><div class="k">'+brl(d.indicadores[k]||0)+'</div><div class="label">'+nomes[k]+'</div></div>').join('');
+ const filaAtual=state.filaEspecial||E('r-etapa').value;
+ E('r-indicadores').innerHTML=Object.keys(nomes).map(k=>'<button type="button" class="card status-'+k+
+  '" data-fila="'+k+'" aria-pressed="'+(filaAtual===k)+'"><span class="k">'+brl(d.indicadores[k]||0)+
+  '</span><span class="label">'+nomes[k]+'</span></button>').join('');
+ E('r-indicadores').querySelectorAll('[data-fila]').forEach(el=>
+  el.addEventListener('click',()=>selecionarFila(el.dataset.fila)));
  const origemAnterior=E('r-origem').value;
  options(E('r-origem'),[{value:'',label:'Todas'},...d.origens.map(x=>({value:x.id,label:x.nome}))],origemAnterior);
  E('r-total').textContent=brl(d.total)+' contato(s)';
@@ -370,14 +420,16 @@ function renderContatos(){
  const labels={PARA_CONTATAR:'Para contatar',AGUARDANDO_RESPOSTA:'Aguardando resposta',
   EM_CONVERSA:'Em conversa',RETORNAR_DEPOIS:'Retornar',FINALIZADO:'Concluído',
   NAO_CONTATAR:'Não contatar'};
- E('r-lista').innerHTML=d.registros.length?d.registros.map((c,i)=>'<div class="contact status-'+esc(c.bloqueado?'NAO_CONTATAR':c.etapa)+'">'+
- '<div class="contact-main"><div class="name"><input class="inline-name" aria-label="Nome do contato" id="linha-nome-'+i+'" maxlength="120" value="'+esc(c.nome==='Nome não informado'?'':c.nome)+'"'+(!state.opt.edicao?' disabled':'')+'></div><div class="meta">'+esc(c.exibicao)+' · '+esc(c.cidadeUf)+'</div>'+
+ E('r-lista').innerHTML=d.registros.length?d.registros.map((c,i)=>{
+ const motivoWhatsApp=motivoBloqueioConvite(c,c.etapa,c.situacao);
+ return '<div class="contact status-'+esc(c.bloqueado?'NAO_CONTATAR':c.etapa)+'">'+
+ '<div class="contact-main"><div class="name"><input class="inline-name" aria-label="Nome do contato" id="linha-nome-'+i+'" maxlength="120" value="'+esc(c.nome==='Nome não informado'?'':c.nome)+'"'+(!state.opt.edicao?' disabled':'')+'></div><div class="meta">'+esc(c.exibicao)+(c.cidadeUf?' · '+esc(c.cidadeUf):'')+'</div>'+
  '<div class="meta">'+esc(c.perfil.replace(/_/g,' '))+(c.retorno?' · Retorno: '+esc(c.retorno.split('-').reverse().join('/')):'')+'</div><div class="origens-inline" title="'+esc((c.origens||[]).join(' · '))+'">'+esc((c.origens||[]).join(' · ')||'Origem não informada')+'</div></div>'+
- '<div class="contact-badges"><span class="pill '+(c.bloqueado?'gray':'')+'">'+esc(c.bloqueado?'Não contatar':(labels[c.etapa]||c.etapa))+'</span>'+
+ '<div class="contact-badges"><span class="pill '+(c.bloqueado?'gray':'')+'">'+esc(c.conflitoIdentidade?'Conflito de cadastro':c.bloqueado?'Não contatar':(labels[c.etapa]||c.etapa))+'</span>'+
  '<div class="meta" style="margin-top:7px">'+esc(c.situacao.replace(/_/g,' '))+'</div></div>'+
- '<div class="actions-inline"><button class="btn light mini" data-copy-contact="'+i+'">Copiar</button><button class="btn light mini" data-chat-contact="'+i+'"'+(motivoBloqueioConvite(c,c.etapa,c.situacao)?' disabled':'')+'>WhatsApp</button>'+
- '<button class="btn mini" data-result-contact="'+i+'">Registrar resultado</button><button class="btn light mini" data-save-name="'+i+'"'+(!state.opt.edicao?' disabled':'')+'>Salvar nome</button>'+
- '<button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>').join(''):
+ '<div class="actions-inline"><button class="btn light mini" data-copy-contact="'+i+'">Copiar</button><button class="btn light mini" data-chat-contact="'+i+'"'+(motivoWhatsApp?' disabled title="'+esc(motivoWhatsApp)+'"':'')+'>WhatsApp</button>'+
+ '<button class="btn mini" data-result-contact="'+i+'"'+(c.bloqueado||!state.opt.edicao?' disabled':'')+'>Registrar resultado</button><button class="btn light mini" data-save-name="'+i+'"'+(!state.opt.edicao?' disabled':'')+'>Salvar nome</button>'+
+ '<button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>';}).join(''):
  '<div class="empty">Nenhum contato encontrado. Experimente o nome, telefone ou ID.</div>';
  E('r-lista').querySelectorAll('[data-save-name]').forEach(el=>el.addEventListener('click',()=>salvarNomeLinha(d.registros[Number(el.dataset.saveName)],Number(el.dataset.saveName),el)));
  E('r-lista').querySelectorAll('[data-copy-contact]').forEach(el=>el.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(d.registros[Number(el.dataset.copyContact)].telefone);aviso('Telefone copiado.');}catch(e){aviso('Não foi possível copiar o telefone.',true);}}));
@@ -391,19 +443,60 @@ async function salvarNomeLinha(c,i,btn){
  btn.disabled=true;try{const res=await api('v3_salvarContato',{telefone:c.telefone,versao:c.versao,nomeContato:nome});if(res.status!=='OK')throw Error(res.mensagem);aviso('Nome salvo.');await carregarContatos();}catch(e){aviso(e.message,true);btn.disabled=false;}
 }
 async function abrirPortalSync(){
- E('modal-portal').showModal();E('portal-confirmar').disabled=true;E('portal-resumo').textContent='Comparando contatos...';
- try{const r=await api('v3_analisarPortal');if(r.status!=='OK')throw Error(r.mensagem);const d=r.dados;E('portal-resumo').textContent='ANÁLISE CONCLUÍDA — '+d.atletas+' atletas · '+d.novos+' novos contatos · '+d.existentes+' existentes · '+d.vincular+' cadastros a complementar · '+d.conflitos+' conflitos · '+d.semTelefone+' sem telefone/ID válido. Nenhuma gravação. '+(d.novos+d.vincular?'Confirme para sincronizar os registros seguros.':'Nada a sincronizar.');E('portal-confirmar').disabled=!state.opt.edicao||!(d.novos+d.vincular);}catch(e){E('portal-resumo').textContent='Falha: '+e.message;}
+ const modal=E('modal-portal'),comparar=E('portal-comparar'),sincronizar=E('portal-confirmar');
+ if(comparar.disabled)return;
+ if(!modal.open)modal.showModal();
+ comparar.disabled=true;sincronizar.disabled=true;
+ E('portal-resumo').textContent='Comparando registros do Portal com os contatos…';
+ try{
+  const resposta=await api('v3_analisarPortal');
+  if(resposta.status!=='OK')throw Error(resposta.mensagem);
+  const d=resposta.dados;
+  const pendentes=d.novos+d.vincular;
+  E('portal-resumo').textContent='Comparação concluída. '+d.novos+' novos, '+d.existentes+
+   ' já cadastrados ('+d.vincular+' a complementar), '+d.conflitos+
+   ' conflitos e '+d.semTelefone+' sem telefone ou ID válido. '+
+   (pendentes&&state.opt.edicao?'Use Sincronizar para aplicar os vínculos e inclusões seguros.':
+    pendentes?'A edição está desabilitada neste ambiente.':'Nenhum registro pronto para sincronizar.');
+  sincronizar.disabled=!state.opt.edicao||!pendentes;
+ }catch(e){E('portal-resumo').textContent='Falha na comparação. Use Comparar novamente. '+e.message;}
+ finally{comparar.disabled=false;}
 }
 async function sincronizarPortal(){
- if(!state.opt.edicao||!confirm('Sincronizar atletas sem sobrescrever nomes manuais ou histórico?'))return;
- E('portal-confirmar').disabled=true;let novos=0,vinculados=0;
- try{for(let i=0;i<100;i++){const r=await api('v3_sincronizarPortal',{confirmar:true});if(r.status!=='OK')throw Error(r.mensagem);const d=r.dados;novos+=d.gravados;vinculados+=d.vinculados;E('portal-resumo').textContent='Sincronizando: '+novos+' novos · '+vinculados+' complementados · '+d.restantes+' restantes.';if(!d.restantes){E('portal-resumo').textContent='SINCRONIZAÇÃO CONCLUÍDA — '+novos+' novos · '+vinculados+' complementados · '+d.conflitos+' conflitos não alterados.';break;}if(i===99)throw Error('Limite de lotes atingido. Compare novamente.');}carregarContatos();}catch(e){E('portal-resumo').textContent='Sincronização interrompida: '+novos+' novos · '+vinculados+' complementados. '+e.message;}
+ const comparar=E('portal-comparar'),sincronizar=E('portal-confirmar');
+ if(!state.opt.edicao||sincronizar.disabled||!confirm('Sincronizar os registros seguros do Portal?'))return;
+ comparar.disabled=true;sincronizar.disabled=true;
+ let novos=0,vinculados=0;
+ try{
+  for(let lote=0;lote<100;lote++){
+   const resposta=await api('v3_sincronizarPortal',{confirmar:true});
+   if(resposta.status!=='OK')throw Error(resposta.mensagem);
+   const d=resposta.dados;
+   novos+=d.gravados;vinculados+=d.vinculados;
+   const resumo=novos+' novos e '+vinculados+' complementados.';
+   if(!d.restantes){
+    E('portal-resumo').textContent='Sincronização concluída. '+resumo+' '+d.conflitos+' conflitos para revisão.';
+    return;
+   }
+   E('portal-resumo').textContent='Sincronizando… '+resumo+' Restam '+d.restantes+'.';
+  }
+  throw Error('Limite de lotes atingido.');
+ }catch(e){
+  E('portal-resumo').textContent='Sincronização interrompida. '+novos+' novos e '+vinculados+
+   ' complementados nos lotes confirmados. Use Comparar novamente. '+e.message;
+ }finally{
+  comparar.disabled=false;
+  carregarContatos();
+ }
 }
 function pagina(delta){state.pagina+=delta;carregarContatos();}
 let buscaPendente=0;
 function buscaRapida(){
  // Busca por digitação sem chamar o Apps Script a cada tecla.
  clearTimeout(buscaPendente);
+ ++state.consultaContatos;
+ E('r-lista').inert=true;E('r-prev').disabled=true;E('r-next').disabled=true;
+ feedbackContato('r-consulta','Buscando…');
  buscaPendente=setTimeout(()=>filtrarContatos(),330);
 }
 const RESULTADOS_RAPIDOS={
@@ -421,9 +514,7 @@ function abrirResultado(c){
  E('resultado-nota').value='';
  E('resultado-data').value='';
  E('resultado-data-area').hidden=true;
- E('resultado-aviso').hidden=!c.bloqueado;
- E('resultado-aviso').textContent=c.bloqueado?
-  'Este contato está bloqueado para novas abordagens. Reativação exige justificativa em Mais detalhes.':'';
+ feedbackContato('resultado-aviso','');
  E('resultado-salvar').disabled=true;
  E('resultado-opcoes').querySelectorAll('[data-outcome]').forEach(el=>{
   el.classList.remove('selected');el.disabled=!!c.bloqueado||!state.opt.edicao;
@@ -431,46 +522,59 @@ function abrirResultado(c){
  E('modal-resultado').showModal();
 }
 function selecionarResultado(valor){
- if(!RESULTADOS_RAPIDOS[valor]||state.resultadoContato?.bloqueado)return;
+ if(state.salvandoResultado||!RESULTADOS_RAPIDOS[valor]||state.resultadoContato?.bloqueado)return;
  state.resultadoSelecionado=valor;
  E('resultado-opcoes').querySelectorAll('[data-outcome]').forEach(el=>
   el.classList.toggle('selected',el.dataset.outcome===valor));
+ feedbackContato('resultado-aviso','');
  E('resultado-data-area').hidden=valor!=='RETORNAR_DEPOIS';
  E('resultado-salvar').disabled=!state.opt.edicao;
 }
 function abrirDetalhesDoResultado(){
+ if(state.salvandoResultado)return;
  const c=state.resultadoContato;
  fechar('modal-resultado');
  if(c)abrirContato(c);
 }
 async function salvarResultadoRapido(){
  const c=state.resultadoContato,choice=RESULTADOS_RAPIDOS[state.resultadoSelecionado];
- if(!c||!choice||c.bloqueado||!state.opt.edicao)return;
+ if(state.salvandoResultado||!c||!choice||c.bloqueado||!state.opt.edicao)return;
  const payload={telefone:c.telefone,versao:c.versao,...choice};
  if(state.resultadoSelecionado==='RETORNAR_DEPOIS'){
   const data=E('resultado-data').value;
-  if(!data){aviso('Escolha a data para retornar.',true);return;}
+  if(!data){feedbackContato('resultado-aviso','Escolha a data para retornar.','error');return;}
   payload.retorno=data;
  }else if(c.retorno)payload.limparRetorno=true;
  const note=E('resultado-nota').value.trim();
  if(note)payload.observacao=(c.observacao?c.observacao+'\n':'')+note;
- if(payload.observacao?.length>2000){aviso('A observação ultrapassa 2.000 caracteres.',true);return;}
+ if(payload.observacao?.length>2000){feedbackContato('resultado-aviso','A observação ultrapassa 2.000 caracteres.','error');return;}
  if(['SEM_INTERESSE','NAO_DESEJA_CONTATO'].includes(state.resultadoSelecionado)&&
     !confirm('Confirma que este contato não deve receber novas abordagens?'))return;
- E('resultado-salvar').disabled=true;
+ state.salvandoResultado=true;E('resultado-salvar').disabled=true;
+ feedbackContato('resultado-aviso','Salvando resultado…');
  try{
   const res=await api('v3_salvarContato',payload);
   if(res.status!=='OK')throw Error(res.mensagem);
-  fechar('modal-resultado');aviso('Resultado registrado.');carregarContatos();
+  E('modal-resultado').close();
+  const proximo=payload.retorno?' Retorno em '+payload.retorno.split('-').reverse().join('/')+'.':
+   choice.etapa==='NAO_CONTATAR'?' Contato bloqueado para novas abordagens.':'';
+  feedbackContato('r-operacao','Resultado salvo para '+c.nome+'.'+proximo,'success');
+  carregarContatos();
  }catch(e){
-  aviso(e.message,true);
-  if(/alterado após a consulta/.test(e.message)){fechar('modal-resultado');carregarContatos();}
-  else E('resultado-salvar').disabled=false;
- }
+  if(/alterado após a consulta/.test(e.message)){
+   E('modal-resultado').close();
+   feedbackContato('r-operacao','O resultado não foi salvo. Abra o contato atualizado e registre novamente.','error');
+   carregarContatos();
+  }else{
+   feedbackContato('resultado-aviso','Não foi possível salvar. '+e.message,'error');
+   E('resultado-salvar').disabled=false;
+  }
+ }finally{state.salvandoResultado=false;}
 }
 function abrirMensagemRapida(c){
  const bloqueio=motivoBloqueioConvite(c,c.etapa,c.situacao);
  if(bloqueio){aviso(bloqueio,true);return;}
+ feedbackContato('r-operacao','Depois da conversa com '+c.nome+', use Registrar resultado.');
  const challenge=state.opt.desafios.find(x=>x.id===E('r-desafio-convite').value);
  if(!challenge){window.open('https://wa.me/'+c.telefone,'_blank','noopener,noreferrer');aviso('Conversa aberta. Envie seu material manualmente e registre o resultado.');return;}
  const ref=E('r-ref-convite').value;
@@ -485,7 +589,8 @@ function abrirMensagemRapida(c){
 function motivoBloqueioConvite(c,etapa,situacao){
  if(!c||state.opt.ambiente==='LAB')return 'Convites bloqueados no LAB.';
  if(!state.opt.edicao)return 'Convites desativados enquanto a produção está em modo leitura.';
- if(c.bloqueado)return 'Cadastro bloqueado para convite. Salve qualquer reclassificação e abra o contato novamente.';
+ if(c.conflitoIdentidade)return 'O telefone ou o ID do Portal tem cadastros em conflito.';
+ if(c.bloqueado)return 'Cadastro bloqueado para novas abordagens.';
  const etapaAtual=etapa||c.etapa,situacaoAtual=situacao||c.situacao;
  if(etapaAtual==='NAO_CONTATAR'||['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(situacaoAtual)||
   ['NAO_CONTATAR','SEM_INTERESSE'].includes(c.resultado)||c.validade==='INVALIDO')
@@ -509,10 +614,15 @@ function abrirContato(c){
  }
  E('edit-etapa').value=c.etapa;E('edit-situacao').value=c.situacao;
  E('edit-retorno').value=c.retorno||'';E('edit-obs').value=c.observacao||'';
- E('edit-reativar').hidden=!c.bloqueado||c.validade==='INVALIDO';
+ E('edit-reativar').hidden=!c.bloqueado||c.conflitoIdentidade||!c.telefone||c.validade==='INVALIDO';
  atualizarBloqueioConvite();
  options(E('edit-origem'),[{value:'',label:'Escolha uma origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
  E('edit-historico').textContent='';
+ E('edit-fontes').textContent=[
+  c.idDgmb&&'ID DGMB: '+c.idDgmb,c.nomePortal&&'Portal: '+c.nomePortal,
+  c.nomeGoogle&&'Google Contatos: '+c.nomeGoogle,(c.origens||[]).length&&'Origens: '+c.origens.join(' · ')
+ ].filter(Boolean).join(' | ');
+ E('edit-fontes').hidden=!E('edit-fontes').textContent;
  E('edit-etapa').onchange=atualizarBloqueioConvite;
  E('edit-situacao').onchange=atualizarBloqueioConvite;
  E('modal-contato').showModal();
@@ -594,7 +704,7 @@ async function salvarOrigem(){
   fechar('modal-origem');aviso('Origem cadastrada.');carregarContatos();
  }catch(e){aviso(e.message,true);}
 }
-function fechar(id){E(id).close();}
+function fechar(id){if(id!=='modal-resultado'||!state.salvandoResultado)E(id).close();}
 
 let importacaoPendente=null;
 let csvResumoLocal={semTelefone:0,repetidos:0,formato:''};
@@ -785,17 +895,24 @@ async function vincularOrigem(){
  }catch(e){aviso(e.message,true);}
 }
 async function carregarHistorico(){
+ const contato=state.ultimo;
+ if(!contato)return;
+ E('edit-historico').textContent='Carregando histórico…';
  try{
-  const res=await api('v3_historicoContato',state.ultimo.telefone);
+  const res=await api('v3_historicoContato',contato.telefone);
+  if(state.ultimo!==contato)return;
   if(res.status!=='OK')throw Error(res.mensagem);
   E('edit-historico').innerHTML=res.dados.eventos.length?
    res.dados.eventos.map(e=>'<div style="padding:8px 0;border-bottom:1px solid #e4e8ee">'+esc(e.quando)+' · <strong>'+esc(e.tipo)+
    '</strong><small style="display:block">'+esc(e.antes)+' → '+esc(e.depois)+'</small></div>').join(''):
    'Nenhuma alteração registrada neste sistema.';
- }catch(e){aviso(e.message,true);}
+ }catch(e){
+  if(state.ultimo===contato)E('edit-historico').textContent='Falha ao carregar histórico. '+e.message;
+ }
 }
 
 (async function iniciar(){
+ E('modal-resultado').addEventListener('cancel',event=>{if(state.salvandoResultado)event.preventDefault();});
  try{state.opt=await api('v3_opcoes');initFiltros();trocar(state.tab);}
  catch(e){aviso('Não foi possível inicializar o sistema: '+e.message,true);}
 })();

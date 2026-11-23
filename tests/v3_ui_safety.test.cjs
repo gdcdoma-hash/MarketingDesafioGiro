@@ -164,11 +164,11 @@ test('Contato bloqueado pelo servidor não abre convite após edição não salv
 test('Filtro rápido Retornar Hoje envia flag para consulta do Relacionamento',()=>{
  const s=setup();
  for(const id of ['r-busca','r-esporte','r-etapa','r-situacao','r-origem'])s.elem(id).value='';
- s.elem('r-retorno').checked=true;
+ s.context.selecionarFila('RETORNAR_HOJE');
  const filter=s.context.filtroContatos();
  assert.equal(filter.retornoPendente,true);
  assert.equal(filter.pagina,1);
- s.elem('r-retorno').checked=false;
+ s.context.selecionarFila('RETORNAR_HOJE');
  assert.equal(s.context.filtroContatos().retornoPendente,false);
 });
 test('Painel de contatos inclui retorno do dia e bloqueados entre os indicadores',()=>{
@@ -368,4 +368,26 @@ test('Edição direta envia apenas nome e versão, preservando demais campos',as
  assert.equal(t.queue[0].name,'v3_salvarContato');assert.equal(t.queue[0].args[0].nomeContato,'LAB Nome editado');
  assert.equal(Object.keys(t.queue[0].args[0]).length,3);
  t.queue[0].reject(Error('Falha simulada'));await task;assert.equal(btn.disabled,false);
+});
+
+test('Paginação usa página confirmada pelo servidor após redução da lista',async()=>{
+ const s=setup();
+ s.state.pagina=3;
+ const consulta=s.context.carregarContatos();
+ s.queue[0].resolve({status:'OK',dados:{total:8,pagina:2,paginas:2,indicadores:{},origens:[],registros:[]}});
+ await consulta;
+ s.context.pagina(-1);
+ assert.equal(s.queue[1].args[0].pagina,1);
+});
+test('Registro rápido não envia gravação duplicada e preserva feedback de falha',async()=>{
+ const s=setup();
+ s.context.abrirResultado({...base,versao:'v',bloqueado:false});
+ s.context.selecionarResultado('EM_CONVERSA');
+ const grava=s.context.salvarResultadoRapido();
+ await s.context.salvarResultadoRapido();
+ assert.equal(s.queue.length,1);
+ s.queue[0].reject(new Error('Serviço indisponível.'));
+ await grava;
+ assert.match(s.elem('resultado-aviso').textContent,/Não foi possível salvar/);
+ assert.equal(s.elem('resultado-salvar').disabled,false);
 });

@@ -345,6 +345,10 @@ test('Fila padrão exclui recusas mesmo com etapa Para Contatar',()=>{
  assert.equal(row[header.indexOf('ETAPA')],'PARA_CONTATAR');
  const principal=c.ctx.v3_contatos({}).dados;
  assert.equal(principal.total,2,'Contato recusado não integra fila de ação');
+ assert.equal(principal.indicadores.PARA_CONTATAR,2);
+ const bloqueados=c.ctx.v3_contatos({somenteBloqueados:true}).dados;
+ assert.equal(bloqueados.total,2);
+ assert.equal(c.ctx.v3_contatos({etapa:'PARA_CONTATAR'}).dados.total,2);
  const todos=c.ctx.v3_contatos({etapa:'TODOS'}).dados;
  assert.equal(todos.total,4,'Contato recusado permanece para consulta e auditoria');
  assert.equal(todos.indicadores.BLOQUEADOS,2,'Opt-out e etapa Não Contatar');
@@ -792,4 +796,16 @@ test('Nome manual tem prioridade visual sem alterar nome original do Portal',()=
  c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),nomeContato:'LAB Apelido'});
  const a=c.ctx.v3_contatos({busca:'LAB Apelido'}).dados.registros[0];
  assert.equal(a.nome,'LAB Apelido');assert.equal(a.nomePortal,'Pessoa Teste Bike');
+});
+
+test('Portal: novo número de um ID já vinculado exige revisão de identidade',()=>{
+ const c=context();
+ c.fixtures.portal.DadosPessoais[1][1]='5598991234599';
+ const analise=c.ctx.v3_analisarPortal().dados;
+ assert.equal(analise.conflitos,1);
+ assert.equal(analise.novos,0);
+ assert.equal(c.ctx.v3_sincronizarPortal({confirmar:true}).dados.gravados,0);
+ const contato=c.ctx.v3_contatos({busca:'5598991234501'}).dados.registros[0];
+ assert.equal(contato.conflitoIdentidade,true);
+ assert.equal(contato.bloqueado,true);
 });

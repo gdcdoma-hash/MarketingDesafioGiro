@@ -19,18 +19,22 @@ function v3_perfil_(s){
 function v3_indiceEsportivo_(portal){
  // Chave vinculada à planilha do Portal: trocar LAB/PROD não reaproveita
  // IDs e telefones cacheados do outro ambiente.
- const chaveCache='DG_V3_ESPORTE_V2_'+v3_config_().portalId;
+ const chaveCache='DG_V3_ESPORTE_V3_'+v3_config_().portalId;
  let cache=null;
  try{if(typeof CacheService!=='undefined')cache=CacheService.getScriptCache();}catch(e){}
- if(cache){try{const hit=cache.get(chaveCache);if(hit){const v=JSON.parse(hit);if(v&&v.porId&&v.idsPorTelefone)return v;}}catch(e){}}
+ if(cache){try{const hit=cache.get(chaveCache);if(hit){const v=JSON.parse(hit);if(v&&v.porId&&v.idsPorTelefone&&v.telefonesPorId)return v;}}catch(e){}}
  const pessoas=v3_tabela_(portal,'DadosPessoais',['ID_DGMB','whatsapp']).records;
  const inscricoes=v3_tabela_(portal,'dgmbDesafios',['ID_DGMB','Observacao','Modalidade_Esportiva']).records;
  const cat=v3_catalogo_(portal);
- const porId=Object.create(null),idsPorTelefone=Object.create(null);
+ const porId=Object.create(null),idsPorTelefone=Object.create(null),telefonesPorId=Object.create(null);
  pessoas.forEach(p=>{
   const id=v3_texto_(p.ID_DGMB),tel=v3_fone_(p.whatsapp);
   if(!id)return;
-  if(tel){if(!idsPorTelefone[tel])idsPorTelefone[tel]=[];if(!idsPorTelefone[tel].includes(id))idsPorTelefone[tel].push(id);}
+  if(!tel)return;
+  if(!idsPorTelefone[tel])idsPorTelefone[tel]=[];
+  if(!idsPorTelefone[tel].includes(id))idsPorTelefone[tel].push(id);
+  if(!telefonesPorId[id])telefonesPorId[id]=[];
+  if(!telefonesPorId[id].includes(tel))telefonesPorId[id].push(tel);
  });
  inscricoes.forEach(i=>{
   const id=v3_texto_(i.ID_DGMB);if(!id)return;
@@ -44,7 +48,7 @@ function v3_indiceEsportivo_(portal){
   porId[id].bike=porId[id].bike||sinais.bike;
   porId[id].passos=porId[id].passos||sinais.passos;
  });
- const result={porId:porId,idsPorTelefone:idsPorTelefone};
+ const result={porId:porId,idsPorTelefone:idsPorTelefone,telefonesPorId:telefonesPorId};
  if(cache){try{const serial=JSON.stringify(result);if(serial.length<85000)cache.put(chaveCache,serial,120);}catch(e){}}
  return result;
 }
@@ -106,13 +110,10 @@ function v3_resumoEtapas_(contatos,hoje){
  const cards={PARA_CONTATAR:0,AGUARDANDO_RESPOSTA:0,EM_CONVERSA:0,RETORNAR_DEPOIS:0,
   FINALIZADO:0,NAO_CONTATAR:0,BLOQUEADOS:0,RETORNAR_HOJE:0};
  contatos.forEach(c=>{
-  if(Object.prototype.hasOwnProperty.call(cards,c.ETAPA))cards[c.ETAPA]++;
-  const bloqueado=v3_bloqueadoContato_(c);
-  if(bloqueado)cards.BLOQUEADOS++;
-  if(!bloqueado&&c.ETAPA==='RETORNAR_DEPOIS'){
-   const data=v3_dataISO_(c.DATA_PROXIMO_RETORNO);
-   if(data&&data<=hoje)cards.RETORNAR_HOJE++;
-  }
+  if(c.etapa==='NAO_CONTATAR')cards.NAO_CONTATAR++;
+  if(c.bloqueado){cards.BLOQUEADOS++;return;}
+  if(Object.prototype.hasOwnProperty.call(cards,c.etapa))cards[c.etapa]++;
+  if(c.etapa==='RETORNAR_DEPOIS'&&c.retorno&&c.retorno<=hoje)cards.RETORNAR_HOJE++;
  });
  return cards;
 }
@@ -131,11 +132,20 @@ function v3_contatos(filtros){
  if(!['TODOS','PADRAO',...V3_ETAPAS].includes(etapa))throw Error('Etapa inválida.');
  if(!['TODOS',...V3_SITUACOES].includes(situacao))throw Error('Situação inválida.');
  if(!['TODOS','CICLISMO','CAMINHADA_CORRIDA','AMBOS','NAO_IDENTIFICADO'].includes(sport))throw Error('Esporte inválido.');
+ const ocorrencias=new Map();
+ for(const c of tab.records){
+  const tel=v3_fone_(c.TELEFONE_NORMALIZADO);
+  ocorrencias.set(tel,(ocorrencias.get(tel)||0)+1);
+ }
  const todos=tab.records.map(c=>{
   const tel=v3_fone_(c.TELEFONE_NORMALIZADO);
   const ids=origens.vinculos[tel]||[];
   const portalIds=idx.idsPorTelefone[tel]||[];
-  const conflito=portalIds.length>1||(portalIds.length===1&&!!c.ID_DGMB&&c.ID_DGMB!==portalIds[0]);
+  const id=c.ID_DGMB||portalIds[0]||'';
+  const telefonesPortal=id?idx.telefonesPorId[id]||[]:[];
+  const conflito=(!!tel&&ocorrencias.get(tel)>1)||portalIds.length>1||
+   (portalIds.length===1&&!!c.ID_DGMB&&c.ID_DGMB!==portalIds[0])||
+   telefonesPortal.some(telefone=>telefone!==tel);
   return {
    telefone:tel,exibicao:c.TELEFONE_EXIBICAO||tel,
    idDgmb:conflito?'':(c.ID_DGMB||portalIds[0]||''),
@@ -149,26 +159,29 @@ function v3_contatos(filtros){
    perfil:v3_classificarContato_(c,idx),observacao:c.OBSERVACAO||'',
    versao:v3_versaoContato_(c),
    retorno:v3_dataISO_(c.DATA_PROXIMO_RETORNO),
-   bloqueado:v3_bloqueadoContato_(c)||conflito,idsOrigens:ids,
+   bloqueado:v3_bloqueadoContato_(c)||conflito||!tel,idsOrigens:ids,
    origens:[...new Set([...ids.map(id=>origens.nomes[id]).filter(Boolean),...(portalIds.length===1&&!conflito?['Portal Giro']:[])])],
    ordem:c.__linha
   };
  });
  const hoje=v3_hoje_();
- const filtrados=todos.filter(c=>{
-  const bloqueado=c.bloqueado||v3_bloqueadoContato_(c);
-  // Sem busca, PADRAO é fila de abordagem. Com nome/telefone/ID digitado,
-  // localizar também o histórico de bloqueados/finalizados (sem liberar contato).
-  if(etapa==='PADRAO'&&!termo&&(bloqueado||c.etapa==='FINALIZADO'))return false;
-  if(etapa!=='PADRAO'&&etapa!=='TODOS'&&c.etapa!==etapa)return false;
+ // Os indicadores acompanham busca e filtros de perfil, independentemente da etapa selecionada.
+ const baseFiltrada=todos.filter(c=>{
   if(situacao!=='TODOS'&&c.situacao!==situacao)return false;
   if(sport!=='TODOS'&&!(c.perfil===sport||(sport==='CICLISMO'&&c.perfil==='AMBOS')||
      (sport==='CAMINHADA_CORRIDA'&&c.perfil==='AMBOS')))return false;
   if(origem&&!c.idsOrigens.includes(origem))return false;
-  if(f.retornoPendente&&(bloqueado||!(c.etapa==='RETORNAR_DEPOIS'&&c.retorno&&c.retorno<=hoje)))return false;
   if(!termo)return true;
   const digits=termo.replace(/\D/g,'');
   return [c.nome,c.nomeContato,c.nomePortal,c.nomeGoogle,c.telefone,c.idDgmb,c.cidadeUf].some(x=>v3_normal_(x).includes(termo))||(/^[\d\s()+.-]+$/.test(termo)&&digits.length>=3&&c.telefone.includes(digits));
+ });
+ const filtrados=baseFiltrada.filter(c=>{
+  if(f.somenteBloqueados)return c.bloqueado;
+  if(f.retornoPendente)return !c.bloqueado&&c.etapa==='RETORNAR_DEPOIS'&&c.retorno&&c.retorno<=hoje;
+  // A pesquisa na fila padrão também encontra o histórico de bloqueados e finalizados.
+  if(etapa==='PADRAO')return !!termo||(!c.bloqueado&&c.etapa!=='FINALIZADO');
+  if(etapa==='TODOS')return true;
+  return c.etapa===etapa&&(etapa==='NAO_CONTATAR'||!c.bloqueado);
  }).sort((a,b)=>{
   const vencidoA=a.etapa==='RETORNAR_DEPOIS'&&a.retorno&&a.retorno<=hoje?0:1;
   const vencidoB=b.etapa==='RETORNAR_DEPOIS'&&b.retorno&&b.retorno<=hoje?0:1;
@@ -179,7 +192,7 @@ function v3_contatos(filtros){
  return v3_resposta_('OK',{
    registros:filtrados.slice((actual-1)*count,actual*count).map(({ordem,idsOrigens,...c})=>c),
    total:total,pagina:actual,paginas:paginas,
-   indicadores:v3_resumoEtapas_(tab.records,hoje),origens:origens.opcoes,
+   indicadores:v3_resumoEtapas_(baseFiltrada,hoje),origens:origens.opcoes,
    edicao:b.config.edicao,ambiente:b.config.ambiente
  });
 }
@@ -334,24 +347,32 @@ function v3_novaOrigem(dados){
 function v3_planoPortal_(bases){
  const pessoas=v3_tabela_(bases.portal,'DadosPessoais',['ID_DGMB','whatsapp']).records;
  const tab=v3_tabela_(bases.marketing,'Relacionamento_Contatos',['TELEFONE_NORMALIZADO','ID_DGMB','NOME_PORTAL','NOME_CONTATO','ETAPA','SITUACAO']);
- const porTel=new Map(),existentes=new Map();
+ const porTel=new Map(),existentes=new Map(),telefonesPorId=new Map();
  let semTelefone=0;
  for(const p of pessoas){
   const tel=v3_fone_(p.whatsapp),id=v3_texto_(p.ID_DGMB);
   if(!tel||!id){semTelefone++;continue;}
   if(!porTel.has(tel))porTel.set(tel,new Map());
   porTel.get(tel).set(id,p);
+  if(!telefonesPorId.has(id))telefonesPorId.set(id,new Set());
+  telefonesPorId.get(id).add(tel);
  }
  for(const c of tab.records){
   const tel=v3_fone_(c.TELEFONE_NORMALIZADO);
   if(!existentes.has(tel))existentes.set(tel,[]);
   existentes.get(tel).push(c);
+  const id=v3_texto_(c.ID_DGMB);
+  if(id&&tel){
+   if(!telefonesPorId.has(id))telefonesPorId.set(id,new Set());
+   telefonesPorId.get(id).add(tel);
+  }
  }
  const novos=[],vincular=[];let conflitos=0,existentesOk=0;
  for(const [tel,ids] of porTel){
   const atuais=existentes.get(tel)||[];
   if(ids.size!==1||atuais.length>1){conflitos++;continue;}
   const [id,p]=Array.from(ids.entries())[0];
+  if(telefonesPorId.get(id).size>1){conflitos++;continue;}
   const nome=v3_texto_(p.nome||p.Nome||p.NOME);
   const cidade=v3_texto_(p['Cidade-UF']||p.Cidade_UF||p.cidade_uf||p.Cidade||p.cidade);
   if(!atuais.length){novos.push({tel,id,nome,cidade});continue;}
