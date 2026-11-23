@@ -3,7 +3,7 @@
 // Empacota SOMENTE a aplicação V3, sem executar push, deploy ou autorizações.
 const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..'),source=path.join(root,'v3');
-const required=['Config.gs','Marketing.gs','Relacionamento.gs','Index.html','appsscript.json'];
+const required=['Config.gs','Importacao.gs','Marketing.gs','Relacionamento.gs','Index.html','appsscript.json'];
 const blocked=new Set([
  '1kGOdB_gSWesEqIlJNLWAOWF-zeMAfTH9TEjFXGJsqKKVs7CIYOJQ32S9',
  '1qOTRjWCldsxcu2cRa_nNzZPhoUHFO_NoEcCs0IQcItK7a87yR1tcTHYk'
@@ -12,7 +12,7 @@ function fail(message){throw Error('[V3 BLOQUEADA] '+message);}
 function validate(){
  const files=fs.readdirSync(source).sort();
  if(JSON.stringify(files)!==JSON.stringify(required.slice().sort()))
-  fail('O diretório v3 deve conter exatamente os 5 arquivos aprovados.');
+  fail('O diretório v3 deve conter exatamente os 6 arquivos aprovados.');
  const mf=JSON.parse(fs.readFileSync(path.join(source,'appsscript.json'),'utf8'));
  if(mf.runtimeVersion!=='V8'||mf.webapp?.access!=='MYSELF'||mf.webapp?.executeAs!=='USER_DEPLOYING')
   fail('Web App precisa executar como proprietário e acesso MYSELF.');
@@ -20,7 +20,7 @@ function validate(){
  if(!config.includes("DG_PROD_EDICAO_LIBERADA")||
    !config.includes("LAB deve usar apenas as duas planilhas fictícias autorizadas."))
    fail('Validação de ambiente e bloqueio de produção ausentes.');
- for(const f of ['Config.gs','Marketing.gs','Relacionamento.gs']){
+ for(const f of ['Config.gs','Importacao.gs','Marketing.gs','Relacionamento.gs']){
   const s=fs.readFileSync(path.join(source,f),'utf8');
   // Verifica compatibilidade sintática de V8 sem transportar código legado.
   new Function(s);
@@ -30,7 +30,7 @@ function validate(){
 function main(args){
  const files=validate();
  if(args.includes('--dry-run')){
-  console.log('OK: V3 limpa, 5 arquivos, proteção LAB/PROD e acesso MYSELF. Nenhum envio.');
+  console.log('OK: V3 limpa, 6 arquivos, proteção LAB/PROD e acesso MYSELF. Nenhum envio.');
   return;
  }
  if(!args.includes('--confirm-new-project=SIM'))
