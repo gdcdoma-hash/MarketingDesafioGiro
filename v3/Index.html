@@ -293,7 +293,7 @@ function abrirContato(c){
  E('edit-etapa').value=c.etapa;E('edit-situacao').value=c.situacao;
  E('edit-retorno').value=c.retorno||'';E('edit-obs').value=c.observacao||'';
  E('convite-whats').disabled=state.opt.ambiente==='LAB'||c.etapa==='NAO_CONTATAR'||
- ['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO'].includes(c.situacao);
+ ['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(c.situacao)||c.resultado==='NAO_CONTATAR';
  options(E('edit-origem'),[{value:'',label:'Escolha uma origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
  E('edit-historico').textContent='';
  E('modal-contato').showModal();
@@ -313,7 +313,7 @@ function abrirConvite(){
  const ref=E('convite-ref').value;
  if(!d){aviso('Selecione um desafio.',true);return;}
  if(state.opt.ambiente==='LAB'){aviso('WhatsApp bloqueado no LAB.',true);return;}
- if(c.etapa==='NAO_CONTATAR'||['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO'].includes(c.situacao)){
+ if(c.etapa==='NAO_CONTATAR'||c.resultado==='NAO_CONTATAR'||['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(c.situacao)){
   aviso('Contato marcado para não receber mensagens.',true);return;
  }
  if(!/^\d{10,15}$/.test(c.telefone)){aviso('Telefone inválido.',true);return;}
