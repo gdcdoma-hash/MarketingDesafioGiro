@@ -224,3 +224,131 @@ test('Reativação pelo formulário envia justificativa e confirmação ao servi
  t.queue[0].resolve({status:'OK',dados:{}});
  await pending;
 });
+
+test('Nova experiência: busca visível, filtros recolhidos e resultado em um modal curto',()=>{
+ assert.match(html,/Localizar contato/);
+ assert.match(html,/class="advanced-filters"/);
+ assert.match(html,/id="modal-resultado"/);
+ assert.match(html,/Registrar resultado/);
+ assert.match(html,/WhatsApp/);
+ const t=setup();
+ t.state.contatos={indicadores:{PARA_CONTATAR:2,BLOQUEADOS:1},origens:[],
+  total:1,pagina:1,paginas:1,
+  registros:[{...base,versao:'fake-v',origens:[],perfil:'CICLISMO',exibicao:'(98) 99123-4501',
+   cidadeUf:'Cidade - MA',idDgmb:'LAB01',retorno:'',bloqueado:false}]};
+ t.context.renderContatos();
+ assert.match(t.elem('r-lista').innerHTML,/data-chat-contact="0"/);
+ assert.match(t.elem('r-lista').innerHTML,/data-result-contact="0"/);
+ assert.match(t.elem('r-lista').innerHTML,/data-open-contact="0"/);
+});
+test('Registro rápido: não escolhe resposta por conta própria, exige seleção',async()=>{
+ const t=setup(),c={...base,versao:'versao-lab',bloqueado:false};
+ t.context.abrirResultado(c);
+ assert.equal(t.elem('resultado-salvar').disabled,true);
+ assert.equal(t.state.resultadoSelecionado,'');
+ t.context.selecionarResultado('AGUARDANDO_RESPOSTA');
+ assert.equal(t.elem('resultado-salvar').disabled,false);
+ const pending=t.context.salvarResultadoRapido();
+ assert.equal(t.queue[0].name,'v3_salvarContato');
+ const data=t.queue[0].args[0];
+ assert.equal(data.etapa,'AGUARDANDO_RESPOSTA');
+ assert.equal(data.resultadoContato,'AGUARDANDO_RESPOSTA');
+ assert.equal(data.versao,'versao-lab');
+ t.queue[0].resolve({status:'OK',dados:{}});
+ await pending;
+});
+test('Registro rápido retorno exige uma data antes de alterar o cadastro',async()=>{
+ const t=setup();
+ t.context.abrirResultado({...base,versao:'versao',bloqueado:false});
+ t.context.selecionarResultado('RETORNAR_DEPOIS');
+ assert.equal(t.elem('resultado-data-area').hidden,false);
+ await t.context.salvarResultadoRapido();
+ assert.equal(t.queue.length,0);
+ t.elem('resultado-data').value='2026-12-07';
+ const pending=t.context.salvarResultadoRapido();
+ const data=t.queue[0].args[0];
+ assert.equal(data.etapa,'RETORNAR_DEPOIS');
+ assert.equal(data.retorno,'2026-12-07');
+ assert.equal(data.resultadoContato,'RETORNAR_DEPOIS');
+ t.queue[0].resolve({status:'OK',dados:{}});
+ await pending;
+});
+test('Registro rápido para Sem Interesse bloqueia abordagens futuras',async()=>{
+ const t=setup();
+ t.context.abrirResultado({...base,versao:'versao',bloqueado:false});
+ t.context.selecionarResultado('SEM_INTERESSE');
+ const pending=t.context.salvarResultadoRapido();
+ const data=t.queue[0].args[0];
+ assert.equal(data.etapa,'NAO_CONTATAR');
+ assert.equal(data.situacao,'SEM_INTERESSE');
+ assert.equal(data.resultadoContato,'SEM_INTERESSE');
+ t.queue[0].resolve({status:'OK',dados:{}});
+ await pending;
+});
+test('WhatsApp direto exige desafio selecionado, sem registrar envio automaticamente',()=>{
+ const t=setup(),c={...base,bloqueado:false};
+ t.elem('r-desafio-convite').value='';
+ t.context.abrirMensagemRapida(c);
+ assert.equal(t.opened.length,0);
+ t.elem('r-desafio-convite').value='9001';
+ t.elem('r-ref-convite').value='LAB_EXEMPLO';
+ t.context.abrirMensagemRapida(c);
+ assert.equal(t.opened.length,1);
+ assert.match(t.opened[0][0],/wa\.me\/5598991234501/);
+ assert.match(decodeURIComponent(t.opened[0][0]),/\?ref=LAB_EXEMPLO/);
+ assert.equal(t.calls.includes('v3_salvarContato'),false);
+ t.state.opt.ambiente='LAB';
+ t.context.abrirMensagemRapida(c);
+ assert.equal(t.opened.length,1,'LAB nunca abre nova conversa');
+});
+test('CSV Google Contatos: identifica telefone correto em meio a dezenas de campos',()=>{
+ const t=setup();
+ t.elem('csv-texto').value=
+  '"Name","Given Name","Phone 1 - Type","Phone 1 - Value","Phone 2 - Value","Notes","Address 1 - City","Address 1 - Region"\n'+
+  '"LAB Exemplo","Exemplo","Mobile","+55 (98) 99123-4501","(98) 99123-4502","Anotação com vírgula, e\\nquebra de linha","Cidade LAB","MA"\n'+
+  '"LAB Sem Fone","Teste","","","","Sem telefone","",""';
+ const dados=t.context.dadosCSV();
+ assert.equal(dados.length,2);
+ assert.equal(dados[0].nome,'LAB Exemplo');
+ assert.match(dados[0].telefone,/99123-4501/);
+ assert.match(dados[1].telefone,/99123-4502/);
+ assert.equal(dados[0].uf,'MA');
+ assert.equal(t.context.csvResumoLocal.semTelefone,1);
+});
+test('CSV semicolonado simples e repetido no arquivo não duplica telefone',()=>{
+ const t=setup();
+ t.elem('csv-texto').value=
+  'LAB Pessoa 1;98991234567;Cidade LAB;MA\n'+
+  'LAB Pessoa 1 duplicada;+55 98 99123-4567;Cidade LAB;MA\n'+
+  'TESTE Pessoa 2;98991234568;Cidade LAB;MA';
+ const dados=t.context.dadosCSV();
+ assert.equal(dados.length,2);
+ assert.equal(t.context.csvResumoLocal.repetidos,1);
+ assert.equal(t.context.dadosFicticiosCSV(dados),true);
+});
+test('Google Contatos reais podem ser analisados no LAB, mas botão importar permanece bloqueado',async()=>{
+ const t=setup();t.state.opt.ambiente='LAB';
+ t.elem('csv-texto').value='Name,Phone 1 - Value\nPessoa Exemplo,98991234567';
+ const task=t.context.analisarImportacao();
+ assert.equal(t.queue[0].name,'v3_analisarImportacao');
+ t.queue[0].resolve({status:'OK',dados:{novos:1,repetidos:0,invalidos:0}});
+ await task;
+ assert.equal(t.elem('csv-confirmar').disabled,true);
+ assert.match(t.elem('csv-resultado').textContent,/arquivo real identificado/);
+});
+test('Arquivo CSV com mais de 300 telefones gera lotes de análise',async()=>{
+ const t=setup();
+ t.elem('csv-texto').value=Array.from({length:303},(_,i)=>
+  'TESTE Pessoa '+i+';989912'+String(10000+i)).join('\n');
+ const promise=t.context.analisarImportacao();
+ assert.equal(t.queue.length,1);
+ assert.equal(t.queue[0].name,'v3_analisarImportacao');
+ assert.equal(t.queue[0].args[0].registros.length,300);
+ t.queue[0].resolve({status:'OK',dados:{novos:300,repetidos:0,invalidos:0}});
+ await flush();
+ assert.equal(t.queue.length,2);
+ assert.equal(t.queue[1].args[0].registros.length,3);
+ t.queue[1].resolve({status:'OK',dados:{novos:3,repetidos:0,invalidos:0}});
+ await promise;
+ assert.equal(t.elem('csv-confirmar').disabled,false);
+});
