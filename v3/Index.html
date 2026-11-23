@@ -112,7 +112,11 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  <div class="dialog-head"><h2 id="edit-nome">Contato</h2><button class="btn light mini" onclick="fechar('modal-contato')">Fechar</button></div>
  <div id="edit-meta" class="muted" style="margin-bottom:16px"></div>
  <div class="grid2"><div><label>Nome manual</label><input id="edit-nome-contato"></div>
- <div><label>Modalidade confirmada</label><select id="edit-modalidade"><option value="NAO_INFORMADO">Não informada</option><option value="CICLISMO">Ciclismo</option><option value="CAMINHADA_CORRIDA">Corrida/caminhada</option><option value="CICLISMO_E_CAMINHADA_CORRIDA">Ambas</option></select></div>
+ <div><label>Modalidade confirmada</label><select id="edit-modalidade"><option value="NAO_INFORMADO">Não informada</option><option value="CICLISMO">Ciclismo</option><option value="CAMINHADA_CORRIDA">Corrida/caminhada</option><option value="CICLISMO_E_CAMINHADA_CORRIDA">Ambas</option>
+<option value="CAMINHADA">Caminhada</option><option value="CORRIDA">Corrida</option>
+<option value="MTB">MTB</option><option value="SPEED">Speed</option>
+<option value="GRAVEL">Gravel</option><option value="URBANO">Ciclismo urbano</option>
+<option value="MULTIPLAS">Múltiplas modalidades</option></select></div>
  <div><label>Etapa</label><select id="edit-etapa"></select></div>
  <div><label>Situação</label><select id="edit-situacao"></select></div>
  <div><label>Próximo retorno</label><input id="edit-retorno" type="date"></div></div>
@@ -319,7 +323,14 @@ function atualizarBloqueioConvite(){
 }
 function abrirContato(c){
  state.ultimo=c;E('edit-nome').textContent=c.nome;E('edit-meta').textContent=c.exibicao+' · '+c.cidadeUf+' · '+c.perfil;
- E('edit-nome-contato').value=c.nomeContato;E('edit-modalidade').value=['CICLISMO','CAMINHADA_CORRIDA','CICLISMO_E_CAMINHADA_CORRIDA'].includes(c.modalidade)?c.modalidade:'NAO_INFORMADO';
+ E('edit-nome-contato').value=c.nomeContato;
+ // Preserva a modalidade original; editar a situação não pode apagar MTB/SPEED/etc.
+ const modalidadeSelect=E('edit-modalidade');
+ modalidadeSelect.value=c.modalidade||'NAO_INFORMADO';
+ if(modalidadeSelect.value!==c.modalidade&&c.modalidade){
+  modalidadeSelect.innerHTML+='<option value="'+esc(c.modalidade)+'">'+esc(c.modalidade)+' (cadastrada)</option>';
+  modalidadeSelect.value=c.modalidade;
+ }
  E('edit-etapa').value=c.etapa;E('edit-situacao').value=c.situacao;
  E('edit-retorno').value=c.retorno||'';E('edit-obs').value=c.observacao||'';
  atualizarBloqueioConvite();
@@ -332,14 +343,23 @@ function abrirContato(c){
 async function salvarContato(){
  const c=state.ultimo;
  if(!c)return;
- const d={telefone:c.telefone,versao:c.versao,
-  nomeContato:E('edit-nome-contato').value,
-  modalidade:E('edit-modalidade').value,etapa:E('edit-etapa').value,
-  situacao:E('edit-situacao').value,retorno:E('edit-retorno').value,
-  observacao:E('edit-obs').value,
-  limparRetorno:E('edit-etapa').value!=='RETORNAR_DEPOIS'};
- const permaneceBloqueado=d.etapa==='NAO_CONTATAR'||
-  ['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(d.situacao)||
+ const d={telefone:c.telefone,versao:c.versao};
+ const nome=E('edit-nome-contato').value;
+ const modalidade=E('edit-modalidade').value;
+ const etapa=E('edit-etapa').value,situacao=E('edit-situacao').value;
+ const retorno=E('edit-retorno').value,observacao=E('edit-obs').value;
+ if(nome!==c.nomeContato)d.nomeContato=nome;
+ if(modalidade!==c.modalidade)d.modalidade=modalidade;
+ if(situacao!==c.situacao)d.situacao=situacao;
+ if(observacao!==c.observacao)d.observacao=observacao;
+ if(etapa!==c.etapa||retorno!==(c.retorno||'')){
+  d.etapa=etapa;
+  if(etapa==='RETORNAR_DEPOIS')d.retorno=retorno;
+  else if(c.retorno)d.limparRetorno=true;
+ }
+ if(Object.keys(d).length===2){aviso('Nenhuma alteração para salvar.');return;}
+ const permaneceBloqueado=etapa==='NAO_CONTATAR'||
+  ['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(situacao)||
   ['NAO_CONTATAR','SEM_INTERESSE'].includes(c.resultado)||c.validade==='INVALIDO';
  if(c.bloqueado&&!permaneceBloqueado){
   const motivo=prompt('Reativação de contato bloqueado: informe o motivo da autorização (mínimo 10 caracteres).\nA justificativa será registrada no histórico.');
