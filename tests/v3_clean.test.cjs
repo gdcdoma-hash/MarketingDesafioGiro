@@ -829,3 +829,47 @@ test('Filtro Portal inclui vínculos confirmados e exclui contatos em conflito',
  assert.equal(registros.length,3);
  assert.ok(registros.every(r=>r.atletaPortal&&!r.conflitoIdentidade));
 });
+
+test('Relacionamento registra retorno pela interface e recupera a fila após recarregar',async()=>{
+ const server=context();
+ const script=file('Index.html').match(/<script>([\s\S]*?)<\/script>/)[1];
+ const frontend=script.slice(0,script.indexOf('(async function iniciar(){')).replace('<?= area ?>','relacionamento');
+ const elements=new Map();
+ function element(id){
+  if(!elements.has(id))elements.set(id,{
+   value:'',textContent:'',innerHTML:'',hidden:false,
+   querySelectorAll:()=>[],showModal(){},close(){}
+  });
+  return elements.get(id);
+ }
+ function openPage(){
+  const page=vm.createContext({document:{getElementById:element}});
+  vm.runInContext(frontend,page);
+  vm.runInContext("state.opt={ambiente:'LAB',edicao:true}",page);
+  page.api=async(name,...args)=>server.ctx[name](...args);
+  element('r-busca').value='Teste Bike';
+  element('r-esporte').value='TODOS';
+  element('r-etapa').value='PADRAO';
+  element('r-situacao').value='TODOS';
+  return page;
+ }
+ const first=openPage();
+ await first.carregarContatos();
+ const contato=vm.runInContext('state.contatos.registros[0]',first);
+ assert.equal(contato.telefone,'5598991234501');
+ first.abrirResultado(contato);
+ first.selecionarResultado('RETORNAR_DEPOIS');
+ element('resultado-data').value=server.ctx.v3_hoje_();
+ await first.salvarResultadoRapido();
+ assert.match(element('r-operacao').textContent,/Resultado salvo para Pessoa Teste Bike/);
+
+ elements.clear();
+ const reopened=openPage();
+ element('r-busca').value='';
+ vm.runInContext("state.filaEspecial='RETORNAR_HOJE'",reopened);
+ await reopened.carregarContatos();
+ const dados=vm.runInContext('state.contatos',reopened);
+ assert.equal(dados.total,1);
+ assert.equal(dados.registros[0].telefone,contato.telefone);
+ assert.equal(dados.registros[0].resultado,'RETORNAR_DEPOIS');
+});
