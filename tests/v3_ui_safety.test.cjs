@@ -313,7 +313,7 @@ test('CSV Google Contatos: identifica telefone correto em meio a dezenas de camp
  assert.match(dados[0].telefone,/99123-4501/);
  assert.match(dados[1].telefone,/99123-4502/);
  assert.equal(dados[0].uf,'MA');
- assert.equal(t.context.csvResumoLocal.semTelefone,1);
+ assert.equal(vm.runInContext('csvResumoLocal.semTelefone',t.context),1);
 });
 test('CSV semicolonado simples e repetido no arquivo não duplica telefone',()=>{
  const t=setup();
@@ -323,7 +323,7 @@ test('CSV semicolonado simples e repetido no arquivo não duplica telefone',()=>
   'TESTE Pessoa 2;98991234568;Cidade LAB;MA';
  const dados=t.context.dadosCSV();
  assert.equal(dados.length,2);
- assert.equal(t.context.csvResumoLocal.repetidos,1);
+ assert.equal(vm.runInContext('csvResumoLocal.repetidos',t.context),1);
  assert.equal(t.context.dadosFicticiosCSV(dados),true);
 });
 test('Google Contatos reais podem ser analisados no LAB, mas botão importar permanece bloqueado',async()=>{
