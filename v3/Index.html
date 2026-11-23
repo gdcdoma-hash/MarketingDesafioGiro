@@ -178,16 +178,24 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  </div></dialog>
 <dialog id="modal-origem"><div class="dialog-inner"><div class="dialog-head"><h2>Nova origem</h2><button class="btn light mini" onclick="fechar('modal-origem')">Fechar</button></div><label>Nome</label><input id="origem-nome" maxlength="120"><label style="margin-top:12px">Tipo</label><select id="origem-tipo"><option value="GRUPO_WHATSAPP">Grupo WhatsApp</option><option value="LOJA">Loja</option><option value="EVENTO">Evento</option><option value="LISTA_MANUAL">Lista manual</option><option value="OUTRO">Outro</option></select><div class="actions"><button class="btn light" onclick="fechar('modal-origem')">Cancelar</button><button class="btn" data-edit onclick="salvarOrigem()">Salvar origem</button></div></div></dialog>
 <dialog id="modal-importacao"><div class="dialog-inner">
- <div class="dialog-head"><h2>Importar contatos</h2><button class="btn light mini" onclick="fechar('modal-importacao')">Fechar</button></div>
- <p class="muted">Pré-análise obrigatória. Cadastros existentes não serão sobrescritos. Limite: 300 contatos por lote.</p>
- <label>Arquivo CSV (ou cole os dados abaixo)</label><input id="csv-arquivo" type="file" accept=".csv,.txt,text/csv" onchange="lerCsvArquivo(event)">
- <label style="margin-top:13px">Nome;Telefone;Cidade;UF — uma pessoa por linha</label>
- <textarea id="csv-texto" rows="7" placeholder="Pessoa Exemplo;98991234567;Rosário;MA" oninput="invalidarPreviaImportacao()"></textarea>
- <label style="margin-top:12px">Origem (opcional)</label><select id="csv-origem"></select>
+ <div class="dialog-head"><div><h2>Adicionar contatos</h2><p class="sub">Selecione um CSV. O sistema identifica os telefones e evita duplicados.</p></div>
+  <button class="btn light mini" onclick="fechar('modal-importacao')">Fechar</button></div>
+ <div class="import-step"><label for="csv-arquivo">1. Escolha o arquivo de contatos</label>
+  <input id="csv-arquivo" type="file" accept=".csv,.txt,text/csv" onchange="lerCsvArquivo(event)">
+  <p class="muted" style="font-size:12px">Aceita exportação do Google Contatos e listas simples (Nome;Telefone;Cidade;UF).</p></div>
+ <details style="margin-top:10px"><summary>Ou cole uma lista pequena</summary>
+  <label style="margin-top:10px" for="csv-texto">Um contato por linha</label>
+  <textarea id="csv-texto" rows="4" placeholder="LAB Pessoa Exemplo;98991234567;Cidade LAB;MA" oninput="invalidarPreviaImportacao()"></textarea>
+ </details>
+ <div class="import-step" style="margin-top:13px"><label for="csv-origem">2. De onde vieram esses contatos? (opcional)</label>
+  <select id="csv-origem"></select></div>
  <div id="csv-resultado" class="notice" hidden></div>
- <div class="actions"><button class="btn light" onclick="fechar('modal-importacao')">Cancelar</button>
- <button class="btn light" onclick="analisarImportacao()">Pré-analisar</button>
- <button class="btn" id="csv-confirmar" onclick="confirmarImportacao()" disabled data-edit>Confirmar importação</button></div>
+ <p id="csv-aviso-lab" class="muted" style="font-size:12px"></p>
+ <div class="actions">
+  <button class="btn light" onclick="fechar('modal-importacao')">Cancelar</button>
+  <button class="btn light" id="csv-analisar" onclick="analisarImportacao()">Verificar contatos</button>
+  <button class="btn" id="csv-confirmar" onclick="confirmarImportacao()" disabled data-edit>Importar novos</button>
+ </div>
  </div></dialog>
  <div id="toast" role="status" aria-live="polite"></div>
 <script>
