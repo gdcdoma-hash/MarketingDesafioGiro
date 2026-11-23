@@ -165,7 +165,8 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  <div><label>Situação</label><select id="edit-situacao"></select></div>
  <div><label>Próximo retorno</label><input id="edit-retorno" type="date"></div></div>
  <div style="margin-top:12px"><label>Observações</label><textarea rows="3" id="edit-obs" maxlength="2000"></textarea></div>
- <div class="actions"><button class="btn light" onclick="fechar('modal-contato')">Cancelar</button><button class="btn" data-edit onclick="salvarContato()">Salvar alterações</button></div>
+ <div class="actions" style="flex-wrap:wrap"><button class="btn light" id="edit-reativar" hidden data-edit onclick="reativarContatoComAutorizacao()">Reativar com autorização</button>
+ <button class="btn light" onclick="fechar('modal-contato')">Cancelar</button><button class="btn" data-edit onclick="salvarContato()">Salvar alterações</button></div>
  <div class="panel" style="margin-top:15px;margin-bottom:0;background:#f7f9fc"><h3>Origem e histórico</h3>
  <div class="row"><div class="grow"><label>Vincular contato à origem</label><select id="edit-origem"></select></div>
  <button class="btn light" onclick="vincularOrigem()" data-edit>Vincular</button><button class="btn light" onclick="carregarHistorico()">Histórico</button></div>
@@ -466,6 +467,7 @@ function abrirContato(c){
  }
  E('edit-etapa').value=c.etapa;E('edit-situacao').value=c.situacao;
  E('edit-retorno').value=c.retorno||'';E('edit-obs').value=c.observacao||'';
+ E('edit-reativar').hidden=!c.bloqueado||c.validade==='INVALIDO';
  atualizarBloqueioConvite();
  options(E('edit-origem'),[{value:'',label:'Escolha uma origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
  E('edit-historico').textContent='';
@@ -512,6 +514,24 @@ async function salvarContato(){
    fechar('modal-contato');carregarContatos();
   }
  }
+}
+async function reativarContatoComAutorizacao(){
+ const c=state.ultimo;
+ if(!c||!c.bloqueado||c.validade==='INVALIDO'||!state.opt.edicao)return;
+ const motivo=prompt('Somente reative se a própria pessoa autorizou novo contato. Descreva quando e como ela autorizou (10 a 300 caracteres).');
+ if(!motivo||motivo.trim().length<10||motivo.trim().length>300){
+  aviso('Reativação cancelada. Registre uma justificativa válida.',true);return;
+ }
+ if(!confirm('Confirma que este contato autorizou receber novas abordagens?'))return;
+ try{
+  const res=await api('v3_salvarContato',{
+   telefone:c.telefone,versao:c.versao,etapa:'PARA_CONTATAR',
+   situacao:'PODE_CONTATAR',resultadoContato:'REATIVADO',limparRetorno:true,
+   autorizarReativacao:true,motivoReativacao:motivo.trim()
+  });
+  if(res.status!=='OK')throw Error(res.mensagem);
+  fechar('modal-contato');aviso('Contato reativado com justificativa registrada.');carregarContatos();
+ }catch(e){aviso(e.message,true);if(/alterado após a consulta/.test(e.message))carregarContatos();}
 }
 function abrirConvite(){
  const c=state.ultimo,d=state.opt.desafios.find(x=>x.id===E('convite-desafio').value);
