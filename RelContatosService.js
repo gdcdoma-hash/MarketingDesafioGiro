@@ -47,7 +47,9 @@ function rel_contatos_referenciasMarketing_() {
   return registros.filter(item => {
     const ref = rel_contatos_texto_(item.REF);
     const ativo = rel_contatos_texto_(item.STATUS).toUpperCase() === 'ATIVO';
-    if (!ref || !ativo || vistos[ref]) return false;
+    // O convite deve respeitar o mesmo formato seguro da landing e do Portal.
+    const valido = /^[A-Za-z0-9_-]{1,100}$/.test(ref);
+    if (!valido || !ativo || vistos[ref]) return false;
     vistos[ref] = true;
     return true;
   }).map(item => ({
