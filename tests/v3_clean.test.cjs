@@ -712,3 +712,24 @@ test('Servidor rejeita resultado de recusa sem bloquear a situação/etapa',()=>
   etapa:'EM_CONVERSA',resultadoContato:'SEM_INTERESSE'}),/Recusa exige/);
  assert.equal(c.updates,before);
 });
+
+test('Reativação com autorização substitui resultado bloqueado, preservando histórico',()=>{
+ const c=context(),tel='5598991234501';
+ const initial=versaoContato(c,tel);
+ c.ctx.v3_salvarContato({telefone:tel,versao:initial,
+  etapa:'NAO_CONTATAR',situacao:'SEM_INTERESSE',resultadoContato:'SEM_INTERESSE'});
+ const now=versaoContato(c,tel);
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:now,
+  etapa:'PARA_CONTATAR',situacao:'PODE_CONTATAR',resultadoContato:'REATIVADO',
+  limparRetorno:true}),/Reativação exige/);
+ assert.equal(c.updates,before);
+ c.ctx.v3_salvarContato({telefone:tel,versao:now,
+  etapa:'PARA_CONTATAR',situacao:'PODE_CONTATAR',resultadoContato:'REATIVADO',
+  limparRetorno:true,autorizarReativacao:true,
+  motivoReativacao:'O titular confirmou autorização para nova abordagem em LAB'});
+ const rec=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros.find(x=>x.telefone===tel);
+ assert.equal(rec.bloqueado,false);
+ assert.equal(rec.resultado,'REATIVADO');
+ assert.ok(c.ctx.v3_historicoContato(tel).dados.eventos.some(x=>x.tipo==='REATIVACAO'));
+});
