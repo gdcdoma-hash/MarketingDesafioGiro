@@ -32,6 +32,15 @@ function v3_analisarImportacao(dados){
 function v3_confirmarImportacao(dados){
  v3_escrita_();
  return v3_lock_(()=>{
+  // O LAB pode examinar um arquivo, mas não receber cadastros reais.
+  // A validação é obrigatória também no servidor, independentemente da interface.
+  if(v3_config_().ambiente==='LAB'){
+   const registros=dados&&dados.registros;
+   const falsos=Array.isArray(registros)&&registros.length>0&&registros.every(c=>
+    /^(LAB|TESTE)(?:[\s_-]|$)/.test(v3_normal_(c&&c.nome)));
+   if(dados.confirmarFicticio!==true||!falsos)
+    throw Error('LAB aceita somente contatos fictícios com nome iniciado por LAB ou TESTE.');
+  }
   const book=v3_bases_().marketing,p=v3_importacaoPreparar_(dados,book);
   if(p.erros.length)throw Error('Corrija os telefones ou campos inválidos antes de importar.');
   const origem=v3_texto_(dados.origemId);
