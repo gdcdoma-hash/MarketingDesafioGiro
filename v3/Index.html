@@ -130,7 +130,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  <p class="muted">Pré-análise obrigatória. Cadastros existentes não serão sobrescritos. Limite: 300 contatos por lote.</p>
  <label>Arquivo CSV (ou cole os dados abaixo)</label><input id="csv-arquivo" type="file" accept=".csv,.txt,text/csv" onchange="lerCsvArquivo(event)">
  <label style="margin-top:13px">Nome;Telefone;Cidade;UF — uma pessoa por linha</label>
- <textarea id="csv-texto" rows="7" placeholder="Pessoa Exemplo;98991234567;Rosário;MA"></textarea>
+ <textarea id="csv-texto" rows="7" placeholder="Pessoa Exemplo;98991234567;Rosário;MA" oninput="invalidarPreviaImportacao()"></textarea>
  <label style="margin-top:12px">Origem (opcional)</label><select id="csv-origem"></select>
  <div id="csv-resultado" class="notice" hidden></div>
  <div class="actions"><button class="btn light" onclick="fechar('modal-importacao')">Cancelar</button>
@@ -141,7 +141,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 <script>
 'use strict';
 const E=id=>document.getElementById(id),state={tab:'<?= area ?>',opt:null,painel:null,contatos:null,ultimo:null,
- periodo:'',desafio:'',pagina:1,consultaMarketing:0,consultaContatos:0};
+ periodo:'',desafio:'',pagina:1,consultaMarketing:0,consultaContatos:0,consultaImportacao:0};
 const esc=s=>String(s===null||s===undefined?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=n=>Number(n||0).toLocaleString('pt-BR');
 function api(nome,...args){return new Promise((resolve,reject)=>{
@@ -352,16 +352,21 @@ async function salvarOrigem(){
 function fechar(id){E(id).close();}
 
 let importacaoPendente=null;
+function invalidarPreviaImportacao(){
+ state.consultaImportacao++;
+ importacaoPendente=null;
+ E('csv-resultado').hidden=true;
+ E('csv-confirmar').disabled=true;
+}
 function abrirImportacao(){
- importacaoPendente=null;E('csv-resultado').hidden=true;E('csv-confirmar').disabled=true;
+ invalidarPreviaImportacao();
  options(E('csv-origem'),[{value:'',label:'Sem origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
  E('modal-importacao').showModal();
 }
 async function lerCsvArquivo(ev){
  const file=ev.target.files?.[0];if(!file)return;
  E('csv-texto').value=await file.text();
- importacaoPendente=null;E('csv-confirmar').disabled=true;
- E('csv-resultado').hidden=true;
+ invalidarPreviaImportacao();
 }
 function dividirCSV(linha){
  const sep=(linha.match(/;/g)||[]).length>=(linha.match(/,/g)||[]).length?';':',';
@@ -394,8 +399,11 @@ function dadosCSV(){
  });
 }
 async function analisarImportacao(){
+ invalidarPreviaImportacao();
+ const versao=state.consultaImportacao;
  try{
   const registros=dadosCSV(),res=await api('v3_analisarImportacao',{registros});
+  if(versao!==state.consultaImportacao)return;
   if(res.status!=='OK')throw Error(res.mensagem);
   importacaoPendente=registros;
   const d=res.dados;
@@ -404,10 +412,16 @@ async function analisarImportacao(){
     (d.invalidos?' (linhas: '+d.linhasInvalidas.join(', ')+')':'');
   E('csv-confirmar').disabled=!state.opt.edicao||d.invalidos>0||d.novos===0;
   aviso('Pré-análise concluída. Nenhum registro foi alterado.');
- }catch(e){aviso(e.message,true);}
+ }catch(e){if(versao===state.consultaImportacao)aviso(e.message,true);}
 }
 async function confirmarImportacao(){
- if(!importacaoPendente||!confirm('Confirmar a inclusão dos contatos novos? Contatos existentes serão preservados.'))return;
+ if(!importacaoPendente)return;
+ let atual;
+ try{atual=dadosCSV();}catch(e){invalidarPreviaImportacao();aviso(e.message,true);return;}
+ if(JSON.stringify(atual)!==JSON.stringify(importacaoPendente)){
+  invalidarPreviaImportacao();aviso('Dados alterados. Faça nova pré-análise antes de confirmar.',true);return;
+ }
+ if(!confirm('Confirmar a inclusão dos contatos novos? Contatos existentes serão preservados.'))return;
  try{
   const res=await api('v3_confirmarImportacao',{registros:importacaoPendente,origemId:E('csv-origem').value});
   if(res.status!=='OK')throw Error(res.mensagem);
