@@ -305,7 +305,7 @@ test('CSV Google Contatos: identifica telefone correto em meio a dezenas de camp
  const t=setup();
  t.elem('csv-texto').value=
   '"Name","Given Name","Phone 1 - Type","Phone 1 - Value","Phone 2 - Value","Notes","Address 1 - City","Address 1 - Region"\n'+
-  '"LAB Exemplo","Exemplo","Mobile","+55 (98) 99123-4501","(98) 99123-4502","Anotação com vírgula, e\\nquebra de linha","Cidade LAB","MA"\n'+
+  '"LAB Exemplo","Exemplo","Mobile","+55 (98) 99123-4501","(98) 99123-4502","Anotação com vírgula, e\nquebra de linha","Cidade LAB","MA"\n'+
   '"LAB Sem Fone","Teste","","","","Sem telefone","",""';
  const dados=t.context.dadosCSV();
  assert.equal(dados.length,2);
