@@ -17,6 +17,9 @@ function v3_perfil_(s){
  return 'NAO_IDENTIFICADO';
 }
 function v3_indiceEsportivo_(portal){
+ let cache=null;
+ try{if(typeof CacheService!=='undefined')cache=CacheService.getScriptCache();}catch(e){}
+ if(cache){try{const hit=cache.get('DG_V3_ESPORTE_V1');if(hit){const v=JSON.parse(hit);if(v&&v.porId&&v.idsPorTelefone)return v;}}catch(e){}}
  const pessoas=v3_tabela_(portal,'DadosPessoais',['ID_DGMB','whatsapp']).records;
  const inscricoes=v3_tabela_(portal,'dgmbDesafios',['ID_DGMB','Observacao','Modalidade_Esportiva']).records;
  const cat=v3_catalogo_(portal);
@@ -38,7 +41,9 @@ function v3_indiceEsportivo_(portal){
   porId[id].bike=porId[id].bike||sinais.bike;
   porId[id].passos=porId[id].passos||sinais.passos;
  });
- return {porId:porId,idsPorTelefone:idsPorTelefone};
+ const result={porId:porId,idsPorTelefone:idsPorTelefone};
+ if(cache){try{const serial=JSON.stringify(result);if(serial.length<85000)cache.put('DG_V3_ESPORTE_V1',serial,120);}catch(e){}}
+ return result;
 }
 function v3_classificarContato_(c,indice){
  const manual=v3_sinais_(c.MODALIDADE);
