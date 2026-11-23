@@ -4,6 +4,8 @@ on:
     paths:
       - 'v3/**'
       - 'scripts/preparar-v3-limpa.cjs'
+      - 'scripts/recuperar-v3-lab.cjs'
+      - 'scripts/instalar-v3-lab.cjs'
       - 'tests/v3_clean.test.cjs'
       - 'tests/v3_ui_safety.test.cjs'
       - '.github/workflows/clean-v3.yml'
@@ -26,4 +28,5 @@ jobs:
       - name: Testar V3 limpa sem acesso a dados reais
         run: |
           node --check scripts/preparar-v3-limpa.cjs
+          node --check scripts/recuperar-v3-lab.cjs
           node --test tests/v3_clean.test.cjs tests/v3_ui_safety.test.cjs
