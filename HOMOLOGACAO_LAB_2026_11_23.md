@@ -21,7 +21,7 @@ A planilha de Marketing LAB tem `Marketing` e as cinco abas `Relacionamento_*` e
    - `DG_PORTAL_SPREADSHEET_ID = 1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY`
 4. Implantar o **novo projeto** como Web App `executeAs: USER_DEPLOYING`, `access: MYSELF` (somente proprietário), sem permitir incorporação por sites terceiros. Não tornar público; não criar deploy em produção.
 5. Verificar `?area=contatos` (banner amarelo **AMBIENTE LAB**; abrir WhatsApp bloqueado) e `?area=divulgadores`. Verificar que o endpoint administrativo não abre em janela anônima de um usuário não autorizado; o diagnóstico `?diagnostico=acesso` sozinho não valida controle de autorização.
-6. Executar `rel_auditarEstrutura()` (esperado: cinco estruturas de relacionamento OK), `testarConexaoMarketing()` (somente bases LAB). Conferir identificação de perfis: LAB01 ciclismo, LAB02 caminhada, LAB03 ambos, LAB04 não contatar. Confirmar que nenhum nome ou telefone real aparece.
+6. Executar primeiro **`dg_lab_autoteste()`** no editor Apps Script **LAB**. Esperado: `status: 'OK'`, 13 verificações aprovadas e totais de 2 referências, 4 contatos, 4 participantes, 4 inscrições e 2 desafios fictícios, sem nomes ou telefones na resposta. O autoteste interrompe se `DG_AMBIENTE` não for `LAB`. Em seguida executar `rel_auditarEstrutura()` (cinco estruturas OK) e, se necessário, `testarConexaoMarketing()` (somente bases LAB). Conferir LAB01 ciclismo, LAB02 caminhada, LAB03 ambos, LAB04 não contatar.
 7. Conferir ranking e filtros com referências `LAB_TRANSMISSAO` e `LAB_CORACAO`; verificar a atribuição de inscrições conforme os IDs de desafio fictícios 9001 e 9002. Alterações de etapa, situação, origem ou importação somente na planilha LAB.
 8. Para a **REF pública**, a PR https://github.com/gdcdoma-hash/desafiogiro/pull/190 corrige a preservação de `?ref=...` nas landing pages. Ela também é **draft**. O teste unitário passa sem abrir inscrições reais. Uma homologação ponta a ponta com o Portal real requer ambiente de inscrição separado; **não criar inscrição fictícia na planilha de produção**.
 
@@ -38,7 +38,7 @@ Em um computador autenticado com a conta que **será proprietária do novo proje
    ```
    A saída do segundo comando apresenta uma nova pasta `build/lab-...`.
 4. **Apenas dentro dessa pasta nova**, conferir se o ID em `.clasp.json` corresponde ao novo projeto. Executar `clasp push`, sem `--force`. A ferramenta de preparação não faz push nem deploy automaticamente. Nunca executar `clasp push` na raiz do repositório.
-5. Configurar as três Script Properties de LAB listadas acima, executar o diagnóstico e implantar o Web App **privado** no novo projeto. Não fornecer o endereço a participantes reais.
+5. Configurar as três Script Properties de LAB listadas acima, executar `dg_lab_autoteste()` (esperado `status: 'OK'`) e somente então implantar o Web App **privado** no novo projeto. Não fornecer o endereço a participantes reais.
 6. O link de divulgação gerado pelo módulo Marketing permanece **vazio no LAB** para impedir que um botão de cópia aponte ao Portal público. A abertura do WhatsApp também permanece bloqueada. Utilizar exclusivamente os IDs fictícios `9001` e `9002` nas simulações.
 
 **Atenção:** o `clasp push` substitui todos os arquivos do projeto de destino. Por isso a pasta isolada e a conferência do `scriptId` são obrigatórias.
@@ -48,7 +48,7 @@ Em um computador autenticado com a conta que **será proprietária do novo proje
 - Sem `DG_AMBIENTE`, qualquer função do novo módulo que abra planilha falha fechada.
 - Com `DG_AMBIENTE=LAB`, a configuração só aceita **exatamente** os IDs das duas planilhas fictícias criadas. Rejeita qualquer outra planilha. Não substituir esses IDs por planilhas com cópias de contatos reais.
 - No LAB a interface do Relacionamento não abre `wa.me`. O módulo não deve disparar mensagens nem pagamentos.
-- No LAB, os links públicos de divulgação são suprimidos no servidor (string vazia), impedindo que um botão de cópia gere convite para inscrição real. Testar a montagem de URLs apenas com fixtures.
+- No LAB, os links públicos de divulgação são suprimidos no servidor (string vazia), impedindo que um botão de cópia gere convite para inscrição real. O `dg_lab_autoteste()` também verifica esse bloqueio. Testar a montagem de URLs apenas com fixtures.
 - Controle de acesso efetivo depende do **deployment criado no Apps Script**, não apenas do manifesto em GitHub. Os métodos remotos são server-side; acesso anônimo na produção histórica precisa ser auditado em sua implantação atual.
 - A propriedade `DG_AMBIENTE=PROD` foi tornada explícita e deve ser configurada numa implantação nova somente após revisão operacional.
 
