@@ -290,8 +290,11 @@ function obterUrlGasPortal_() {
 
 
 function montarLinkDivulgacao_(ref) {
-  return URL_PUBLICA_DESAFIO_GIRO +
-    '?ref=' + encodeURIComponent(String(ref || '').trim());
+  // Em LAB a interface jamais deve oferecer um link que leve a inscrições reais.
+  if (dg_configPlanilhas_().ambiente === 'LAB') return '';
+  const codigo = String(ref || '').trim();
+  if (!codigo) return '';
+  return URL_PUBLICA_DESAFIO_GIRO + '?ref=' + encodeURIComponent(codigo);
 }
 
 
