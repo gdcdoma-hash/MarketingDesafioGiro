@@ -54,4 +54,8 @@ api.abrirTeste({ ...pessoa, situacao: 'NAO_DESEJA_CONTATO' }, 'CORACAO');
 api.abrirTeste(pessoa, '');
 assert.equal(aberto.length, 1, 'Bloqueios e falta de escolha não abrem WhatsApp');
 assert.equal(api.mensagemTeste(pessoa, 'CORACAO', '').includes('?ref='), false, 'Convite geral não deve inventar REF');
+context.window.DG_AMBIENTE = 'LAB';
+api.abrirTeste(pessoa, 'TRANSMISSAO');
+assert.equal(aberto.length, 1, 'LAB não abre WhatsApp, mesmo com contato apto');
+assert.ok(avisos.some(msg => /WhatsApp bloqueado no LAB/.test(msg)), 'LAB explica o bloqueio');
 console.log('OK: texto por desafio, REF, abertura manual e bloqueios de WhatsApp.');
