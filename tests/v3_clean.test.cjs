@@ -102,6 +102,12 @@ function context(env='LAB',edit='',f=fixtures(),cacheStore=null){
  }
  return {ctx,props,fixtures:f,get updates(){return updates}};
 }
+function versaoContato(c,telefone){
+ const tab=c.ctx.v3_tabela_(c.ctx.v3_bases_().marketing,'Relacionamento_Contatos',['TELEFONE_NORMALIZADO']);
+ const record=tab.records.find(v=>c.ctx.v3_fone_(v.TELEFONE_NORMALIZADO)===telefone);
+ assert.ok(record,'Contato deve existir antes da edição');
+ return c.ctx.v3_versaoContato_(record);
+}
 test('LAB usa só duas planilhas fictícias autorizadas',()=>{
  const c=context();assert.equal(c.ctx.v3_config_().ambiente,'LAB');
  assert.equal(c.ctx.v3_config_().edicao,true);
@@ -161,13 +167,13 @@ test('Relacionamento filtra esportes, permite ambos e preserva não contatar',()
 });
 test('Edição de contato gera histórico sem alterar planilha do Portal',()=>{
  const c=context(),b=c.fixtures.portal.dgmbDesafios.length;
- c.ctx.v3_salvarContato({telefone:'5598991234501',etapa:'RETORNAR_DEPOIS',retorno:'2026-12-27',
+ c.ctx.v3_salvarContato({telefone:'5598991234501',versao:versaoContato(c,'5598991234501'),etapa:'RETORNAR_DEPOIS',retorno:'2026-12-27',
   situacao:'PODE_CONTATAR',observacao:'Contatar após o evento'});
  assert.equal(c.fixtures.mark.Relacionamento_Contatos[1][8],'RETORNAR_DEPOIS');
  assert.equal(c.fixtures.mark.Relacionamento_Contatos[1][18],'2026-12-27');
  assert.ok(c.fixtures.mark.Relacionamento_Historico.length>=2);
  assert.equal(c.fixtures.portal.dgmbDesafios.length,b);
- assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',etapa:'RETORNAR_DEPOIS'}),/data/);
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',versao:versaoContato(c,'5598991234501'),etapa:'RETORNAR_DEPOIS'}),/data/);
 });
 test('Atribuição da REF é numérica ou alfanumérica e sem fórmula',()=>{
  const c=context();
@@ -239,7 +245,7 @@ test('Vínculo com origem evita duplicação e o histórico é consultável',()=
  const c=context();
  const old=c.ctx.v3_vincularOrigem({telefone:'5598991234501',origemId:'O1'});
  assert.match(old.mensagem,/já vinculada/);
- c.ctx.v3_salvarContato({telefone:'5598991234501',etapa:'EM_CONVERSA'});
+ c.ctx.v3_salvarContato({telefone:'5598991234501',versao:versaoContato(c,'5598991234501'),etapa:'EM_CONVERSA'});
  const r=c.ctx.v3_historicoContato('5598991234501');
  assert.equal(r.status,'OK');
  assert.ok(r.dados.eventos.some(x=>x.tipo==='ETAPA'));
@@ -347,7 +353,7 @@ test('Datas inválidas não devem virar tarefas de retorno',()=>{
  assert.equal(c.ctx.v3_dataISO_('12/12/2026'),'2026-12-12');
  const before=c.updates;
  assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',
-  etapa:'RETORNAR_DEPOIS',retorno:'2026-02-29'}),/data/);
+  versao:versaoContato(c,'5598991234501'),etapa:'RETORNAR_DEPOIS',retorno:'2026-02-29'}),/data/);
  assert.equal(c.updates,before,'Não grava data impossível');
 });
 
@@ -376,4 +382,43 @@ test('Ciclismo confirmado manualmente prevalece quando registro histórico é in
   MODALIDADE:'NAO_INFORMADO',E_CICLISTA:'SIM'
  },{porId:{LAB04:{bike:false,passos:false}},idsPorTelefone:{}});
  assert.equal(resultado,'CICLISMO');
+});
+
+test('Duas sessões: versão antiga não substitui classificação mais recente',()=>{
+ const c=context(),telefone='5598991234501',versaoAntiga=versaoContato(c,telefone);
+ const primeiro=c.ctx.v3_salvarContato({telefone,versao:versaoAntiga,
+  etapa:'EM_CONVERSA',observacao:'Primeira sessão atualizou'});
+ assert.equal(primeiro.status,'OK');
+ const after=c.updates,versionNew=versaoContato(c,telefone);
+ assert.notEqual(versaoAntiga,versionNew);
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone,versao:versaoAntiga,
+  etapa:'FINALIZADO',observacao:'Sobrescrita indevida'}),/alterado após a consulta/);
+ assert.equal(c.updates,after,'Nenhuma gravação após conflito');
+ const fresh=c.ctx.v3_salvarContato({telefone,versao:versionNew,etapa:'FINALIZADO'});
+ assert.equal(fresh.status,'OK');
+});
+test('Contato em NAO_CONTATAR exige confirmação e motivo para reativação',()=>{
+ const c=context(),tel='5598991234504',v=versaoContato(c,tel),before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'PARA_CONTATAR',
+  situacao:'PODE_CONTATAR'}),/Reativação exige confirmação/);
+ assert.equal(c.updates,before,'Reativação sem autorização não grava');
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'PARA_CONTATAR',
+  situacao:'PODE_CONTATAR',autorizarReativacao:true,motivoReativacao:'sim'}),/Reativação exige confirmação/);
+ assert.equal(c.updates,before);
+ const done=c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'PARA_CONTATAR',
+  situacao:'PODE_CONTATAR',autorizarReativacao:true,
+  motivoReativacao:'Solicitação expressa registrada pelo administrador em LAB'});
+ assert.equal(done.status,'OK');
+ const hist=c.ctx.v3_historicoContato(tel).dados.eventos;
+ assert.ok(hist.some(x=>x.tipo==='REATIVACAO'),JSON.stringify(hist));
+ assert.equal(c.ctx.v3_contatos({}).dados.total,4);
+});
+test('Falha de esquema no histórico não permite alterar contato parcialmente',()=>{
+ const fake=fixtures();
+ fake.mark.Relacionamento_Historico[0]=['ID_EVENTO','TELEFONE_NORMALIZADO','TIPO_EVENTO'];
+ const c=context('LAB','',fake),tel='5598991234501',before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'EM_CONVERSA'}),/Coluna/);
+ assert.equal(c.updates,before);
+ assert.equal(fake.mark.Relacionamento_Contatos[1][8],'PARA_CONTATAR');
 });
