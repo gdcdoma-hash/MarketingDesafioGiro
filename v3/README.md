@@ -75,6 +75,28 @@ O script de empacotamento **rejeita os IDs do LAB anterior e do projeto legado**
 - Metas são mantidas na Script Property `METAS_MARKETING_V2` do **projeto novo**. Configurações anteriores de metas não migram automaticamente do Apps Script antigo; devem ser conferidas e reconfiguradas no painel V3.
 - A V3 não usa integração direta com a API Google Contacts. O caminho de importação é CSV com prévia. Ela não automatiza envio de mensagens.
 
+## Cenário de aceite executável da V3 LAB
+
+As planilhas fictícias exclusivas da V3 foram ajustadas para refletir a regra de competência sem depender de medalhas específicas. A base Portal LAB agora tem **dois desafios em dezembro/2026** (IDs 9001, 9002) e **um desafio em janeiro/2027** (ID 9003). Há **quatro inscrições de dezembro** (algumas cadastradas em novembro, outras em dezembro) e **uma inscrição de janeiro cadastrada em dezembro**.
+
+O Marketing LAB contém duas REF fictícias ativas, ambas usadas nessas inscrições. O Relacionamento LAB tem quatro contatos fictícios, sendo um proibido de receber contatos. A identificação esportiva contempla ciclismo, corrida/caminhada e ambos.
+
+Quando o **novo** Apps Script V3 estiver implantado, executar no editor:
+- `v3_autoteste()` para conferir configurações, integridade de abas e conexões
+- `v3_lab_aceite()` para validar **13 cenários funcionais de leitura**, incluindo competência dezembro/janeiro, REF, filtros esportivos, contato marcado não contatar e escolha inválida de desafio
+
+A função de aceite recusa executar em PROD. Ela não grava nenhuma célula. Seu resultado esperado é `status: OK`, `aprovadas: 13`, `total: 13` enquanto a massa de teste mantiver essa configuração.
+
+**Observação:** essa função é uma prova preparada para ser executada dentro do novo Apps Script; até a implantação, a evidência disponível é dos testes Node.js/GitHub Actions, não de uma execução Web real.
+
+## Correções preventivas incluídas na interface
+
+- Respostas antigas de chamadas assíncronas não substituem resultados mais novos após a troca do mês ou dos filtros.
+- Alterar o conteúdo CSV invalida a pré-análise; ela deve ser repetida para confirmar importações. Duplicados nunca atualizam cadastro existente automaticamente.
+- Botão WhatsApp desabilitado no LAB, durante modo PROD somente leitura, para telefones inválidos e para contatos marcados como não contatar, sem interesse ou contato inadequado.
+- Indicadores por competência são independentes da data de abertura da inscrição.
+- Índice esportivo mantém cache opcional de 120 segundos, com consulta direta como fallback.
+
 ## Homologação antes da produção
 
 - GitHub Actions executa testes isolados, sem tocar as planilhas, verificando modo LAB/PROD, período de realização, REF, casos de cancelamento, contatos, perfis esportivos, escrita com histórico, importação deduplicada e empacotamento.
