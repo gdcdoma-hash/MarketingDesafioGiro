@@ -9,11 +9,12 @@
 >
 
   <?!= include('Styles'); ?>
+  <?!= include('StylesMultidesafios'); ?>
 </head>
 
 <body>
   <? if (ambiente === 'LAB') { ?>
-  <p role="status" style="margin:0;padding:12px;background:#fff3cc;color:#603c00;text-align:center;font-weight:700;">AMBIENTE LAB — dados fictícios. Não utilize links de teste para inscrições reais.</p>
+  <p role="status" style="margin:0;padding:12px;background:#fff3cc;color:#603c00;text-align:center;font-weight:700;">AMBIENTE LAB — dados fictícios. WhatsApp e links públicos desativados.</p>
   <? } ?>
 
   <div class="app">
@@ -63,7 +64,7 @@
     type="button"
     aria-label="Novo divulgador"
     onclick="abrirNovoDivulgador()">
-    +
+    <span class="btn-novo-simbolo">+</span><span class="btn-novo-texto">DIVULGADOR</span>
   </button>
 
   <div
@@ -72,7 +73,10 @@
 
     <div class="modal-card modal-configuracoes-card">
       <div class="modal-cabecalho">
-        <div class="modal-titulo">Configurações</div>
+        <div>
+          <div class="modal-titulo">Configurações</div>
+          <div class="modal-subtitulo">Período e metas de divulgação.</div>
+        </div>
 
         <button
           class="modal-fechar"
@@ -84,28 +88,43 @@
       </div>
 
       <label class="campo-label" for="periodo-configuracoes">
-        Período do painel
+        Mês de realização dos desafios
       </label>
 
       <select
         id="periodo-configuracoes"
         class="campo-input"
-        onchange="atualizarDesafiosConfiguracoes()">
+        onchange="mdgTrocarMesDoDesafio()">
         <option>Carregando...</option>
       </select>
+      <p class="modal-subtitulo" style="margin:7px 0 4px;">
+        O desafio pertence ao mês de realização, mesmo que as inscrições
+        comecem no mês anterior.
+      </p>
 
-      <label class="campo-label" for="desafio-configuracoes">
-        Desafio
+      <label class="campo-label" for="meta-geral-configuracoes">
+        Meta geral do período
       </label>
-      <select id="desafio-configuracoes" class="campo-input">
-        <option value="">Todos os desafios do período</option>
-      </select>
+
+      <input
+        id="meta-geral-configuracoes"
+        class="campo-input"
+        type="number"
+        min="0"
+        step="1"
+        placeholder="Ex.: 200">
+
+      <div class="campo-label">Metas por desafio</div>
+      <div id="metas-desafios-configuracoes" class="meta-config-lista">
+        <div class="metrica-vazia">Carregando...</div>
+      </div>
 
       <button
+        id="btn-aplicar-configuracoes"
         class="btn-principal"
         type="button"
         onclick="aplicarConfiguracoes()">
-        APLICAR
+        SALVAR E APLICAR
       </button>
     </div>
   </div>
@@ -268,12 +287,21 @@
         COPIAR LINK
       </button>
 
-      <button
-        class="btn-secundario"
-        type="button"
-        onclick="fecharNovoDivulgador()">
-        FECHAR
-      </button>
+      <div class="acoes-duplas">
+        <button
+          class="btn-principal"
+          type="button"
+          onclick="abrirNovoDivulgador()">
+          NOVO
+        </button>
+
+        <button
+          class="btn-secundario"
+          type="button"
+          onclick="fecharNovoDivulgador()">
+          FECHAR
+        </button>
+      </div>
 
     </div>
 
@@ -350,6 +378,7 @@
 
 </div>
   <?!= include('Scripts'); ?>
+  <?!= include('ScriptsMultidesafios'); ?>
 
 </body>
 </html>
