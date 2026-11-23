@@ -53,14 +53,18 @@ function v3_confirmarImportacao(dados){
    return tab.header.map(h=>Object.prototype.hasOwnProperty.call(vals,h)?vals[h]:'');
   });
   if(linhas.length){
-   tab.sheet.getRange(tab.sheet.getLastRow()+1,1,linhas.length,tab.header.length).setValues(linhas);
+   // Antes da primeira inserção, reservar capacidade em ambas as abas,
+   // evitando falha determinística depois de contatos já terem sido gravados.
+   const inicioContatos=v3_prepararEspaco_(tab.sheet,linhas.length);
+   const inicioVinculos=vinculos?v3_prepararEspaco_(vinculos.sheet,linhas.length):0;
+   tab.sheet.getRange(inicioContatos,1,linhas.length,tab.header.length).setValues(linhas);
    if(vinculos){
     const novos=p.novos.map(c=>{
      const vals={TELEFONE_NORMALIZADO:c.telefone,ID_ORIGEM:origem,
       DATA_PRIMEIRA_IDENTIFICACAO:agora,DATA_ULTIMA_IDENTIFICACAO:agora,QUANTIDADE_OCORRENCIAS:1};
      return vinculos.header.map(h=>Object.prototype.hasOwnProperty.call(vals,h)?vals[h]:'');
     });
-    vinculos.sheet.getRange(vinculos.sheet.getLastRow()+1,1,novos.length,vinculos.header.length).setValues(novos);
+    vinculos.sheet.getRange(inicioVinculos,1,novos.length,vinculos.header.length).setValues(novos);
    }
   }
   return v3_resposta_('OK',{gravados:linhas.length,repetidos:p.repetidos.length},
