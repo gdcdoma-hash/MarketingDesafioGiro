@@ -1,5 +1,15 @@
 # Homologação LAB — Marketing e Relacionamento — 23/11/2026
 
+## Regra geral de competência mensal — obrigatória para qualquer desafio
+
+O sistema **não deve depender de nomes de medalhas, campanhas, nem da data em que a inscrição foi realizada** para determinar o período do painel. Cada inscrição pertence ao mês de realização registrado em `ListaDesafios.Periodo`, identificado pelo `ID_DESAFIO` da inscrição.
+
+Exemplos de regressão: inscrição em novembro/2026 para um desafio com `Periodo = dezembro/2026` deve contar em **dezembro**; inscrição em dezembro/2026 para `Periodo = janeiro/2027` deve contar em **janeiro**. Também é válido inscrever-se durante o próprio mês de realização.
+
+O usuário pode escolher a visão geral do mês ou um desafio específico daquele mês. Metas são salvas por mês de realização e, quando aplicáveis, por ID do desafio, sem usar o mês de abertura para reclassificar inscrições.
+
+A versão multidesafios demonstrada na interface foi preservada em uma PR própria, https://github.com/gdcdoma-hash/MarketingDesafioGiro/pull/51, baseada em `feat/painel-multidesafios`. Ela corrige troca de mês no modal de metas e valida a competência no backend. A PR #51 e esta PR #50 **precisam de integração cuidadosa antes de produção**. Os testes `tests/periodo_competencia_desafio.test.js` nesta PR e `tests/painel_competencia.test.cjs` na PR #51 fixam a mesma regra em ambos os caminhos.
+
 ## Escopo e limites
 
 A **PR #50 é de desenvolvimento, não de implantação**. O Google Apps Script de produção e o portal não foram alterados. O acesso às planilhas de produção permanece como era no deployment já existente, mesmo que o manifesto novo declare `MYSELF`.
