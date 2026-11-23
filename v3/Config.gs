@@ -129,3 +129,44 @@ function v3_autoteste(){
    totais:{desafios:catalogo.items.length,referencias:marketing.records.length,
      contatos:contatos.records.length,inscricoes:inscritos.records.length}};
 }
+
+
+/**
+ * Aceite das planilhas fictícias exclusivas da V3.
+ * Não escreve nada e não aceita execução em produção.
+ * O teste pressupõe as inscrições da demonstração dezembro/2026 e janeiro/2027.
+ */
+function v3_lab_aceite() {
+ const config=v3_config_();
+ if(config.ambiente!=='LAB')throw Error('Teste de aceite disponível somente no LAB.');
+ const verificacoes=[];
+ function verificar(nome,valor){verificacoes.push({nome:nome,ok:valor===true});}
+ const opcoes=v3_opcoes();
+ const dezembro=v3_painel('dezembro/2026','').dados;
+ const janeiro=v3_painel('janeiro/2027','').dados;
+ const esporteBike=v3_contatos({esporte:'CICLISMO',etapa:'TODOS'}).dados;
+ const esportePassos=v3_contatos({esporte:'CAMINHADA_CORRIDA',etapa:'TODOS'}).dados;
+ const contatos=v3_contatos({etapa:'TODOS'}).dados;
+ verificar('Duas bases fictícias isoladas',config.marketingId===V3_IDS.LAB_MARKETING&&
+  config.portalId===V3_IDS.LAB_PORTAL&&config.portalId!==config.marketingId);
+ verificar('Dezembro contém duas campanhas genéricas',dezembro.desafios.length===2);
+ verificar('Dezembro inclui inscrições antecipadas de novembro',dezembro.total===4);
+ verificar('Dezembro possui REF conhecidas',dezembro.atribuido===4&&dezembro.direto===0);
+ verificar('Primeiro desafio de dezembro tem duas inscrições',
+  v3_painel('dezembro/2026','9001').dados.total===2);
+ verificar('Segundo desafio de dezembro tem duas inscrições',
+  v3_painel('dezembro/2026','9002').dados.total===2);
+ verificar('Janeiro recebe inscrição feita em dezembro',janeiro.total===1);
+ verificar('Desafio fora da competência retorna zero',
+  v3_painel('dezembro/2026','9003').dados.total===0&&
+  v3_painel('dezembro/2026','9003').dados.invalido===true);
+ verificar('Quatro contatos fictícios',contatos.total===4);
+ verificar('Contato não contatar permanece separado',
+  contatos.indicadores.NAO_CONTATAR===1);
+ verificar('Ciclismo inclui perfil ambos',esporteBike.total===2);
+ verificar('Corrida/caminhada inclui perfil ambos',esportePassos.total===2);
+ verificar('Referências de marketing fictícias ativas',opcoes.refAtivas.length===2);
+ return {status:verificacoes.every(v=>v.ok)?'OK':'FALHA',
+  ambiente:'LAB',verificacoes:verificacoes,
+  aprovadas:verificacoes.filter(v=>v.ok).length,total:verificacoes.length};
+}
