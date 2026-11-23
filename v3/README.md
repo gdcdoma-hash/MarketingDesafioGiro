@@ -45,24 +45,34 @@ PROD (outro projeto, nunca o LAB):
 
 A planilha Marketing PROD é conhecida e fixa no código, e a propriedade `DG_MARKETING_SPREADSHEET_ID` no PROD é opcional mas, quando informada, deve corresponder ao ID oficial.
 
-## Criar uma instância V3 em projeto novo
+## Instalação rápida do LAB V3 — sem criar projeto manualmente
 
-1. Criar um **novo projeto Google Apps Script** para V3. **Não utilizar o projeto antigo nem o LAB V2**, ambos ficam disponíveis.
-2. No GitHub baixar esta branch `clean/marketing-relacionamento-v3-20261123` como ZIP e extrair.
-3. No PowerShell da pasta raiz do repositório, com Node.js e `clasp` instalados/autenticados:
+O instalador `scripts/instalar-v3-lab.cjs` **cria um novo projeto Apps Script privado e envia somente os seis arquivos**. Ele NÃO utiliza os IDs do projeto antigo ou do LAB V2, não publica nenhum Web App, não modifica dados e não habilita produção.
+
+1. Baixar no GitHub a branch `clean/marketing-relacionamento-v3-20261123` (**Code → Download ZIP**) e extrair em uma pasta nova. Node.js e `clasp` precisam estar instalados; executar `clasp login` no computador com a conta Google proprietária. Habilitar a Apps Script API se solicitado.
+2. No PowerShell dentro da pasta extraída, executar:
+
+```powershell
+node .\scripts\instalar-v3-lab.cjs --dry-run
+node .\scripts\instalar-v3-lab.cjs --confirmar-novo-lab=SIM
+```
+
+3. O instalador cria um novo projeto `DG-Marketing-Relacionamento-V3-LAB` na conta autenticada, confere o ID, remove arquivos de exemplo do `clasp` e envia somente `Config.gs`, `Importacao.gs`, `Index.html`, `Marketing.gs`, `Relacionamento.gs` e `appsscript.json`. O link do editor é exibido ao final. **Nenhuma implantação Web é criada automaticamente.**
+4. Abrir o link retornado e executar **`v3_instalarLab()`** no editor. A função configura automaticamente as três propriedades das bases fictícias exclusivas da V3, **somente em um projeto sem propriedades** (ou já corretamente configurado como LAB V3), e executa o diagnóstico de **11 verificações**.
+5. Executar **`v3_lab_aceite()`** para validar 13 cenários fictícios adicionais.
+6. Implantar Web App: **Executar como Eu / Quem pode acessar: Somente eu**. Verificar bloqueio em janela anônima sem sessão e testar interfaces no desktop/celular.
+7. A futura produção exige **outro projeto**, distinto da V3 LAB, com backup da base real e entrada inicial somente leitura. **Não alterar as propriedades de LAB para PROD.**
+
+### Alternativa com ID do script já criado
+
+Se um projeto V3 novo já foi criado manualmente, o gerador `scripts/preparar-v3-limpa.cjs` continua disponível:
 
 ```powershell
 node .\scripts\preparar-v3-limpa.cjs --dry-run
-node .\scripts\preparar-v3-limpa.cjs --script-id=ID_DO_NOVO_PROJETO_V3 --confirm-new-project=SIM
+node .\scripts\preparar-v3-limpa.cjs --script-id=ID_DO_PROJETO_V3_NOVO --confirm-new-project=SIM
 ```
 
-4. Entrar **somente** na pasta `build\v3-clean-...` retornada, conferir o `.clasp.json` e executar `clasp push`.
-5. Configurar as propriedades de LAB no projeto novo, executar `v3_autoteste()`. Esperado: `status=OK`, seis verificações, contagens somente de dados fictícios.
-6. **Implantar Web App como Eu / Somente eu**. Confirmar que uma conta diferente não abre o URL.
-7. Testar Marketing (mês/desafio/metas) e Relacionamento (etapas, notas, origens, importação fictícia, histórico, bloqueio WhatsApp no LAB).
-8. Somente depois, realizar a publicação em **outro Apps Script PROD** separado, começar leitura e liberar edição mediante backup e validação.
-
-O script de empacotamento **rejeita os IDs do LAB anterior e do projeto legado**. Não faz `clasp push` e não cria implantação.
+Dentro da pasta `build\v3-clean-...` resultante, conferir o `.clasp.json` e executar `clasp push`. Depois executar `v3_instalarLab()` no editor e seguir a homologação anterior. O gerador manual **não faz push**, ao contrário do instalador rápido.
 
 ## Proteções e comportamento
 
