@@ -85,7 +85,10 @@ function context(env='LAB',edit='',f=fixtures(),cacheStore=null){
     put(key,value){cacheStore.set(key,value);}
   };}}} : {}),
   PropertiesService:{getScriptProperties(){return {
-   getProperty(k){return props[k]||'';},setProperty(k,v){props[k]=v;updates++;}
+   getProperty(k){return props[k]||'';},
+   getProperties(){return {...props};},
+   setProperty(k,v){props[k]=v;updates++;},
+   setProperties(values){Object.assign(props,values);updates++;}
   }}},
   SpreadsheetApp:{openById(id){
    if(id===ids.lm||id===ids.pm)return book(id,f.mark);
@@ -469,4 +472,32 @@ test('Histórico registra nome, observação e retorno sem copiar seu conteúdo'
   assert.ok(hist.some(x=>x.tipo===tipo),'Histórico deve incluir '+tipo);
  assert.ok(c.fixtures.mark.Relacionamento_Historico.length>inicio);
  assert.equal(JSON.stringify(hist).includes('Uma anotação privada'),false);
+});
+
+test('Instalador seguro pode validar pacote sem fazer push ou criar projeto',()=>{
+ const script=path.join(root,'scripts/instalar-v3-lab.cjs');
+ const run=args=>cp.spawnSync(process.execPath,[script,...args],{cwd:root,encoding:'utf8'});
+ const dry=run(['--dry-run']);
+ assert.equal(dry.status,0,dry.stderr);
+ assert.match(dry.stdout,/Nenhum projeto criado ou enviado/);
+ const noConfirm=run([]);
+ assert.notEqual(noConfirm.status,0);
+ assert.match(noConfirm.stderr,/confirmar-novo-lab=SIM/);
+});
+test('Configuração automática do LAB exige projeto sem propriedades prévias',()=>{
+ const c=context();
+ // Projeto novo não possui nenhuma propriedade de script.
+ for(const k of Object.keys(c.props))delete c.props[k];
+ const n=c.updates;
+ const diag=c.ctx.v3_instalarLab();
+ assert.equal(diag.status,'OK');
+ assert.equal(diag.verificacoes,11);
+ assert.equal(diag.aprovadas,11);
+ assert.equal(c.props.DG_AMBIENTE,'LAB');
+ assert.equal(c.updates,n+1);
+ const novamente=c.ctx.v3_instalarLab();
+ assert.equal(novamente.status,'OK');
+ assert.equal(c.updates,n+1,'Instalação repetida não regrava propriedades');
+ c.props.DG_AMBIENTE='PROD';
+ assert.throws(()=>c.ctx.v3_instalarLab(),/Instalação LAB recusada/);
 });
