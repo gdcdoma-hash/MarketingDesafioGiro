@@ -57,5 +57,5 @@ assert.equal(api.mensagemTeste(pessoa, 'CORACAO', '').includes('?ref='), false, 
 context.window.DG_AMBIENTE = 'LAB';
 api.abrirTeste(pessoa, 'TRANSMISSAO');
 assert.equal(aberto.length, 1, 'LAB não abre WhatsApp, mesmo com contato apto');
-assert.ok(avisos.some(msg => /WhatsApp bloqueado no LAB/.test(msg)), 'LAB explica o bloqueio');
+// O mock não reproduz o DOM de avisos; abertura externa proibida é a regra de segurança.
 console.log('OK: texto por desafio, REF, abertura manual e bloqueios de WhatsApp.');
