@@ -345,6 +345,10 @@ test('Fila padrão exclui recusas mesmo com etapa Para Contatar',()=>{
  assert.equal(row[header.indexOf('ETAPA')],'PARA_CONTATAR');
  const principal=c.ctx.v3_contatos({}).dados;
  assert.equal(principal.total,2,'Contato recusado não integra fila de ação');
+ assert.equal(principal.indicadores.PARA_CONTATAR,2);
+ const bloqueados=c.ctx.v3_contatos({somenteBloqueados:true}).dados;
+ assert.equal(bloqueados.total,2);
+ assert.equal(c.ctx.v3_contatos({etapa:'PARA_CONTATAR'}).dados.total,2);
  const todos=c.ctx.v3_contatos({etapa:'TODOS'}).dados;
  assert.equal(todos.total,4,'Contato recusado permanece para consulta e auditoria');
  assert.equal(todos.indicadores.BLOQUEADOS,2,'Opt-out e etapa Não Contatar');
@@ -792,4 +796,80 @@ test('Nome manual tem prioridade visual sem alterar nome original do Portal',()=
  c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),nomeContato:'LAB Apelido'});
  const a=c.ctx.v3_contatos({busca:'LAB Apelido'}).dados.registros[0];
  assert.equal(a.nome,'LAB Apelido');assert.equal(a.nomePortal,'Pessoa Teste Bike');
+});
+
+test('Portal: novo número de um ID já vinculado exige revisão de identidade',()=>{
+ const c=context();
+ c.fixtures.portal.DadosPessoais[1][1]='5598991234599';
+ const analise=c.ctx.v3_analisarPortal().dados;
+ assert.equal(analise.conflitos,1);
+ assert.equal(analise.novos,0);
+ assert.equal(c.ctx.v3_sincronizarPortal({confirmar:true}).dados.gravados,0);
+ const contato=c.ctx.v3_contatos({busca:'5598991234501'}).dados.registros[0];
+ assert.equal(contato.conflitoIdentidade,true);
+ assert.equal(contato.bloqueado,true);
+});
+
+test('Busca combina campos e mantém correspondência exata antes de resultado parcial',()=>{
+ const c=context(), contatos=c.fixtures.mark.Relacionamento_Contatos;
+ contatos[2][contatos[0].indexOf('NOME_CONTATO')]='Pessoa Bike LAB01';
+ const porId=c.ctx.v3_contatos({busca:'LAB01'}).dados.registros;
+ assert.equal(porId.length,2);
+ assert.equal(porId[0].idDgmb,'LAB01');
+ const porPalavras=c.ctx.v3_contatos({busca:'bike LAB01'}).dados.registros;
+ assert.equal(porPalavras.length,2);
+ assert.ok(porPalavras.some(r=>r.idDgmb==='LAB01'));
+ assert.equal(c.ctx.v3_contatos({busca:'(98) 99123-4501'}).dados.registros[0].idDgmb,'LAB01');
+});
+
+test('Filtro Portal inclui vínculos confirmados e exclui contatos em conflito',()=>{
+ const c=context();
+ c.fixtures.portal.DadosPessoais.push(['LAB99','5598991234501','Conflito']);
+ const registros=c.ctx.v3_contatos({etapa:'TODOS',origem:'@portal'}).dados.registros;
+ assert.equal(registros.length,3);
+ assert.ok(registros.every(r=>r.atletaPortal&&!r.conflitoIdentidade));
+});
+
+test('Relacionamento registra retorno pela interface e recupera a fila após recarregar',async()=>{
+ const server=context();
+ const script=file('Index.html').match(/<script>([\s\S]*?)<\/script>/)[1];
+ const frontend=script.slice(0,script.indexOf('(async function iniciar(){')).replace('<?= area ?>','relacionamento');
+ const elements=new Map();
+ function element(id){
+  if(!elements.has(id))elements.set(id,{
+   value:'',textContent:'',innerHTML:'',hidden:false,
+   querySelectorAll:()=>[],showModal(){},close(){}
+  });
+  return elements.get(id);
+ }
+ function openPage(){
+  const page=vm.createContext({document:{getElementById:element}});
+  vm.runInContext(frontend,page);
+  vm.runInContext("state.opt={ambiente:'LAB',edicao:true}",page);
+  page.api=async(name,...args)=>server.ctx[name](...args);
+  element('r-busca').value='Teste Bike';
+  element('r-esporte').value='TODOS';
+  element('r-etapa').value='PADRAO';
+  element('r-situacao').value='TODOS';
+  return page;
+ }
+ const first=openPage();
+ await first.carregarContatos();
+ const contato=vm.runInContext('state.contatos.registros[0]',first);
+ assert.equal(contato.telefone,'5598991234501');
+ first.abrirResultado(contato);
+ first.selecionarResultado('RETORNAR_DEPOIS');
+ element('resultado-data').value=server.ctx.v3_hoje_();
+ await first.salvarResultadoRapido();
+ assert.match(element('r-operacao').textContent,/Resultado salvo para Pessoa Teste Bike/);
+
+ elements.clear();
+ const reopened=openPage();
+ element('r-busca').value='';
+ vm.runInContext("state.filaEspecial='RETORNAR_HOJE'",reopened);
+ await reopened.carregarContatos();
+ const dados=vm.runInContext('state.contatos',reopened);
+ assert.equal(dados.total,1);
+ assert.equal(dados.registros[0].telefone,contato.telefone);
+ assert.equal(dados.registros[0].resultado,'RETORNAR_DEPOIS');
 });

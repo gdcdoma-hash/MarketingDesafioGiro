@@ -164,11 +164,11 @@ test('Contato bloqueado pelo servidor não abre convite após edição não salv
 test('Filtro rápido Retornar Hoje envia flag para consulta do Relacionamento',()=>{
  const s=setup();
  for(const id of ['r-busca','r-esporte','r-etapa','r-situacao','r-origem'])s.elem(id).value='';
- s.elem('r-retorno').checked=true;
+ s.context.selecionarFila('RETORNAR_HOJE');
  const filter=s.context.filtroContatos();
  assert.equal(filter.retornoPendente,true);
  assert.equal(filter.pagina,1);
- s.elem('r-retorno').checked=false;
+ s.context.selecionarFila('RETORNAR_HOJE');
  assert.equal(s.context.filtroContatos().retornoPendente,false);
 });
 test('Painel de contatos inclui retorno do dia e bloqueados entre os indicadores',()=>{
@@ -368,4 +368,102 @@ test('Edição direta envia apenas nome e versão, preservando demais campos',as
  assert.equal(t.queue[0].name,'v3_salvarContato');assert.equal(t.queue[0].args[0].nomeContato,'LAB Nome editado');
  assert.equal(Object.keys(t.queue[0].args[0]).length,3);
  t.queue[0].reject(Error('Falha simulada'));await task;assert.equal(btn.disabled,false);
+});
+
+test('Paginação usa página confirmada pelo servidor após redução da lista',async()=>{
+ const s=setup();
+ s.state.pagina=3;
+ const consulta=s.context.carregarContatos();
+ s.queue[0].resolve({status:'OK',dados:{total:8,pagina:2,paginas:2,indicadores:{},origens:[],registros:[]}});
+ await consulta;
+ s.context.pagina(-1);
+ assert.equal(s.queue[1].args[0].pagina,1);
+});
+test('Registro rápido não envia gravação duplicada e preserva feedback de falha',async()=>{
+ const s=setup();
+ s.context.abrirResultado({...base,versao:'v',bloqueado:false});
+ s.context.selecionarResultado('EM_CONVERSA');
+ const grava=s.context.salvarResultadoRapido();
+ await s.context.salvarResultadoRapido();
+ assert.equal(s.queue.length,1);
+ s.queue[0].reject(new Error('Serviço indisponível.'));
+ await grava;
+ assert.match(s.elem('resultado-aviso').textContent,/Não foi possível salvar/);
+ assert.equal(s.elem('resultado-salvar').disabled,false);
+});
+
+test('Marketing não exibe números antigos após falha na troca de mês',async()=>{
+ const s=setup();
+ s.elem('m-periodo').value='dezembro/2026';
+ const consulta=s.context.carregarMarketing();
+ assert.equal(s.elem('m-resultados').hidden,true);
+ s.queue[0].reject(new Error('Conexão indisponível.'));
+ await consulta;
+ assert.equal(s.elem('m-resultados').hidden,true);
+ assert.match(s.elem('m-alerta').textContent,/Use Atualizar/);
+});
+
+test('Metas são gravadas no mês do formulário aberto',async()=>{
+ const s=setup();
+ s.elem('m-periodo').value='novembro/2026';
+ const consulta=s.context.abrirMetas();
+ s.queue[0].resolve({status:'OK',dados:{periodo:'novembro/2026',geral:50,desafios:[]}});
+ await consulta;
+ s.elem('m-periodo').value='dezembro/2026';
+ const grava=s.context.salvarMetas();
+ assert.equal(s.queue[1].args[0].periodo,'novembro/2026');
+ s.queue[1].resolve({status:'OK',dados:{}});
+ await grava;
+});
+
+test('Falha ao ler o novo CSV invalida o arquivo verificado anteriormente',async()=>{
+ const s=setup();
+ s.elem('csv-texto').value='Pessoa A;98991234567;Cidade;MA';
+ const analise=s.context.analisarImportacao();
+ s.queue[0].resolve({status:'OK',dados:{novos:1,repetidos:0,invalidos:0}});
+ await analise;
+ assert.equal(s.elem('csv-confirmar').disabled,false);
+ await s.context.lerCsvArquivo({target:{files:[{size:12,text:async()=>{throw Error('Falha de leitura.');}}]}});
+ assert.equal(s.elem('csv-confirmar').disabled,true);
+ assert.equal(s.elem('csv-texto').value,'');
+ assert.match(s.elem('csv-resultado').textContent,/Falha ao ler/);
+ await s.context.confirmarImportacao();
+ assert.equal(s.calls.length,1);
+});
+
+test('Importação parcial preserva origem do lote e exige nova análise antes de retomar',async()=>{
+ const s=setup();
+ s.elem('csv-origem').value='O1';
+ s.elem('csv-texto').value=Array.from({length:301},(_,i)=>'Pessoa;9899123'+String(4500+i)).join('\n');
+ const analise=s.context.analisarImportacao();
+ s.queue[0].resolve({status:'OK',dados:{novos:300,repetidos:0,invalidos:0}});
+ await flush();
+ s.queue[1].resolve({status:'OK',dados:{novos:1,repetidos:0,invalidos:0}});
+ await analise;
+ const importacao=s.context.confirmarImportacao();
+ assert.equal(s.elem('csv-origem').disabled,true);
+ s.elem('csv-origem').value='O2';
+ s.queue[2].resolve({status:'OK',dados:{gravados:300,repetidos:0,novosVinculos:300}});
+ await flush();
+ assert.equal(s.queue[3].args[0].origemId,'O1');
+ s.queue[3].reject(new Error('Conexão perdida.'));
+ await importacao;
+ assert.match(s.elem('csv-resultado').textContent,/300 contatos e 300 vínculos/);
+ assert.equal(s.elem('csv-origem').disabled,false);
+ assert.equal(s.elem('csv-confirmar').disabled,true);
+ await s.context.confirmarImportacao();
+ assert.equal(s.calls.filter(x=>x==='v3_confirmarImportacao').length,2);
+});
+
+test('Prévia identifica campos inválidos e reconhece cabeçalho português de nomes',async()=>{
+ const s=setup();
+ s.elem('csv-texto').value='Nome próprio;Sobrenome;Telefone 1 - Valor\nAna;da Silva;98991234567';
+ assert.equal(s.context.dadosCSV()[0].nome,'Ana da Silva');
+ s.elem('csv-texto').value='Pessoa;111;Cidade;INVALIDO';
+ const analise=s.context.analisarImportacao();
+ assert.equal(s.queue[0].args[0].registros[0].uf,'INVALIDO');
+ s.queue[0].resolve({status:'OK',dados:{novos:0,repetidos:0,invalidos:1,linhasInvalidas:[1]}});
+ await analise;
+ assert.match(s.elem('csv-resultado').textContent,/posições 1/);
+ assert.equal(s.elem('csv-confirmar').disabled,true);
 });
