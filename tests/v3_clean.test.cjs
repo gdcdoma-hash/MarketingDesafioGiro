@@ -275,3 +275,28 @@ test('Nomes iniciados por fórmula são gravados como texto em planilha, nunca i
  assert.match(row[4],/^'=IMPORTXML/);
  assert.equal(c.ctx.v3_ref_('+1'),'');
 });
+
+test('Autoteste de aceite V3 confirma competência de dezembro e janeiro sem gravação',()=>{
+ const f=fixtures();
+ const cH=f.portal.dgmbDesafios[0];
+ const make=(stamp,id,challenge,mode,ref)=>[
+  stamp,id,'[ID_DESAFIO:'+challenge+']',mode,ref,'EM_ANDAMENTO','Ativo'
+ ];
+ f.portal.dgmbDesafios=[
+  cH,
+  make('2026-11-23','LAB01','9001','CICLISMO','LAB_BIKE'),
+  make('2026-12-02','LAB02','9002','CAMINHADA_CORRIDA','LAB_PASSOS'),
+  make('2026-11-26','LAB03','9001','CICLISMO','LAB_BIKE'),
+  make('2026-12-04','LAB03','9002','CAMINHADA_CORRIDA','LAB_PASSOS'),
+  make('2026-12-20','LAB01','9003','CICLISMO','LAB_BIKE')
+ ];
+ const c=context('LAB','',f);
+ const before=c.updates;
+ const result=c.ctx.v3_lab_aceite();
+ assert.equal(result.status,'OK',JSON.stringify(result));
+ assert.equal(result.total,13);
+ assert.equal(result.aprovadas,13);
+ assert.equal(c.updates,before,'Autoteste não altera planilhas nem Script Properties');
+ const prod=context('PROD','',f);
+ assert.throws(()=>prod.ctx.v3_lab_aceite(),/somente no LAB/);
+});
