@@ -82,10 +82,21 @@ function install(){
  }
  if(!args.includes('--confirmar-novo-lab=SIM'))
   refuse('Execute com --confirmar-novo-lab=SIM para criar um NOVO Apps Script V3.');
- const base=path.join(root,'build');
+ // ATENÇÃO: o repositório histórico possui .clasp.json na raiz.
+ // clasp encontra .clasp.json também em diretórios ancestrais; criar sob
+ // build/ reutilizaria o vínculo legado e bloquearia create-script.
+ // A pasta temporária fica FORA do repositório, no diretório temporário do SO.
+ const base=path.join(os.tmpdir(),'DG-V3-LAB-INSTALACOES');
  fs.mkdirSync(base,{recursive:true});
  const dir=fs.mkdtempSync(path.join(base,'v3-lab-novo-'));
- console.log('Projeto local isolado:',dir);
+ // Verificar todo o caminho ascendente, não só a pasta criada.
+ // Se algum ancestral possuir outro script, NÃO continuar.
+ for(let parent=dir;;parent=path.dirname(parent)){
+  if(fs.existsSync(path.join(parent,'.clasp.json')))
+   refuse('Diretório de instalação herda .clasp.json de '+parent+'; nenhum comando de criação executado.');
+  if(path.dirname(parent)===parent)break;
+ }
+ console.log('Projeto local isolado, fora do repositório:',dir);
  // Consultar projetos existentes antes de criar outro com o mesmo título.
  let projetos=command(['list-scripts'],dir);
  if(projetos.status!==0 &&
@@ -107,6 +118,8 @@ function install(){
  // o comando; se criou o script mas não salvou o vínculo, jamais duplicar.
  let result=command(['create-script','--title','DG-Marketing-Relacionamento-V3-LAB','--type','standalone'],dir);
  diagnosticoComando('clasp create-script',result,dir);
+ if(/Project file already exists\.?/i.test(result.stderr+' '+result.stdout))
+  refuse('Clasp encontrou .clasp.json existente; nenhum push executado. Confira a pasta isolada.');
  if(result.status!==0){
   if(vinculoSeCriado(result,dir))
    refuse('O Google retornou ID mas clasp apresentou erro. Revise a pasta; não criamos segundo projeto.');
