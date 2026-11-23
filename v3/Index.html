@@ -95,6 +95,10 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
    <div><label>Origem</label><select id="r-origem"><option value="">Todas</option></select></div>
    <div style="align-self:end"><button class="btn" onclick="filtrarContatos()">Aplicar filtros</button></div>
   </div>
+  <label class="row" style="margin-top:12px;font-size:13px;font-weight:600;cursor:pointer">
+   <input type="checkbox" id="r-retorno" style="width:auto" onchange="filtrarContatos()">
+   Apenas retornos vencidos ou previstos para hoje
+  </label>
  </div>
  <div class="panel"><div class="section-title"><h2>Contatos</h2><span class="muted" id="r-total">—</span></div>
   <div id="r-lista"></div>
@@ -254,6 +258,7 @@ async function salvarMetas(){
 }
 function filtroContatos(){return {busca:E('r-busca').value,esporte:E('r-esporte').value,
  etapa:E('r-etapa').value,situacao:E('r-situacao').value,origem:E('r-origem').value,
+ retornoPendente:!!E('r-retorno').checked,
  pagina:state.pagina,porPagina:30};}
 function filtrarContatos(){state.pagina=1;carregarContatos();}
 async function carregarContatos(){
@@ -269,7 +274,8 @@ async function carregarContatos(){
 function renderContatos(){
  const d=state.contatos;
  const nomes={PARA_CONTATAR:'Para contatar',AGUARDANDO_RESPOSTA:'Aguardando resposta',
-  EM_CONVERSA:'Em conversa',RETORNAR_DEPOIS:'Retornar depois',FINALIZADO:'Finalizados',NAO_CONTATAR:'Não contatar'};
+  EM_CONVERSA:'Em conversa',RETORNAR_DEPOIS:'Retornar depois',FINALIZADO:'Finalizados',
+  NAO_CONTATAR:'Não contatar',BLOQUEADOS:'Bloqueados para contato',RETORNAR_HOJE:'Retornar hoje / atrasados'};
  E('r-indicadores').innerHTML=Object.keys(nomes).map(k=>'<div class="card"><div class="k">'+brl(d.indicadores[k]||0)+'</div><div class="label">'+nomes[k]+'</div></div>').join('');
  const origemAnterior=E('r-origem').value;
  options(E('r-origem'),[{value:'',label:'Todas'},...d.origens.map(x=>({value:x.id,label:x.nome}))],origemAnterior);
@@ -278,7 +284,9 @@ function renderContatos(){
  E('r-prev').disabled=d.pagina<=1;E('r-next').disabled=d.pagina>=d.paginas;
  E('r-lista').innerHTML=d.registros.length?d.registros.map((c,i)=>'<div class="contact">'+
  '<div><div class="name">'+esc(c.nome)+'</div><div class="meta">'+esc(c.exibicao)+' · '+esc(c.cidadeUf)+' · ID '+esc(c.idDgmb||'—')+'</div></div>'+
- '<div><span class="pill">'+esc(c.perfil.replace(/_/g,' '))+'</span><div class="meta" style="margin-top:6px">'+esc(c.origens.join(', ')||'Origem não informada')+'</div></div>'+
+ '<div><span class="pill">'+esc(c.perfil.replace(/_/g,' '))+'</span>'+ 
+ (c.bloqueado?' <span class="pill gray">Não contatar</span>':'')+
+ '<div class="meta" style="margin-top:6px">'+esc(c.origens.join(', ')||'Origem não informada')+'</div></div>'+
  '<div><label>Etapa</label><select data-stage="'+i+'" '+(!state.opt.edicao?'disabled':'')+'>'+state.opt.etapas.map(s=>'<option value="'+esc(s)+'"'+(s===c.etapa?' selected':'')+'>'+esc(s.replace(/_/g,' '))+'</option>').join('')+'</select></div>'+
  '<div><label>Situação</label><div class="meta">'+esc(c.situacao.replace(/_/g,' '))+'</div></div>'+
  '<div class="action"><button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>').join(''):'<div class="empty">Nenhum contato encontrado com estes filtros.</div>';
@@ -297,6 +305,7 @@ function pagina(delta){state.pagina+=delta;carregarContatos();}
 function motivoBloqueioConvite(c,etapa,situacao){
  if(!c||state.opt.ambiente==='LAB')return 'Convites bloqueados no LAB.';
  if(!state.opt.edicao)return 'Convites desativados enquanto a produção está em modo leitura.';
+ if(c.bloqueado)return 'Cadastro bloqueado para convite. Salve qualquer reclassificação e abra o contato novamente.';
  const etapaAtual=etapa||c.etapa,situacaoAtual=situacao||c.situacao;
  if(etapaAtual==='NAO_CONTATAR'||['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(situacaoAtual)||
   ['NAO_CONTATAR','SEM_INTERESSE'].includes(c.resultado)||c.validade==='INVALIDO')
