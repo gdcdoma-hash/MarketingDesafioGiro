@@ -198,7 +198,8 @@ function obterDadosPainelMarketingV2(periodoSolicitado, idDesafioSolicitado) {
 
   const origens = Object.create(null);
   marketing.forEach(item => {
-    const ref = String(item.REF || '').trim();
+    // Evita HTML/JS injetável em ações do painel e mantém o formato oficial.
+    const ref = dg_marketing_normalizarRef_(item.REF);
     if (!ref) return;
 
     const idDgmb = String(item.ID_DGMB || '').trim();
