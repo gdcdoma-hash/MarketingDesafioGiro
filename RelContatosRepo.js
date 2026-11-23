@@ -45,6 +45,7 @@ function rel_contatos_localizar_(telefone) {
 }
 
 function rel_contatos_atualizarCampos_(registro, campos) {
+  dg_assertEscritaPermitida_();
   const linhaAtualizada = registro.valores.slice();
   Object.keys(campos).forEach(cabecalho => {
     if (registro.mapa[cabecalho] === undefined) throw new Error('Cabeçalho obrigatório ausente: ' + cabecalho);
@@ -56,6 +57,7 @@ function rel_contatos_atualizarCampos_(registro, campos) {
 }
 
 function rel_contatos_persistirSituacao_(registro, situacao, atualizadoEm) {
+  dg_assertEscritaPermitida_();
   ['SITUACAO', 'ATUALIZADO_EM'].forEach(cabecalho => {
     if (registro.mapa[cabecalho] === undefined) throw new Error('Cabeçalho obrigatório ausente: ' + cabecalho);
   });
@@ -68,6 +70,7 @@ function rel_cidades_ler_() {
 }
 
 function rel_cidades_inserir_(dados) {
+  dg_assertEscritaPermitida_();
   const repositorio = rel_cidades_ler_();
   const linha = new Array(repositorio.aba.getLastColumn()).fill('');
   Object.keys(dados).forEach(cabecalho => {
