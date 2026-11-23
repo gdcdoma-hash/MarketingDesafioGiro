@@ -617,3 +617,39 @@ test('Clasp informa Project file already exists com status 0: instalador RECUSA 
   if(destination&&path.dirname(destination)===base)fs.rmSync(destination,{recursive:true,force:true});
  }
 });
+
+test('Recuperação V3: valida fonte, ID existente e operação seca sem criar projeto',()=>{
+ const recovery=require('../scripts/recuperar-v3-lab.cjs');
+ assert.doesNotThrow(()=>recovery.checkSource());
+ const id='1YPPgTF5AoOEED6TjJIi-4oxr8WoGk21s-me2vWabLd4pGhWynv6NFKyk';
+ assert.equal(recovery.checkId(id),id);
+ assert.throws(()=>recovery.checkId('1qOTRjWCldsxcu2cRa_nNzZPhoUHFO_NoEcCs0IQcItK7a87yR1tcTHYk'),/antigo/);
+ assert.throws(()=>recovery.checkId('abc'),/inválido/);
+ assert.doesNotThrow(()=>recovery.recover(['--dry-run']));
+ assert.throws(()=>recovery.recover(['--script-id='+id]),/confirmar-recuperacao/);
+});
+test('Recuperação V3 rejeita diretório com .clasp.json ancestral e diretório do legado',()=>{
+ const recovery=require('../scripts/recuperar-v3-lab.cjs');
+ const os=require('node:os');
+ const base=fs.mkdtempSync(path.join(os.tmpdir(),'dg-v3-safety-'));
+ const nested=path.join(base,'conteudo');
+ fs.mkdirSync(nested);
+ try{
+  assert.doesNotThrow(()=>recovery.checkSafePath(nested));
+  fs.writeFileSync(path.join(base,'.clasp.json'),'{"scriptId":"ID_ANTIGO"}');
+  assert.throws(()=>recovery.checkSafePath(nested),/herda projeto/);
+  assert.throws(()=>recovery.checkSafePath(root),/FORA do repositório/);
+ }finally{
+  fs.rmSync(base,{recursive:true,force:true});
+ }
+});
+test('Recuperação V3 nunca chama create-script; escolhe volume do projeto e exige push',()=>{
+ const script=fs.readFileSync(path.join(root,'scripts/recuperar-v3-lab.cjs'),'utf8');
+ const js=script.replace(/^#![^\n]*\n/,'');
+ assert.ok(script.includes("const volume = path.parse(ROOT).root"));
+ assert.ok(script.includes("path.join(volume,'DG-V3-RECUP-')"));
+ assert.ok(script.includes("cp.spawnSync(bin,args"));
+ assert.ok(script.includes("clasp.cmd push"));
+ assert.doesNotMatch(js,/command\(['"]create-script/);
+ assert.ok(script.includes("if (absolute !== real)"));
+});
