@@ -19,7 +19,7 @@ function v3_ref_(v){const s=v3_texto_(v);return /^[A-Za-z0-9_-]{1,100}$/.test(s)
 function v3_fone_(v){
  const raw=v3_texto_(v).replace(/\D/g,'');
  // Contatos brasileiros de 10/11 dígitos precisam do DDI para deduplicação.
- const s=(raw.length===10||raw.length===11)&&!raw.startsWith('55')?'55'+raw:raw;
+ const s=(raw.length===10||raw.length===11)?'55'+raw:raw;
  return s.length>=12&&s.length<=15?s:'';
 }
 function v3_seguroCelula_(v){const s=v3_texto_(v);return /^[=+@\-]/.test(s)?"'"+s:s;}
