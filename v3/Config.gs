@@ -16,7 +16,12 @@ const V3_SITUACOES=Object.freeze(['NAO_CLASSIFICADO','PODE_CONTATAR','NAO_FAZ_DE
 function v3_texto_(v){return String(v===null||v===undefined?'':v).trim();}
 function v3_normal_(v){return v3_texto_(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();}
 function v3_ref_(v){const s=v3_texto_(v);return /^[A-Za-z0-9_-]{1,100}$/.test(s)?s:'';}
-function v3_fone_(v){const s=v3_texto_(v).replace(/\D/g,'');return s.length>=10&&s.length<=15?s:'';}
+function v3_fone_(v){
+ const raw=v3_texto_(v).replace(/\D/g,'');
+ // Contatos brasileiros de 10/11 dígitos precisam do DDI para deduplicação.
+ const s=(raw.length===10||raw.length===11)&&!raw.startsWith('55')?'55'+raw:raw;
+ return s.length>=12&&s.length<=15?s:'';
+}
 function v3_seguroCelula_(v){const s=v3_texto_(v);return /^[=+@\-]/.test(s)?"'"+s:s;}
 function v3_periodoValor_(periodo){
  const meses=['janeiro','fevereiro','marco','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
