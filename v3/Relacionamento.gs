@@ -52,8 +52,12 @@ function v3_classificarContato_(c,indice){
  if(id&&indice.porId[id])return v3_perfil_(indice.porId[id]);
  const tel=v3_fone_(c.TELEFONE_NORMALIZADO);
  const ids=indice.idsPorTelefone[tel]||[];
- if(ids.length!==1)return 'NAO_IDENTIFICADO';
- return v3_perfil_(indice.porId[ids[0]]||{bike:false,passos:false});
+ if(ids.length===1){
+  const perfil=v3_perfil_(indice.porId[ids[0]]||{bike:false,passos:false});
+  if(perfil!=='NAO_IDENTIFICADO')return perfil;
+ }
+ if(v3_normal_(c.E_CICLISTA)==='SIM')return 'CICLISMO';
+ return 'NAO_IDENTIFICADO';
 }
 function v3_origensListar_ (marketing){
  const o=v3_tabela_(marketing,'Relacionamento_Origens',['ID_ORIGEM','NOME_ORIGEM','STATUS']).records;
