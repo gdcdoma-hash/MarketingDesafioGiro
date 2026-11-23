@@ -39,3 +39,4 @@ jobs:
           node tests/rel_contatos_pendencia.test.js
           node tests/marketing_desafios_recorte.test.js
           node tests/rel_esporte_campanhas.test.js
+          node tests/rel_whatsapp_campanhas.test.js
