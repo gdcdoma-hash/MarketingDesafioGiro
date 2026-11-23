@@ -58,6 +58,7 @@ let gravacoes=0;
 const ctx=vm.createContext({
   dg_abrirPlanilhaMarketingRelacionamento_:()=>marketing,
   dg_abrirPlanilhaPortal_:()=>portal,
+  dg_configPlanilhas_:()=>({ambiente:'PROD'}),
   PropertiesService:{getScriptProperties(){return {
     getProperty:k=>propriedades[k]||'',
     setProperty(k,v){gravacoes++;propriedades[k]=v}
