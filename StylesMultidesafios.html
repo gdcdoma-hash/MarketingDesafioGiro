@@ -1,0 +1,416 @@
+<style>
+/* Evolução desktop sem perder o mobile-first existente. */
+.app {
+  max-width: 1180px;
+}
+
+.topo {
+  margin-bottom: 12px;
+}
+
+.topo-contexto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.escopo-atual {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: right;
+}
+
+.resumos.resumos-v2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.resumo-card.compacto {
+  padding: 15px 16px;
+}
+
+.resumo-card.compacto .resumo-numero {
+  font-size: 30px;
+}
+
+.meta-card.meta-v2 {
+  margin-top: 12px;
+  padding: 18px;
+}
+
+.navegacao.navegacao-v2 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.painel-grid-principal,
+.painel-grid-secundario {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.bloco-painel {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  background: var(--card);
+}
+
+.bloco-painel .secao-cabecalho {
+  margin-bottom: 4px;
+}
+
+.lista-compacta {
+  margin-top: 6px;
+}
+
+.linha-compacta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.linha-compacta:first-child {
+  border-top: 0;
+}
+
+.linha-titulo {
+  min-width: 0;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.linha-subtitulo {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.linha-numero {
+  min-width: 50px;
+  text-align: right;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.link-discreto,
+.btn-link-discreto {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.filtro-escopo {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 2fr);
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
+.filtro-escopo .campo-label {
+  margin-top: 0;
+}
+
+.desafios-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.card-desafio {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.card-desafio-topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.desafio-identificacao {
+  min-width: 0;
+}
+
+.desafio-codigo {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .25px;
+}
+
+.desafio-nome {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.desafio-tipo {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.desafio-resultado {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.desafio-resultado strong {
+  display: block;
+  font-size: 25px;
+}
+
+.desafio-resultado span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.card-desafio .barra {
+  height: 7px;
+  margin-top: 12px;
+}
+
+.card-desafio-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.desafio-meta-texto {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.divulgadores-lista-v2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.divulgador-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--card);
+}
+
+.divulgador-linha .origem-nome {
+  font-size: 16px;
+}
+
+.divulgador-meta {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.divulgador-linha-acoes {
+  display: flex;
+  gap: 6px;
+  margin-top: 9px;
+}
+
+.btn-mini {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-mini.primario {
+  border-color: var(--dark);
+  background: var(--dark);
+  color: #fff;
+}
+
+.btn-mini.perigo {
+  color: #b91c1c;
+}
+
+.divulgador-qtd-v2 {
+  text-align: right;
+}
+
+.divulgador-qtd-v2 strong {
+  display: block;
+  font-size: 25px;
+}
+
+.divulgador-qtd-v2 span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.meta-config-lista {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.meta-config-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.meta-config-item:first-child {
+  border-top: 0;
+}
+
+.meta-config-item .campo-input {
+  min-height: 44px;
+  font-size: 15px;
+}
+
+.meta-config-nome {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.meta-config-codigo {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.acoes-duplas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.acoes-duplas .btn-principal,
+.acoes-duplas .btn-secundario {
+  margin-top: 0;
+}
+
+.btn-novo-flutuante {
+  width: auto;
+  min-width: 62px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.btn-novo-simbolo {
+  margin-right: 7px;
+  font-size: 25px;
+  line-height: 1;
+}
+
+@media (min-width: 800px) {
+  .resumos.resumos-v2 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .painel-grid-principal {
+    grid-template-columns: 1.15fr .85fr;
+  }
+
+  .painel-grid-secundario {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .desafios-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .divulgadores-lista-v2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .app {
+    max-width: none;
+  }
+
+  .resumos.resumos-v2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .resumo-card.compacto {
+    padding: 14px;
+  }
+
+  .resumo-card.compacto .resumo-numero {
+    font-size: 30px;
+  }
+
+  .resumo-card.compacto .resumo-label {
+    font-size: 14px;
+  }
+
+  .navegacao.navegacao-v2 .nav-btn {
+    min-height: 52px;
+    padding: 0 5px;
+    font-size: 14px;
+  }
+
+  .filtro-escopo {
+    grid-template-columns: 1fr;
+  }
+
+  .bloco-painel,
+  .card-desafio {
+    padding: 16px;
+  }
+
+  .btn-novo-flutuante {
+    width: 62px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .btn-novo-texto {
+    display: none;
+  }
+
+  .btn-novo-simbolo {
+    margin-right: 0;
+    font-size: 34px;
+    font-weight: 500;
+  }
+
+  .divulgador-linha {
+    grid-template-columns: minmax(0, 1fr) 72px;
+  }
+}
+</style>

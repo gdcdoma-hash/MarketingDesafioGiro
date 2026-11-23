@@ -70,7 +70,7 @@ function criarContexto(ambiente, dados=fixture) {
     }};}}
   });
   for (const file of ['Code.js','Planilhas.js','RelTelefoneNormalizer.js',
-    'RelEsporteService.js','LabAutoteste.js']) {
+    'RelEsporteService.js','MarketingMultidesafios.js','LabAutoteste.js']) {
     vm.runInContext(arquivo(file),ctx,{filename:file});
   }
   return ctx;
@@ -79,7 +79,7 @@ function criarContexto(ambiente, dados=fixture) {
 const ctx=criarContexto('LAB');
 const resultado=ctx.dg_lab_autoteste();
 assert.equal(resultado.status,'OK',JSON.stringify(resultado.verificacoes));
-assert.equal(resultado.verificacoes.length,13);
+assert.equal(resultado.verificacoes.length,16);
 assert.equal(resultado.resumo.inscricoes,4);
 assert.ok(resultado.verificacoes.every(x=>x.ok));
 assert.equal(ctx.montarLinkDivulgacao_('LAB_TRANSMISSAO'), '');

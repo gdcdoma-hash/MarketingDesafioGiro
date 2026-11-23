@@ -61,6 +61,23 @@ function dg_lab_autoteste() {
     coracao.totalPeriodo === 2 &&
     coracao.totalAtribuidas === 2 && coracao.totalDireto === 0);
 
+  // Verificações da interface multidesafios, usando somente as mesmas
+  // inscrições fictícias, nunca dados do Portal público.
+  const painelV2Bike = obterDadosPainelMarketingV2('novembro/2026', '9001');
+  const painelV2Corrida = obterDadosPainelMarketingV2('novembro/2026', '9002');
+  const metasV2 = obterMetasPeriodoMarketingV2('novembro/2026');
+  conferir('Painel V2 primeiro desafio', painelV2Bike.totalPeriodo === 2 &&
+    painelV2Bike.totalAtribuidas === 2 &&
+    painelV2Bike.totalRefNaoCadastradas === 0 &&
+    painelV2Bike.desafios.length === 2 &&
+    painelV2Bike.divulgadores.every(item => !item.link));
+  conferir('Painel V2 segundo desafio', painelV2Corrida.totalPeriodo === 2 &&
+    painelV2Corrida.totalAtribuidas === 2 &&
+    painelV2Corrida.totalRefNaoCadastradas === 0);
+  conferir('Configuração de metas V2 somente leitura', metasV2.status === 'OK' &&
+    metasV2.periodo === 'novembro/2026' &&
+    metasV2.desafios.length === 2);
+
   const passou = verificacoes.every(teste => teste.ok);
   return {
     status: passou ? 'OK' : 'FALHA',
