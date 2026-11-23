@@ -225,7 +225,11 @@ function v3_lab_aceite() {
  verificar('Ciclismo inclui perfil ambos',esporteBike.total===2);
  verificar('Corrida/caminhada inclui perfil ambos',esportePassos.total===2);
  verificar('Referências de marketing fictícias ativas',opcoes.refAtivas.length===2);
- return {status:verificacoes.every(v=>v.ok)?'OK':'FALHA',
-  ambiente:'LAB',verificacoes:verificacoes,
-  aprovadas:verificacoes.filter(v=>v.ok).length,total:verificacoes.length};
+ const falhas=verificacoes.filter(v=>!v.ok);
+ const resultado={status:falhas.length?'FALHA':'OK',ambiente:'LAB',verificacoes:verificacoes,
+  aprovadas:verificacoes.length-falhas.length,total:verificacoes.length};
+ const resumo='Aceite LAB: '+resultado.aprovadas+'/'+resultado.total+' verificações aprovadas.';
+ if(falhas.length)console.error(resumo+' Falhas: '+falhas.map(v=>v.nome).join(' | '));
+ else console.log(resumo);
+ return resultado;
 }
