@@ -83,6 +83,16 @@ function v3_origensListar_ (marketing){
  * Regras únicas para a fila operacional e os indicadores.
  * Nunca muda a etapa armazenada nem reverte opt-out automaticamente.
  */
+/**
+ * Versão otimista baseada no conteúdo editável; não depende da formatação
+ * de data/hora do Google Sheets. Alterações de outro editor exigem recarga.
+ */
+function v3_versaoContato_(c){
+ const campos=['TELEFONE_NORMALIZADO','ATUALIZADO_EM','ETAPA','SITUACAO',
+  'RESULTADO','VALIDADE','DATA_PROXIMO_RETORNO','MODALIDADE','NOME_CONTATO',
+  'OBSERVACAO','E_CICLISTA'];
+ return JSON.stringify(campos.map(campo=>v3_texto_(c[campo])));
+}
 function v3_bloqueadoContato_(c){
  const etapa=v3_normal_(c.etapa||c.ETAPA);
  const situacao=v3_normal_(c.situacao||c.SITUACAO);
@@ -133,6 +143,7 @@ function v3_contatos(filtros){
    etapa:c.ETAPA||'PARA_CONTATAR',situacao:c.SITUACAO||'NAO_CLASSIFICADO',
    resultado:c.RESULTADO||'',validade:c.VALIDADE||'',modalidade:c.MODALIDADE||'NAO_INFORMADO',
    perfil:v3_classificarContato_(c,idx),observacao:c.OBSERVACAO||'',
+   versao:v3_versaoContato_(c),
    retorno:v3_dataISO_(c.DATA_PROXIMO_RETORNO),
    bloqueado:v3_bloqueadoContato_(c),idsOrigens:ids,
    origens:ids.map(id=>origens.nomes[id]).filter(Boolean),
@@ -165,16 +176,29 @@ function v3_contatos(filtros){
    edicao:b.config.edicao,ambiente:b.config.ambiente
  });
 }
-function v3_historico_(book,phone,tipo,antes,depois){
+/**
+ * Valida o esquema do histórico antes de modificar o contato.
+ * Um único append por operação, mesmo quando vários campos mudam.
+ */
+function v3_prepararHistorico_(book,phone,alteracoes){
+ if(!alteracoes.length)return null;
  const t=v3_tabela_(book,'Relacionamento_Historico',
-   ['ID_EVENTO','TELEFONE_NORMALIZADO','TIPO_EVENTO','DATA_HORA','VALOR_ANTERIOR','VALOR_NOVO','DETALHE','USUARIO']);
- const row=Array(t.header.length).fill('');
- const values={ID_EVENTO:Utilities.getUuid(),TELEFONE_NORMALIZADO:phone,
-   TIPO_EVENTO:tipo,DATA_HORA:new Date(),VALOR_ANTERIOR:v3_seguroCelula_(antes),
-   VALOR_NOVO:v3_seguroCelula_(depois),DETALHE:'Alteração pelo sistema V3',
-   USUARIO:Session.getEffectiveUser().getEmail()||'ADMIN'};
- for(const k of Object.keys(values))row[t.header.indexOf(k)]=values[k];
- t.sheet.appendRow(row);
+  ['ID_EVENTO','TELEFONE_NORMALIZADO','TIPO_EVENTO','DATA_HORA',
+   'VALOR_ANTERIOR','VALOR_NOVO','DETALHE','USUARIO']);
+ const now=new Date(),usuario=Session.getEffectiveUser().getEmail()||'ADMIN';
+ const rows=alteracoes.map(([tipo,antes,depois,detalhe])=>{
+  const obj={ID_EVENTO:Utilities.getUuid(),TELEFONE_NORMALIZADO:phone,
+   TIPO_EVENTO:tipo,DATA_HORA:now,VALOR_ANTERIOR:v3_seguroCelula_(antes),
+   VALOR_NOVO:v3_seguroCelula_(depois),
+   DETALHE:v3_seguroCelula_(detalhe||'Alteração pelo sistema V3'),USUARIO:usuario};
+  return t.header.map(h=>Object.prototype.hasOwnProperty.call(obj,h)?obj[h]:'');
+ });
+ return {sheet:t.sheet,rows:rows,colunas:t.header.length};
+}
+function v3_gravarHistorico_(preparado){
+ if(!preparado||!preparado.rows.length)return;
+ preparado.sheet.getRange(preparado.sheet.getLastRow()+1,1,
+  preparado.rows.length,preparado.colunas).setValues(preparado.rows);
 }
 function v3_salvarContato(dados){
  v3_escrita_();
@@ -184,8 +208,12 @@ function v3_salvarContato(dados){
   const book=v3_bases_().marketing;
   const tabela=v3_tabela_(book,'Relacionamento_Contatos',
     ['TELEFONE_NORMALIZADO','ETAPA','SITUACAO','DATA_PROXIMO_RETORNO','ATUALIZADO_EM']);
-  const c=tabela.records.find(x=>x.TELEFONE_NORMALIZADO===phone);
+  const c=tabela.records.find(x=>v3_fone_(x.TELEFONE_NORMALIZADO)===phone);
   if(!c)throw Error('Contato não localizado.');
+  // Sempre compare dentro do lock e antes de qualquer setValue.
+  if(!dados||typeof dados.versao!=='string'||
+     dados.versao!==v3_versaoContato_(c))
+    throw Error('Contato alterado após a consulta. Atualize a lista antes de salvar.');
   const edit=Object.create(null),audit=[];
   if(Object.prototype.hasOwnProperty.call(dados,'etapa')){
    const etapa=v3_texto_(dados.etapa).toUpperCase();
@@ -224,9 +252,22 @@ function v3_salvarContato(dados){
    edit.MODALIDADE=val;audit.push(['MODALIDADE',c.MODALIDADE,val]);
   }
   if(!Object.keys(edit).length)throw Error('Nenhuma alteração fornecida.');
+  const depois={...c,...edit};
+  const desbloqueio=v3_bloqueadoContato_(c)&&!v3_bloqueadoContato_(depois);
+  if(desbloqueio){
+   const motivo=v3_texto_(dados.motivoReativacao);
+   if(dados.autorizarReativacao!==true||motivo.length<10||motivo.length>300)
+    throw Error('Reativação exige confirmação e motivo entre 10 e 300 caracteres.');
+   audit.push(['REATIVACAO','BLOQUEADO','LIBERADO',motivo]);
+  }
+  const alteracoes=audit.filter(([tipo,antes,depois])=>antes!==depois);
+  // Preflight do histórico e das colunas: falhas de esquema não causam escrita parcial.
+  const historico=v3_prepararHistorico_(book,phone,alteracoes);
+  for(const campo of Object.keys(edit))
+   if(tabela.header.indexOf(campo)<0)throw Error('Coluna ausente: '+campo);
   edit.ATUALIZADO_EM=new Date();
   v3_gravarCampos_(tabela,c,edit);
-  for(const [tipo,antes,depois] of audit)if(antes!==depois)v3_historico_(book,phone,tipo,antes,depois);
+  v3_gravarHistorico_(historico);
   return v3_resposta_('OK',{},'Contato atualizado.');
  });
 }
