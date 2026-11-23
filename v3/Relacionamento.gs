@@ -100,7 +100,7 @@ function v3_bloqueadoContato_(c){
  const validade=v3_normal_(c.validade||c.VALIDADE);
  return etapa==='NAO_CONTATAR'||validade==='INVALIDO'||
   ['NAO_DESEJA_CONTATO','SEM_INTERESSE','CONTATO_INADEQUADO'].includes(situacao)||
-  ['NAO_CONTATAR','SEM_INTERESSE'].includes(resultado);
+  ['NAO_CONTATAR','SEM_INTERESSE','NAO_DESEJA_CONTATO'].includes(resultado);
 }
 function v3_resumoEtapas_(contatos,hoje){
  const cards={PARA_CONTATAR:0,AGUARDANDO_RESPOSTA:0,EM_CONVERSA:0,RETORNAR_DEPOIS:0,
@@ -134,10 +134,14 @@ function v3_contatos(filtros){
  const todos=tab.records.map(c=>{
   const tel=v3_fone_(c.TELEFONE_NORMALIZADO);
   const ids=origens.vinculos[tel]||[];
+  const portalIds=idx.idsPorTelefone[tel]||[];
+  const conflito=portalIds.length>1||(portalIds.length===1&&!!c.ID_DGMB&&c.ID_DGMB!==portalIds[0]);
   return {
    telefone:tel,exibicao:c.TELEFONE_EXIBICAO||tel,
-   idDgmb:c.ID_DGMB||'',
-   nome:c.NOME_PORTAL||c.NOME_CONTATO||c.NOME_GOOGLE_CONTATOS||'Nome não informado',
+   idDgmb:conflito?'':(c.ID_DGMB||portalIds[0]||''),
+   conflitoIdentidade:conflito,atletaPortal:portalIds.length===1&&!conflito,
+   nome:c.NOME_CONTATO||c.NOME_PORTAL||c.NOME_GOOGLE_CONTATOS||'Nome não informado',
+   nomePortal:c.NOME_PORTAL||'',nomeGoogle:c.NOME_GOOGLE_CONTATOS||'',
    nomeContato:c.NOME_CONTATO||'',cidade:c.CIDADE||'',uf:c.UF||'',
    cidadeUf:c.CIDADE_UF_PORTAL||[c.CIDADE,c.UF].filter(Boolean).join(' - '),
    etapa:c.ETAPA||'PARA_CONTATAR',situacao:c.SITUACAO||'NAO_CLASSIFICADO',
@@ -145,14 +149,14 @@ function v3_contatos(filtros){
    perfil:v3_classificarContato_(c,idx),observacao:c.OBSERVACAO||'',
    versao:v3_versaoContato_(c),
    retorno:v3_dataISO_(c.DATA_PROXIMO_RETORNO),
-   bloqueado:v3_bloqueadoContato_(c),idsOrigens:ids,
-   origens:ids.map(id=>origens.nomes[id]).filter(Boolean),
+   bloqueado:v3_bloqueadoContato_(c)||conflito,idsOrigens:ids,
+   origens:[...new Set([...ids.map(id=>origens.nomes[id]).filter(Boolean),...(portalIds.length===1&&!conflito?['Portal Giro']:[])])],
    ordem:c.__linha
   };
  });
  const hoje=v3_hoje_();
  const filtrados=todos.filter(c=>{
-  const bloqueado=v3_bloqueadoContato_(c);
+  const bloqueado=c.bloqueado||v3_bloqueadoContato_(c);
   // Sem busca, PADRAO é fila de abordagem. Com nome/telefone/ID digitado,
   // localizar também o histórico de bloqueados/finalizados (sem liberar contato).
   if(etapa==='PADRAO'&&!termo&&(bloqueado||c.etapa==='FINALIZADO'))return false;
@@ -163,7 +167,8 @@ function v3_contatos(filtros){
   if(origem&&!c.idsOrigens.includes(origem))return false;
   if(f.retornoPendente&&(bloqueado||!(c.etapa==='RETORNAR_DEPOIS'&&c.retorno&&c.retorno<=hoje)))return false;
   if(!termo)return true;
-  return [c.nome,c.nomeContato,c.telefone,c.idDgmb,c.cidadeUf].some(x=>v3_normal_(x).includes(termo));
+  const digits=termo.replace(/\D/g,'');
+  return [c.nome,c.nomeContato,c.nomePortal,c.nomeGoogle,c.telefone,c.idDgmb,c.cidadeUf].some(x=>v3_normal_(x).includes(termo))||(/^[\d\s()+.-]+$/.test(termo)&&digits.length>=3&&c.telefone.includes(digits));
  }).sort((a,b)=>{
   const vencidoA=a.etapa==='RETORNAR_DEPOIS'&&a.retorno&&a.retorno<=hoje?0:1;
   const vencidoB=b.etapa==='RETORNAR_DEPOIS'&&b.retorno&&b.retorno<=hoje?0:1;
@@ -212,6 +217,7 @@ function v3_salvarContato(dados){
     ['TELEFONE_NORMALIZADO','ETAPA','SITUACAO','DATA_PROXIMO_RETORNO','ATUALIZADO_EM']);
   const c=tabela.records.find(x=>v3_fone_(x.TELEFONE_NORMALIZADO)===phone);
   if(!c)throw Error('Contato não localizado.');
+  if(tabela.records.filter(x=>v3_fone_(x.TELEFONE_NORMALIZADO)===phone).length!==1)throw Error('Telefone com cadastros duplicados. Resolva o conflito antes de editar.');
   // Sempre compare dentro do lock e antes de qualquer setValue.
   if(!dados||typeof dados.versao!=='string'||
      dados.versao!==v3_versaoContato_(c))
@@ -321,5 +327,60 @@ function v3_novaOrigem(dados){
   const row=tab.header.map(h=>vals[h]||'');
   tab.sheet.appendRow(row);
   return v3_resposta_('OK',{id:id},'Origem cadastrada.');
+ });
+}
+
+/** Consulta Portal somente leitura. Nunca modifica atletas nem une IDs conflitantes. */
+function v3_planoPortal_(bases){
+ const pessoas=v3_tabela_(bases.portal,'DadosPessoais',['ID_DGMB','whatsapp']).records;
+ const tab=v3_tabela_(bases.marketing,'Relacionamento_Contatos',['TELEFONE_NORMALIZADO','ID_DGMB','NOME_PORTAL','NOME_CONTATO','ETAPA','SITUACAO']);
+ const porTel=new Map(),existentes=new Map();
+ let semTelefone=0;
+ for(const p of pessoas){
+  const tel=v3_fone_(p.whatsapp),id=v3_texto_(p.ID_DGMB);
+  if(!tel||!id){semTelefone++;continue;}
+  if(!porTel.has(tel))porTel.set(tel,new Map());
+  porTel.get(tel).set(id,p);
+ }
+ for(const c of tab.records){
+  const tel=v3_fone_(c.TELEFONE_NORMALIZADO);
+  if(!existentes.has(tel))existentes.set(tel,[]);
+  existentes.get(tel).push(c);
+ }
+ const novos=[],vincular=[];let conflitos=0,existentesOk=0;
+ for(const [tel,ids] of porTel){
+  const atuais=existentes.get(tel)||[];
+  if(ids.size!==1||atuais.length>1){conflitos++;continue;}
+  const [id,p]=Array.from(ids.entries())[0];
+  const nome=v3_texto_(p.nome||p.Nome||p.NOME);
+  const cidade=v3_texto_(p['Cidade-UF']||p.Cidade_UF||p.cidade_uf||p.Cidade||p.cidade);
+  if(!atuais.length){novos.push({tel,id,nome,cidade});continue;}
+  const c=atuais[0];
+  if(c.ID_DGMB&&c.ID_DGMB!==id){conflitos++;continue;}
+  existentesOk++;
+  const edit={};
+  if(!c.ID_DGMB)edit.ID_DGMB=id;
+  if(!c.NOME_PORTAL&&nome)edit.NOME_PORTAL=v3_seguroCelula_(nome);
+  if(tab.header.includes('CIDADE_UF_PORTAL')&&!c.CIDADE_UF_PORTAL&&cidade)edit.CIDADE_UF_PORTAL=v3_seguroCelula_(cidade);
+  if(Object.keys(edit).length)vincular.push({c,edit});
+ }
+ return {tab,novos,vincular,resumo:{atletas:pessoas.length,telefonesUnicos:porTel.size,semTelefone,conflitos,existentes:existentesOk,novos:novos.length,vincular:vincular.length}};
+}
+function v3_analisarPortal(){
+ return v3_resposta_('OK',v3_planoPortal_(v3_bases_()).resumo,'Comparação concluída. Nenhuma gravação.');
+}
+function v3_sincronizarPortal(dados){
+ v3_escrita_();
+ if(!dados||dados.confirmar!==true)throw Error('Confirme a sincronização.');
+ return v3_lock_(()=>{
+  const b=v3_bases_(),p=v3_planoPortal_(b),tab=p.tab,agora=new Date();
+  const novos=p.novos.slice(0,300),vincular=p.vincular.slice(0,300-novos.length);
+  const rows=novos.map(n=>{
+   const vals={TELEFONE_NORMALIZADO:n.tel,TELEFONE_EXIBICAO:n.tel,ID_DGMB:n.id,NOME_PORTAL:v3_seguroCelula_(n.nome),CIDADE_UF_PORTAL:v3_seguroCelula_(n.cidade),ETAPA:'PARA_CONTATAR',SITUACAO:'NAO_CLASSIFICADO',MODALIDADE:'NAO_INFORMADO',E_CICLISTA:'NAO_CONFIRMADO',DATA_PRIMEIRA_IMPORTACAO:agora,ATUALIZADO_EM:agora};
+   return tab.header.map(h=>vals[h]||'');
+  });
+  if(rows.length){const inicio=v3_prepararEspaco_(tab.sheet,rows.length);tab.sheet.getRange(inicio,1,rows.length,tab.header.length).setValues(rows);}
+  for(const x of vincular)v3_gravarCampos_(tab,x.c,x.edit);
+  return v3_resposta_('OK',{gravados:rows.length,vinculados:vincular.length,restantes:p.novos.length+p.vincular.length-rows.length-vincular.length,conflitos:p.resumo.conflitos},'Sincronização de lote concluída. Portal preservado.');
  });
 }

@@ -769,3 +769,27 @@ test('Reimportar telefone conhecido com outra origem adiciona vínculo sem alter
  assert.equal(c.ctx.v3_confirmarImportacao(dados).dados.novosVinculos,0);
  assert.ok(c.ctx.v3_contatos({etapa:'TODOS',origem:'O1'}).dados.registros.some(r=>r.telefone===phone));
 });
+
+test('Portal: sincroniza atleta novo sem modificar fonte nem duplicar telefone',()=>{
+ const c=context();c.fixtures.portal.DadosPessoais.push(['LAB05','5598991234599','LAB Novo']);
+ const antes=JSON.stringify(c.fixtures.portal);
+ assert.equal(c.ctx.v3_analisarPortal().dados.novos,1);
+ assert.equal(c.updates,0);
+ const r=c.ctx.v3_sincronizarPortal({confirmar:true}).dados;
+ assert.equal(r.gravados,1);assert.equal(JSON.stringify(c.fixtures.portal),antes);
+ assert.equal(c.ctx.v3_sincronizarPortal({confirmar:true}).dados.gravados,0);
+ assert.equal(c.ctx.v3_contatos({busca:'(98) 99123-4599'}).dados.total,1);
+});
+test('Portal: telefone compartilhado não é unido e fica bloqueado para abordagem',()=>{
+ const c=context();c.fixtures.portal.DadosPessoais.push(['LAB99','5598991234501','LAB Conflito']);
+ assert.equal(c.ctx.v3_analisarPortal().dados.conflitos,1);
+ const a=c.ctx.v3_contatos({busca:'5598991234501'}).dados.registros[0];
+ assert.equal(a.conflitoIdentidade,true);assert.equal(a.bloqueado,true);
+ assert.equal(c.ctx.v3_sincronizarPortal({confirmar:true}).dados.gravados,0);
+});
+test('Nome manual tem prioridade visual sem alterar nome original do Portal',()=>{
+ const c=context(),tel='5598991234501';
+ c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),nomeContato:'LAB Apelido'});
+ const a=c.ctx.v3_contatos({busca:'LAB Apelido'}).dados.registros[0];
+ assert.equal(a.nome,'LAB Apelido');assert.equal(a.nomePortal,'Pessoa Teste Bike');
+});

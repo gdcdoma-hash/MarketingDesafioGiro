@@ -361,3 +361,11 @@ test('Prévia com contatos existentes e novos vínculos permite confirmar',async
  await task;assert.equal(t.elem('csv-confirmar').disabled,false);
  assert.match(t.elem('csv-resultado').textContent,/ANÁLISE CONCLUÍDA/);
 });
+
+test('Edição direta envia apenas nome e versão, preservando demais campos',async()=>{
+ const t=setup();t.elem('linha-nome-0').value='LAB Nome editado';const btn={disabled:false};
+ const task=t.context.salvarNomeLinha({...base,versao:'v1'},0,btn);
+ assert.equal(t.queue[0].name,'v3_salvarContato');assert.equal(t.queue[0].args[0].nomeContato,'LAB Nome editado');
+ assert.equal(Object.keys(t.queue[0].args[0]).length,3);
+ t.queue[0].reject(Error('Falha simulada'));await task;assert.equal(btn.disabled,false);
+});

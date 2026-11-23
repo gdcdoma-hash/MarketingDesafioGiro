@@ -82,7 +82,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 .status-FINALIZADO{--status:#15803d}.status-NAO_CONTATAR,.status-BLOQUEADOS{--status:#b91c1c}
 #relacionamento .section-title{margin-bottom:5px}
 #relacionamento .contact{border-left:4px solid var(--status,#6b7280);padding:7px 8px;grid-template-columns:minmax(220px,1.6fr) minmax(135px,.7fr) auto;gap:8px}
-#relacionamento .contact .name{font-size:14px}#relacionamento .contact .meta{font-size:11px}
+#relacionamento .contact .name{font-size:14px}#relacionamento .inline-name{padding:4px 6px;font-weight:750;font-size:13px;max-width:320px}#relacionamento .contact .meta{font-size:11px}
 #relacionamento .contact .pill{color:var(--status,#475569);background:#f1f5f9}
 #relacionamento .contact .actions-inline{gap:5px}
 #relacionamento .contact .actions-inline .btn{padding:6px 9px;font-size:12px}
@@ -125,7 +125,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 </section>
 <section id="relacionamento" hidden>
  <div class="titlebar"><div><h1>Relacionamento</h1><p class="sub">Encontre o contato, converse e registre o resultado.</p></div>
-  <div class="row"><button class="btn light" onclick="abrirImportacao()">Importar contatos</button><button class="btn light" onclick="abrirNovaOrigem()" data-edit>Nova origem</button></div></div>
+  <div class="row"><button class="btn light" onclick="abrirPortalSync()">Portal Giro</button><button class="btn light" onclick="abrirImportacao()">Importar contatos</button><button class="btn light" onclick="abrirNovaOrigem()" data-edit>Nova origem</button></div></div>
  <div class="panel quick-toolbar">
   <div class="quick-search"><div class="grow"><label for="r-busca">Localizar contato</label>
    <input id="r-busca" placeholder="Digite nome, telefone, cidade ou ID" onkeydown="if(event.key==='Enter')filtrarContatos()" oninput="buscaRapida()" autocomplete="off"></div>
@@ -223,6 +223,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
   <button class="btn" id="csv-confirmar" onclick="confirmarImportacao()" disabled data-edit>Confirmar importação</button>
  </div>
  </div></dialog>
+ <dialog id="modal-portal"><div class="dialog-inner"><div class="dialog-head"><h2>Comparar atletas do Portal</h2><button class="btn light" onclick="fechar('modal-portal')">Fechar</button></div><p id="portal-resumo" role="status"></p><div class="actions"><button class="btn light" onclick="abrirPortalSync()">Comparar novamente</button><button class="btn" id="portal-confirmar" onclick="sincronizarPortal()" disabled>Sincronizar</button></div></div></dialog>
  <div id="toast" role="status" aria-live="polite"></div>
 <script>
 'use strict';
@@ -370,18 +371,33 @@ function renderContatos(){
   EM_CONVERSA:'Em conversa',RETORNAR_DEPOIS:'Retornar',FINALIZADO:'Concluído',
   NAO_CONTATAR:'Não contatar'};
  E('r-lista').innerHTML=d.registros.length?d.registros.map((c,i)=>'<div class="contact status-'+esc(c.bloqueado?'NAO_CONTATAR':c.etapa)+'">'+
- '<div class="contact-main"><div class="name">'+esc(c.nome)+'</div><div class="meta">'+esc(c.exibicao)+' · '+esc(c.cidadeUf)+'</div>'+
+ '<div class="contact-main"><div class="name"><input class="inline-name" aria-label="Nome do contato" id="linha-nome-'+i+'" maxlength="120" value="'+esc(c.nome==='Nome não informado'?'':c.nome)+'"'+(!state.opt.edicao?' disabled':'')+'></div><div class="meta">'+esc(c.exibicao)+' · '+esc(c.cidadeUf)+'</div>'+
  '<div class="meta">'+esc(c.perfil.replace(/_/g,' '))+(c.retorno?' · Retorno: '+esc(c.retorno.split('-').reverse().join('/')):'')+'</div><div class="origens-inline" title="'+esc((c.origens||[]).join(' · '))+'">'+esc((c.origens||[]).join(' · ')||'Origem não informada')+'</div></div>'+
  '<div class="contact-badges"><span class="pill '+(c.bloqueado?'gray':'')+'">'+esc(c.bloqueado?'Não contatar':(labels[c.etapa]||c.etapa))+'</span>'+
  '<div class="meta" style="margin-top:7px">'+esc(c.situacao.replace(/_/g,' '))+'</div></div>'+
  '<div class="actions-inline"><button class="btn light mini" data-copy-contact="'+i+'">Copiar</button><button class="btn light mini" data-chat-contact="'+i+'"'+(motivoBloqueioConvite(c,c.etapa,c.situacao)?' disabled':'')+'>WhatsApp</button>'+
- '<button class="btn mini" data-result-contact="'+i+'">Registrar resultado</button>'+
+ '<button class="btn mini" data-result-contact="'+i+'">Registrar resultado</button><button class="btn light mini" data-save-name="'+i+'"'+(!state.opt.edicao?' disabled':'')+'>Salvar nome</button>'+
  '<button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>').join(''):
  '<div class="empty">Nenhum contato encontrado. Experimente o nome, telefone ou ID.</div>';
+ E('r-lista').querySelectorAll('[data-save-name]').forEach(el=>el.addEventListener('click',()=>salvarNomeLinha(d.registros[Number(el.dataset.saveName)],Number(el.dataset.saveName),el)));
  E('r-lista').querySelectorAll('[data-copy-contact]').forEach(el=>el.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(d.registros[Number(el.dataset.copyContact)].telefone);aviso('Telefone copiado.');}catch(e){aviso('Não foi possível copiar o telefone.',true);}}));
  E('r-lista').querySelectorAll('[data-open-contact]').forEach(el=>el.addEventListener('click',()=>abrirContato(d.registros[Number(el.dataset.openContact)])));
  E('r-lista').querySelectorAll('[data-result-contact]').forEach(el=>el.addEventListener('click',()=>abrirResultado(d.registros[Number(el.dataset.resultContact)])));
  E('r-lista').querySelectorAll('[data-chat-contact]').forEach(el=>el.addEventListener('click',()=>abrirMensagemRapida(d.registros[Number(el.dataset.chatContact)])));
+}
+async function salvarNomeLinha(c,i,btn){
+ if(!state.opt.edicao||!c)return;const nome=E('linha-nome-'+i).value.trim();
+ if(!nome||nome===c.nome){aviso('Nenhuma alteração de nome.');return;}
+ btn.disabled=true;try{const res=await api('v3_salvarContato',{telefone:c.telefone,versao:c.versao,nomeContato:nome});if(res.status!=='OK')throw Error(res.mensagem);aviso('Nome salvo.');await carregarContatos();}catch(e){aviso(e.message,true);btn.disabled=false;}
+}
+async function abrirPortalSync(){
+ E('modal-portal').showModal();E('portal-confirmar').disabled=true;E('portal-resumo').textContent='Comparando contatos...';
+ try{const r=await api('v3_analisarPortal');if(r.status!=='OK')throw Error(r.mensagem);const d=r.dados;E('portal-resumo').textContent='ANÁLISE CONCLUÍDA — '+d.atletas+' atletas · '+d.novos+' novos contatos · '+d.existentes+' existentes · '+d.vincular+' cadastros a complementar · '+d.conflitos+' conflitos · '+d.semTelefone+' sem telefone/ID válido. Nenhuma gravação. '+(d.novos+d.vincular?'Confirme para sincronizar os registros seguros.':'Nada a sincronizar.');E('portal-confirmar').disabled=!state.opt.edicao||!(d.novos+d.vincular);}catch(e){E('portal-resumo').textContent='Falha: '+e.message;}
+}
+async function sincronizarPortal(){
+ if(!state.opt.edicao||!confirm('Sincronizar atletas sem sobrescrever nomes manuais ou histórico?'))return;
+ E('portal-confirmar').disabled=true;let novos=0,vinculados=0;
+ try{for(let i=0;i<100;i++){const r=await api('v3_sincronizarPortal',{confirmar:true});if(r.status!=='OK')throw Error(r.mensagem);const d=r.dados;novos+=d.gravados;vinculados+=d.vinculados;E('portal-resumo').textContent='Sincronizando: '+novos+' novos · '+vinculados+' complementados · '+d.restantes+' restantes.';if(!d.restantes){E('portal-resumo').textContent='SINCRONIZAÇÃO CONCLUÍDA — '+novos+' novos · '+vinculados+' complementados · '+d.conflitos+' conflitos não alterados.';break;}if(i===99)throw Error('Limite de lotes atingido. Compare novamente.');}carregarContatos();}catch(e){E('portal-resumo').textContent='Sincronização interrompida: '+novos+' novos · '+vinculados+' complementados. '+e.message;}
 }
 function pagina(delta){state.pagina+=delta;carregarContatos();}
 let buscaPendente=0;
