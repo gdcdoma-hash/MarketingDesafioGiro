@@ -1,6 +1,6 @@
 const SPREADSHEET_ID = '1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ';
 const URL_PUBLICA_DESAFIO_GIRO =
-  'https://desafiogiro.giromotosbikes.com.br';
+  'https://desafiogiro.gmbd.com.br/';
 const CHAVE_URL_GAS_PORTAL = 'URL_GAS_PORTAL';
 
 const ABAS = {
