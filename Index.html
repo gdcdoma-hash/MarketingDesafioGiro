@@ -85,14 +85,19 @@
       </div>
 
       <label class="campo-label" for="periodo-configuracoes">
-        Período do painel
+        Mês de realização dos desafios
       </label>
 
       <select
         id="periodo-configuracoes"
-        class="campo-input">
+        class="campo-input"
+        onchange="mdgTrocarMesDoDesafio()">
         <option>Carregando...</option>
       </select>
+      <p class="modal-subtitulo" style="margin:7px 0 4px;">
+        O desafio pertence ao mês de realização, mesmo que as inscrições
+        comecem no mês anterior.
+      </p>
 
       <label class="campo-label" for="meta-geral-configuracoes">
         Meta geral do período
