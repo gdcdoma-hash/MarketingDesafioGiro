@@ -83,7 +83,7 @@ const contextoConfiguracao = vm.createContext({
     getScriptProperties() {
       return { getProperty(chave) {
         assert.ok(['DG_AMBIENTE','DG_PORTAL_SPREADSHEET_ID'].includes(chave));
-        return '';
+        return chave === 'DG_AMBIENTE' ? 'PROD' : '';
       } };
     }
   },
@@ -132,5 +132,6 @@ console.log('Marketing/Relacionamento: 12 verificações isoladas aprovadas.');
     DG_PORTAL_SPREADSHEET_ID: 'BASE_UNICA',
     DG_MARKETING_SPREADSHEET_ID: 'BASE_UNICA'
   }).dg_abrirPlanilhaPortal_(), /LAB não pode/);
+  assert.throws(() => contextoLab({}).dg_abrirPlanilhaPortal_(), /Defina DG_AMBIENTE/);
   assert.throws(() => contextoLab({ DG_AMBIENTE: 'DEV' }).dg_abrirPlanilhaPortal_(), /inválido/);
 }
