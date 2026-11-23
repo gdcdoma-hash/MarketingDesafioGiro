@@ -36,8 +36,7 @@ function dg_router_criarPaginaDivulgadores_() {
 
   const output = template
     .evaluate()
-    .setTitle('Marketing — Desafio Giro')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setTitle('Marketing — Desafio Giro');
 
   output.addMetaTag(
     'viewport',
