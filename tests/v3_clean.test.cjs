@@ -356,8 +356,10 @@ test('Índice esportivo não mistura dados cacheados de LAB e PROD',()=>{
  const a=context('LAB','',fixtures(),cache);
  const bFixture=fixtures();
  const headers=bFixture.portal.dgmbDesafios[0];
- const rec=bFixture.portal.dgmbDesafios[1];
- rec[headers.indexOf('Modalidade_Esportiva')]='CAMINHADA_CORRIDA';
+ for(const rec of bFixture.portal.dgmbDesafios.slice(1)){
+  if(rec[headers.indexOf('ID_DGMB')]==='LAB01')
+   rec[headers.indexOf('Modalidade_Esportiva')]='CAMINHADA_CORRIDA';
+ }
  const b=context('PROD','',bFixture,cache);
  const pessoa={ID_DGMB:'LAB01',TELEFONE_NORMALIZADO:'5598991234501',
   MODALIDADE:'NAO_INFORMADO'};
