@@ -6,6 +6,10 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+  <script>window.DG_AMBIENTE = '<?= ambiente ?>';</script>
+  <? if (ambiente === 'LAB') { ?>
+  <p role="status" style="margin:0;padding:12px;text-align:center;background:#fff3cc;color:#603c00;font-weight:700;">AMBIENTE LAB — dados fictícios. WhatsApp bloqueado.</p>
+  <? } ?>
   <div id="rel-app" class="rel-app">
     <header class="rel-header">
       <div class="rel-header-content">
