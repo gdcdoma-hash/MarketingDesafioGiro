@@ -422,3 +422,51 @@ test('Falha de esquema no histórico não permite alterar contato parcialmente',
  assert.equal(c.updates,before);
  assert.equal(fake.mark.Relacionamento_Contatos[1][8],'PARA_CONTATAR');
 });
+
+test('Autoteste V3 valida 11 condições operacionais e os cabeçalhos obrigatórios',()=>{
+ const c=context();
+ const status=c.ctx.v3_autoteste();
+ assert.equal(status.status,'OK');
+ assert.equal(status.verificacoes,11);
+ assert.equal(status.aprovadas,11);
+ assert.equal(status.totais.contatos,4);
+ assert.equal(status.totais.referencias,2);
+ const bad=fixtures();
+ bad.mark.Relacionamento_Historico[0]=['ID_EVENTO','TELEFONE_NORMALIZADO'];
+ const outro=context('LAB','',bad);
+ assert.throws(()=>outro.ctx.v3_autoteste(),/Coluna/);
+});
+test('Reserva de linhas de lote expande aba cheia sem alterar linhas anteriores',()=>{
+ const c=context();
+ let max=1000,insertCalls=0;
+ const fake={
+  getLastRow(){return 1000;},
+  getMaxRows(){return max;},
+  insertRowsAfter(index,quantity){
+   assert.equal(index,1000);
+   assert.equal(quantity,4);
+   insertCalls++;
+   max+=quantity;
+  }
+ };
+ const first=c.ctx.v3_prepararEspaco_(fake,4);
+ assert.equal(first,1001);
+ assert.equal(insertCalls,1);
+ assert.equal(max,1004);
+ assert.throws(()=>c.ctx.v3_prepararEspaco_(fake,0),/Quantidade/);
+});
+test('Histórico registra nome, observação e retorno sem copiar seu conteúdo',()=>{
+ const c=context(),phone='5598991234501';
+ const inicio=c.fixtures.mark.Relacionamento_Historico.length;
+ const version=versaoContato(c,phone);
+ c.ctx.v3_salvarContato({
+  telefone:phone,versao:version,nomeContato:'Nome Manual Atualizado',
+  observacao:'Uma anotação privada que não deve entrar no histórico',
+  etapa:'RETORNAR_DEPOIS',retorno:'2026-12-30'
+ });
+ const hist=c.ctx.v3_historicoContato(phone).dados.eventos;
+ for(const tipo of ['ETAPA','NOME_CONTATO','OBSERVACAO','RETORNO'])
+  assert.ok(hist.some(x=>x.tipo===tipo),'Histórico deve incluir '+tipo);
+ assert.ok(c.fixtures.mark.Relacionamento_Historico.length>inicio);
+ assert.equal(JSON.stringify(hist).includes('Uma anotação privada'),false);
+});
