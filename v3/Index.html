@@ -120,7 +120,8 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  <div><label>Desafio</label><select id="m-desafio" onchange="carregarMarketing()"></select></div>
  <div style="align-self:end"><button class="btn light" onclick="carregarMarketing()">Atualizar</button></div>
  </div></div>
- <div id="m-alerta"></div>
+ <div id="m-alerta" role="status"></div>
+ <div id="m-resultados">
  <div class="panel"><div class="toolbar"><div><div class="muted">META DO PERÍODO / DESAFIO</div><div style="font-size:28px;font-weight:850"><span id="m-meta-valores">—</span></div></div><strong id="m-percentual"></strong></div><div class="progress"><div id="m-progresso"></div></div></div>
  <div class="cards">
   <div class="card"><div class="k" id="m-total">—</div><div class="label">Inscrições</div></div>
@@ -130,8 +131,9 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  </div>
  <div class="split">
   <div class="panel"><div class="section-title"><h2>Desempenho por desafio</h2></div><div id="m-desafios"></div></div>
-  <div class="panel"><div class="section-title"><h2>Divulgadores</h2><input style="width:160px" placeholder="Buscar REF..." id="m-busca-ref" oninput="renderDivulgadores()"></div>
+  <div class="panel"><div class="section-title"><h2>Divulgadores</h2><input style="width:160px" aria-label="Buscar divulgador por nome ou REF" placeholder="Nome ou REF" id="m-busca-ref" oninput="renderDivulgadores()"></div>
     <div id="m-divulgadores"></div></div>
+ </div>
  </div>
 </section>
 <section id="relacionamento" hidden>
@@ -262,12 +264,23 @@ function initFiltros(){
  options(E('edit-etapa'),o.etapas.map(v=>({value:v,label:v.replace(/_/g,' ')})),'PARA_CONTATAR');
  options(E('edit-situacao'),o.situacoes.map(v=>({value:v,label:v.replace(/_/g,' ')})),'NAO_CLASSIFICADO');
  options(E('r-origem'),[{value:'',label:'Todas'}],'');
- options(E('convite-ref'),[{value:'',label:'Sem REF'},...o.refAtivas.map(r=>({value:r.ref,label:r.nome+' ('+r.ref+')'}))],'');
  options(E('convite-desafio'),[{value:'',label:'Escolha um desafio'},...o.desafios.map(d=>({value:d.id,label:d.nome+' · '+d.periodo}))],'');
  options(E('r-desafio-convite'),[{value:'',label:'Selecione para enviar uma mensagem'},...o.desafios.map(d=>({value:d.id,label:d.nome+' · '+d.periodo}))],'');
- options(E('r-ref-convite'),[{value:'',label:'Sem REF'},...o.refAtivas.map(r=>({value:r.ref,label:r.nome+' ('+r.ref+')'}))],'');
+ atualizarReferenciasConvite();
  state.periodo=o.periodos[0]||'';
  bloquearEdicao();periodoMudou();
+}
+function atualizarReferenciasConvite(){
+ const opcoes=[{value:'',label:'Sem REF'},...state.opt.refAtivas.map(r=>({value:r.ref,label:r.nome+' ('+r.ref+')'}))];
+ for(const id of ['convite-ref','r-ref-convite'])options(E(id),opcoes,E(id).value);
+}
+let consultaReferencias=0;
+async function recarregarReferenciasConvite(){
+ const consulta=++consultaReferencias;
+ const atualizadas=await api('v3_opcoes');
+ if(consulta!==consultaReferencias)return;
+ state.opt.refAtivas=atualizadas.refAtivas;
+ atualizarReferenciasConvite();
 }
 function periodoMudou(){
  state.periodo=E('m-periodo').value;state.desafio='';
@@ -278,11 +291,18 @@ function periodoMudou(){
 async function carregarMarketing(){
  const p=E('m-periodo').value,id=E('m-desafio').value;
  const versao=++state.consultaMarketing;
+ E('m-resultados').hidden=true;
+ feedbackContato('m-alerta','Consultando inscrições…');
  try{const res=await api('v3_painel',p,id);
   if(versao!==state.consultaMarketing||p!==E('m-periodo').value||id!==E('m-desafio').value)return;
   if(res.status!=='OK')throw Error(res.mensagem);
-  state.painel=res.dados;state.periodo=p;state.desafio=id;renderMarketing();
- }catch(e){if(versao===state.consultaMarketing)aviso('Erro no Marketing: '+e.message,true);}
+  state.painel=res.dados;state.periodo=p;state.desafio=id;renderMarketing();E('m-resultados').hidden=false;
+ }catch(e){
+  if(versao===state.consultaMarketing){
+   state.painel=null;
+   feedbackContato('m-alerta','Falha ao consultar inscrições. Use Atualizar para tentar novamente. '+e.message,'error');
+  }
+ }
 }
 function renderMarketing(){
  const d=state.painel;E('m-total').textContent=brl(d.total);
@@ -291,7 +311,7 @@ function renderMarketing(){
  E('m-meta-valores').textContent=brl(d.total)+' / '+brl(d.meta);
  E('m-percentual').textContent=d.percentual.toFixed(1)+'%';
  E('m-progresso').style.width=Math.min(100,d.percentual)+'%';
- E('m-alerta').innerHTML=d.invalido?'<div class="notice">O desafio não pertence ao mês selecionado. Nenhuma inscrição foi contabilizada.</div>':'';
+ feedbackContato('m-alerta',d.invalido?'O desafio não pertence ao mês selecionado.':'',d.invalido?'error':'');
  E('m-desafios').innerHTML='<div class="scroll"><table><thead><tr><th>Desafio</th><th>Inscrições</th><th>Meta</th></tr></thead><tbody>'+
   d.desafios.map(x=>'<tr><td><strong>'+esc(x.nome)+'</strong><small>#'+esc(x.id)+' · '+esc(x.tipo)+'</small></td><td>'+brl(x.total)+'</td><td>'+brl(x.meta)+'</td></tr>').join('')+
   '</tbody></table></div>';
@@ -299,8 +319,10 @@ function renderMarketing(){
 }
 function renderDivulgadores(){
  if(!state.painel)return;
- const q=(E('m-busca-ref').value||'').toLowerCase();
- const data=state.painel.divulgadores.filter(x=>[x.ref,x.nome].some(v=>String(v).toLowerCase().includes(q)));
+ const normalizar=valor=>String(valor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ const q=normalizar(E('m-busca-ref').value);
+ const data=state.painel.divulgadores.filter(x=>[x.ref,x.nome].some(v=>normalizar(v).includes(q)));
+ if(!data.length){E('m-divulgadores').textContent='Nenhum divulgador encontrado.';return;}
  E('m-divulgadores').innerHTML='<div class="scroll"><table><thead><tr><th>Origem</th><th>Inscrições</th><th>Status</th><th></th></tr></thead><tbody>'+
  data.slice(0,100).map(x=>'<tr><td><strong>'+esc(x.nome)+'</strong><small>REF '+esc(x.ref)+'</small></td><td>'+brl(x.inscricoes)+'</td><td><span class="pill '+(x.status==='ATIVO'?'':'gray')+'">'+esc(x.status)+'</span></td><td>'+
  (state.opt.ambiente==='PROD'&&x.status==='ATIVO'?'<button class="btn light mini" data-copy-ref="'+esc(x.ref)+'">Copiar link</button> ':'')+
@@ -322,7 +344,17 @@ async function copiarLinkRef(ref){
 }
 async function alternarDivulgador(ref,status){
  if(!confirm('Alterar status da REF '+ref+' para '+status+'?'))return;
- try{await api('v3_alterarDivulgador',ref,status);aviso('Status atualizado.');carregarMarketing();}
+ try{
+  const resposta=await api('v3_alterarDivulgador',ref,status);
+  if(resposta.status!=='OK')throw Error(resposta.mensagem);
+  if(status==='INATIVO'){
+   ++consultaReferencias;
+   state.opt.refAtivas=state.opt.refAtivas.filter(item=>item.ref!==ref);
+   atualizarReferenciasConvite();
+  }
+  aviso('Status atualizado.');carregarMarketing();
+  if(status==='ATIVO')await recarregarReferenciasConvite();
+ }
  catch(e){aviso(e.message,true);}
 }
 function abrirNovoDivulgador(){E('modal-divulgador').showModal();}
@@ -332,14 +364,18 @@ async function salvarDivulgador(){
     tipo:E('novo-tipo').value,idDgmb:E('novo-id').value});
   if(res.status!=='OK')throw Error(res.mensagem);
   fechar('modal-divulgador');aviso('Divulgador cadastrado: '+res.dados.ref);
-  state.opt=await api('v3_opcoes');initFiltros();carregarMarketing();
+  carregarMarketing();
+  await recarregarReferenciasConvite();
  }catch(e){aviso(e.message,true);}
 }
 async function abrirMetas(){
+ const periodo=E('m-periodo').value;
  try{
-  const res=await api('v3_metasPeriodo',E('m-periodo').value);
+  const res=await api('v3_metasPeriodo',periodo);
+  if(periodo!==E('m-periodo').value)return;
   if(res.status!=='OK')throw Error(res.mensagem);
   const d=res.dados;
+  state.periodoMetas=d.periodo;
   E('metas-periodo').textContent='Mês de realização: '+d.periodo;
   E('metas-geral').value=d.geral;
   E('metas-lista').innerHTML=d.desafios.map(x=>'<div class="row" style="margin-top:12px"><div class="grow">'+esc(x.nome)+' <small>#'+esc(x.id)+'</small></div><div style="width:130px"><input data-meta-id="'+esc(x.id)+'" type="number" min="0" step="1" value="'+Number(x.meta||0)+'"></div></div>').join('');
@@ -347,13 +383,16 @@ async function abrirMetas(){
  }catch(e){aviso(e.message,true);}
 }
 async function salvarMetas(){
+ if(!state.periodoMetas||state.salvandoMetas||!state.opt.edicao)return;
  const desafios={};
  E('metas-lista').querySelectorAll('[data-meta-id]').forEach(el=>desafios[el.dataset.metaId]=el.value);
+ state.salvandoMetas=true;
  try{
-  const res=await api('v3_salvarMetas',{periodo:E('m-periodo').value,geral:E('metas-geral').value,desafios});
+  const res=await api('v3_salvarMetas',{periodo:state.periodoMetas,geral:E('metas-geral').value,desafios});
   if(res.status!=='OK')throw Error(res.mensagem);
   fechar('modal-metas');aviso('Metas atualizadas.');carregarMarketing();
  }catch(e){aviso(e.message,true);}
+ finally{state.salvandoMetas=false;}
 }
 function filtroContatos(){return {busca:E('r-busca').value,esporte:E('r-esporte').value,
  etapa:E('r-etapa').value,situacao:E('r-situacao').value,origem:E('r-origem').value,
@@ -413,8 +452,8 @@ function renderContatos(){
  E('r-indicadores').querySelectorAll('[data-fila]').forEach(el=>
   el.addEventListener('click',()=>selecionarFila(el.dataset.fila)));
  const origemAnterior=E('r-origem').value;
- options(E('r-origem'),[{value:'',label:'Todas'},...d.origens.map(x=>({value:x.id,label:x.nome}))],origemAnterior);
- E('r-total').textContent=brl(d.total)+' contato(s)';
+ options(E('r-origem'),[{value:'',label:'Todas'},{value:'@portal',label:'Portal Giro (vínculo confirmado)'},...d.origens.map(x=>({value:x.id,label:x.nome}))],origemAnterior);
+ E('r-total').textContent=brl(d.total)+(d.total===1?' contato':' contatos');
  E('r-pagina').textContent='Página '+d.pagina+' de '+d.paginas;
  E('r-prev').disabled=d.pagina<=1;E('r-next').disabled=d.pagina>=d.paginas;
  const labels={PARA_CONTATAR:'Para contatar',AGUARDANDO_RESPOSTA:'Aguardando resposta',
@@ -422,11 +461,14 @@ function renderContatos(){
   NAO_CONTATAR:'Não contatar'};
  E('r-lista').innerHTML=d.registros.length?d.registros.map((c,i)=>{
  const motivoWhatsApp=motivoBloqueioConvite(c,c.etapa,c.situacao);
+ const prazo=c.etapa==='RETORNAR_DEPOIS'&&c.retorno&&!c.bloqueado;
+ const textoPrazo=prazo?(c.retorno<d.hoje?'Retorno atrasado':c.retorno===d.hoje?'Retornar hoje':'Retorno agendado'):'';
+ const ultimoResultado=labels[c.resultado]||{SEM_INTERESSE:'Sem interesse',NAO_DESEJA_CONTATO:'Não quer mensagens'}[c.resultado];
  return '<div class="contact status-'+esc(c.bloqueado?'NAO_CONTATAR':c.etapa)+'">'+
  '<div class="contact-main"><div class="name"><input class="inline-name" aria-label="Nome do contato" id="linha-nome-'+i+'" maxlength="120" value="'+esc(c.nome==='Nome não informado'?'':c.nome)+'"'+(!state.opt.edicao?' disabled':'')+'></div><div class="meta">'+esc(c.exibicao)+(c.cidadeUf?' · '+esc(c.cidadeUf):'')+'</div>'+
- '<div class="meta">'+esc(c.perfil.replace(/_/g,' '))+(c.retorno?' · Retorno: '+esc(c.retorno.split('-').reverse().join('/')):'')+'</div><div class="origens-inline" title="'+esc((c.origens||[]).join(' · '))+'">'+esc((c.origens||[]).join(' · ')||'Origem não informada')+'</div></div>'+
+ '<div class="meta">'+esc(c.perfil.replace(/_/g,' '))+(prazo?' · '+textoPrazo+' '+esc(c.retorno.split('-').reverse().join('/')):'')+'</div><div class="origens-inline" title="'+esc((c.origens||[]).join(' · '))+'">'+esc((c.origens||[]).join(' · ')||'Origem não informada')+'</div></div>'+
  '<div class="contact-badges"><span class="pill '+(c.bloqueado?'gray':'')+'">'+esc(c.conflitoIdentidade?'Conflito de cadastro':c.bloqueado?'Não contatar':(labels[c.etapa]||c.etapa))+'</span>'+
- '<div class="meta" style="margin-top:7px">'+esc(c.situacao.replace(/_/g,' '))+'</div></div>'+
+ '<div class="meta" style="margin-top:7px">'+esc(ultimoResultado?'Último resultado: '+ultimoResultado:c.situacao.replace(/_/g,' '))+'</div></div>'+
  '<div class="actions-inline"><button class="btn light mini" data-copy-contact="'+i+'">Copiar</button><button class="btn light mini" data-chat-contact="'+i+'"'+(motivoWhatsApp?' disabled title="'+esc(motivoWhatsApp)+'"':'')+'>WhatsApp</button>'+
  '<button class="btn mini" data-result-contact="'+i+'"'+(c.bloqueado||!state.opt.edicao?' disabled':'')+'>Registrar resultado</button><button class="btn light mini" data-save-name="'+i+'"'+(!state.opt.edicao?' disabled':'')+'>Salvar nome</button>'+
  '<button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>';}).join(''):

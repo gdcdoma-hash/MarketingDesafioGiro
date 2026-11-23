@@ -391,3 +391,27 @@ test('Registro rápido não envia gravação duplicada e preserva feedback de fa
  assert.match(s.elem('resultado-aviso').textContent,/Não foi possível salvar/);
  assert.equal(s.elem('resultado-salvar').disabled,false);
 });
+
+test('Marketing não exibe números antigos após falha na troca de mês',async()=>{
+ const s=setup();
+ s.elem('m-periodo').value='dezembro/2026';
+ const consulta=s.context.carregarMarketing();
+ assert.equal(s.elem('m-resultados').hidden,true);
+ s.queue[0].reject(new Error('Conexão indisponível.'));
+ await consulta;
+ assert.equal(s.elem('m-resultados').hidden,true);
+ assert.match(s.elem('m-alerta').textContent,/Use Atualizar/);
+});
+
+test('Metas são gravadas no mês do formulário aberto',async()=>{
+ const s=setup();
+ s.elem('m-periodo').value='novembro/2026';
+ const consulta=s.context.abrirMetas();
+ s.queue[0].resolve({status:'OK',dados:{periodo:'novembro/2026',geral:50,desafios:[]}});
+ await consulta;
+ s.elem('m-periodo').value='dezembro/2026';
+ const grava=s.context.salvarMetas();
+ assert.equal(s.queue[1].args[0].periodo,'novembro/2026');
+ s.queue[1].resolve({status:'OK',dados:{}});
+ await grava;
+});

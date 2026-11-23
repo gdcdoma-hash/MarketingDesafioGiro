@@ -809,3 +809,23 @@ test('Portal: novo número de um ID já vinculado exige revisão de identidade',
  assert.equal(contato.conflitoIdentidade,true);
  assert.equal(contato.bloqueado,true);
 });
+
+test('Busca combina campos e mantém correspondência exata antes de resultado parcial',()=>{
+ const c=context(), contatos=c.fixtures.mark.Relacionamento_Contatos;
+ contatos[2][contatos[0].indexOf('NOME_CONTATO')]='Pessoa Bike LAB01';
+ const porId=c.ctx.v3_contatos({busca:'LAB01'}).dados.registros;
+ assert.equal(porId.length,2);
+ assert.equal(porId[0].idDgmb,'LAB01');
+ const porPalavras=c.ctx.v3_contatos({busca:'bike LAB01'}).dados.registros;
+ assert.equal(porPalavras.length,2);
+ assert.ok(porPalavras.some(r=>r.idDgmb==='LAB01'));
+ assert.equal(c.ctx.v3_contatos({busca:'(98) 99123-4501'}).dados.registros[0].idDgmb,'LAB01');
+});
+
+test('Filtro Portal inclui vínculos confirmados e exclui contatos em conflito',()=>{
+ const c=context();
+ c.fixtures.portal.DadosPessoais.push(['LAB99','5598991234501','Conflito']);
+ const registros=c.ctx.v3_contatos({etapa:'TODOS',origem:'@portal'}).dados.registros;
+ assert.equal(registros.length,3);
+ assert.ok(registros.every(r=>r.atletaPortal&&!r.conflitoIdentidade));
+});

@@ -149,7 +149,7 @@ function v3_contatos(filtros){
   return {
    telefone:tel,exibicao:c.TELEFONE_EXIBICAO||tel,
    idDgmb:conflito?'':(c.ID_DGMB||portalIds[0]||''),
-   conflitoIdentidade:conflito,atletaPortal:portalIds.length===1&&!conflito,
+   idBusca:id,conflitoIdentidade:conflito,atletaPortal:portalIds.length===1&&!conflito,
    nome:c.NOME_CONTATO||c.NOME_PORTAL||c.NOME_GOOGLE_CONTATOS||'Nome não informado',
    nomePortal:c.NOME_PORTAL||'',nomeGoogle:c.NOME_GOOGLE_CONTATOS||'',
    nomeContato:c.NOME_CONTATO||'',cidade:c.CIDADE||'',uf:c.UF||'',
@@ -165,15 +165,24 @@ function v3_contatos(filtros){
   };
  });
  const hoje=v3_hoje_();
+ const palavras=termo.split(/\s+/);
+ const digitos=/^[\d\s()+.-]+$/.test(termo)?termo.replace(/\D/g,''):'';
+ const telefoneBusca=digitos?v3_fone_(digitos):'';
  // Os indicadores acompanham busca e filtros de perfil, independentemente da etapa selecionada.
  const baseFiltrada=todos.filter(c=>{
   if(situacao!=='TODOS'&&c.situacao!==situacao)return false;
   if(sport!=='TODOS'&&!(c.perfil===sport||(sport==='CICLISMO'&&c.perfil==='AMBOS')||
      (sport==='CAMINHADA_CORRIDA'&&c.perfil==='AMBOS')))return false;
-  if(origem&&!c.idsOrigens.includes(origem))return false;
+  if(origem&&(origem==='@portal'?!c.atletaPortal:!c.idsOrigens.includes(origem)))return false;
   if(!termo)return true;
-  const digits=termo.replace(/\D/g,'');
-  return [c.nome,c.nomeContato,c.nomePortal,c.nomeGoogle,c.telefone,c.idDgmb,c.cidadeUf].some(x=>v3_normal_(x).includes(termo))||(/^[\d\s()+.-]+$/.test(termo)&&digits.length>=3&&c.telefone.includes(digits));
+  const campos=[c.nome,c.nomePortal,c.nomeGoogle,c.telefone,c.idBusca,c.cidadeUf].map(v3_normal_);
+  if(termo===v3_normal_(c.idBusca)||(telefoneBusca&&telefoneBusca===c.telefone)){
+   c.prioridadeBusca=0;return true;
+  }
+  if(campos.slice(0,3).includes(termo)){c.prioridadeBusca=1;return true;}
+  c.prioridadeBusca=2;
+  return (digitos.length>=3&&c.telefone.includes(digitos))||
+   palavras.every(palavra=>campos.some(campo=>campo.includes(palavra)));
  });
  const filtrados=baseFiltrada.filter(c=>{
   if(f.somenteBloqueados)return c.bloqueado;
@@ -185,14 +194,17 @@ function v3_contatos(filtros){
  }).sort((a,b)=>{
   const vencidoA=a.etapa==='RETORNAR_DEPOIS'&&a.retorno&&a.retorno<=hoje?0:1;
   const vencidoB=b.etapa==='RETORNAR_DEPOIS'&&b.retorno&&b.retorno<=hoje?0:1;
-  return vencidoA-vencidoB||a.ordem-b.ordem;
+  const porBusca=termo?a.prioridadeBusca-b.prioridadeBusca:0;
+  const porPrazo=(vencidoA===0&&vencidoB===0)||etapa==='RETORNAR_DEPOIS'
+   ?(a.retorno||'9999').localeCompare(b.retorno||'9999'):0;
+  return porBusca||vencidoA-vencidoB||porPrazo||a.ordem-b.ordem;
  });
  const total=filtrados.length,paginas=Math.max(1,Math.ceil(total/count));
  const actual=Math.min(page,paginas);
  return v3_resposta_('OK',{
-   registros:filtrados.slice((actual-1)*count,actual*count).map(({ordem,idsOrigens,...c})=>c),
+   registros:filtrados.slice((actual-1)*count,actual*count).map(({ordem,idsOrigens,idBusca,prioridadeBusca,...c})=>c),
    total:total,pagina:actual,paginas:paginas,
-   indicadores:v3_resumoEtapas_(baseFiltrada,hoje),origens:origens.opcoes,
+   indicadores:v3_resumoEtapas_(baseFiltrada,hoje),origens:origens.opcoes,hoje,
    edicao:b.config.edicao,ambiente:b.config.ambiente
  });
 }
