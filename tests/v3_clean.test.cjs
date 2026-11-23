@@ -252,3 +252,26 @@ test('HTML de dois módulos não inclui serviço legado ou envio automático',()
  assert.ok(script);
  assert.doesNotThrow(()=>new vm.Script(script.replace(/<\?=[^>]+?\?>/g,"LAB")));
 });
+
+test('Telefone local DDD 55 recebe DDI e não é confundido com código de país',()=>{
+ const c=context();
+ assert.equal(c.ctx.v3_fone_('55 9 9123-4567'),'5555991234567');
+ assert.equal(c.ctx.v3_fone_('+55 55 99123-4567'),'5555991234567');
+ assert.equal(c.ctx.v3_fone_('98 99123-4501'),'5598991234501');
+});
+test('Ciclista confirmado manualmente pode ser reconhecido sem inscrição histórica',()=>{
+ const c=context(),idx=c.ctx.v3_indiceEsportivo_(c.ctx.v3_bases_().portal);
+ assert.equal(c.ctx.v3_classificarContato_({ID_DGMB:'SEM_INSCRICAO',
+  TELEFONE_NORMALIZADO:'5598888888888',MODALIDADE:'NAO_INFORMADO',
+  E_CICLISTA:'SIM'},idx),'CICLISMO');
+ assert.equal(c.ctx.v3_classificarContato_({ID_DGMB:'SEM_INSCRICAO',
+  TELEFONE_NORMALIZADO:'5598888888888',MODALIDADE:'NAO_INFORMADO',
+  E_CICLISTA:'NAO_CONFIRMADO'},idx),'NAO_IDENTIFICADO');
+});
+test('Nomes iniciados por fórmula são gravados como texto em planilha, nunca interpretados',()=>{
+ const c=context();
+ c.ctx.v3_confirmarImportacao({registros:[{telefone:'98991234688',nome:'=IMPORTXML("https://x","/")',cidade:'Cidade Teste',uf:'MA'}]});
+ const row=c.fixtures.mark.Relacionamento_Contatos.at(-1);
+ assert.match(row[4],/^'=IMPORTXML/);
+ assert.equal(c.ctx.v3_ref_('+1'),'');
+});
