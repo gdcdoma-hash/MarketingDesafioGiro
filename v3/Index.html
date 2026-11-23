@@ -193,7 +193,8 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 <script>
 'use strict';
 const E=id=>document.getElementById(id),state={tab:'<?= area ?>',opt:null,painel:null,contatos:null,ultimo:null,
- periodo:'',desafio:'',pagina:1,consultaMarketing:0,consultaContatos:0,consultaImportacao:0};
+ periodo:'',desafio:'',pagina:1,consultaMarketing:0,consultaContatos:0,consultaImportacao:0,
+ resultadoSelecionado:'',resultadoContato:null};
 const esc=s=>String(s===null||s===undefined?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brl=n=>Number(n||0).toLocaleString('pt-BR');
 function api(nome,...args){return new Promise((resolve,reject)=>{
@@ -215,6 +216,8 @@ function initFiltros(){
  options(E('r-origem'),[{value:'',label:'Todas'}],'');
  options(E('convite-ref'),[{value:'',label:'Sem REF'},...o.refAtivas.map(r=>({value:r.ref,label:r.nome+' ('+r.ref+')'}))],'');
  options(E('convite-desafio'),[{value:'',label:'Escolha um desafio'},...o.desafios.map(d=>({value:d.id,label:d.nome+' · '+d.periodo}))],'');
+ options(E('r-desafio-convite'),[{value:'',label:'Selecione para enviar uma mensagem'},...o.desafios.map(d=>({value:d.id,label:d.nome+' · '+d.periodo}))],'');
+ options(E('r-ref-convite'),[{value:'',label:'Sem REF'},...o.refAtivas.map(r=>({value:r.ref,label:r.nome+' ('+r.ref+')'}))],'');
  state.periodo=o.periodos[0]||'';
  bloquearEdicao();periodoMudou();
 }
@@ -322,34 +325,112 @@ async function carregarContatos(){
 function renderContatos(){
  const d=state.contatos;
  const nomes={PARA_CONTATAR:'Para contatar',AGUARDANDO_RESPOSTA:'Aguardando resposta',
-  EM_CONVERSA:'Em conversa',RETORNAR_DEPOIS:'Retornar depois',FINALIZADO:'Finalizados',
-  NAO_CONTATAR:'Não contatar',BLOQUEADOS:'Bloqueados para contato',RETORNAR_HOJE:'Retornar hoje / atrasados'};
+  RETORNAR_HOJE:'Retornar hoje / atrasados',BLOQUEADOS:'Bloqueados para contato'};
  E('r-indicadores').innerHTML=Object.keys(nomes).map(k=>'<div class="card"><div class="k">'+brl(d.indicadores[k]||0)+'</div><div class="label">'+nomes[k]+'</div></div>').join('');
  const origemAnterior=E('r-origem').value;
  options(E('r-origem'),[{value:'',label:'Todas'},...d.origens.map(x=>({value:x.id,label:x.nome}))],origemAnterior);
  E('r-total').textContent=brl(d.total)+' contato(s)';
  E('r-pagina').textContent='Página '+d.pagina+' de '+d.paginas;
  E('r-prev').disabled=d.pagina<=1;E('r-next').disabled=d.pagina>=d.paginas;
+ const labels={PARA_CONTATAR:'Para contatar',AGUARDANDO_RESPOSTA:'Aguardando resposta',
+  EM_CONVERSA:'Em conversa',RETORNAR_DEPOIS:'Retornar',FINALIZADO:'Concluído',
+  NAO_CONTATAR:'Não contatar'};
  E('r-lista').innerHTML=d.registros.length?d.registros.map((c,i)=>'<div class="contact">'+
- '<div><div class="name">'+esc(c.nome)+'</div><div class="meta">'+esc(c.exibicao)+' · '+esc(c.cidadeUf)+' · ID '+esc(c.idDgmb||'—')+'</div></div>'+
- '<div><span class="pill">'+esc(c.perfil.replace(/_/g,' '))+'</span>'+ 
- (c.bloqueado?' <span class="pill gray">Não contatar</span>':'')+
- '<div class="meta" style="margin-top:6px">'+esc(c.origens.join(', ')||'Origem não informada')+'</div></div>'+
- '<div><label>Etapa</label><select data-stage="'+i+'" '+(!state.opt.edicao||c.bloqueado?'disabled':'')+'>'+state.opt.etapas.map(s=>'<option value="'+esc(s)+'"'+(s===c.etapa?' selected':'')+'>'+esc(s.replace(/_/g,' '))+'</option>').join('')+'</select></div>'+
- '<div><label>Situação</label><div class="meta">'+esc(c.situacao.replace(/_/g,' '))+'</div></div>'+
- '<div class="action"><button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>').join(''):'<div class="empty">Nenhum contato encontrado com estes filtros.</div>';
+ '<div class="contact-main"><div class="name">'+esc(c.nome)+'</div><div class="meta">'+esc(c.exibicao)+' · '+esc(c.cidadeUf)+'</div>'+
+ '<div class="meta">'+esc(c.perfil.replace(/_/g,' '))+(c.retorno?' · Retorno: '+esc(c.retorno.split('-').reverse().join('/')):'')+'</div></div>'+
+ '<div class="contact-badges"><span class="pill '+(c.bloqueado?'gray':'')+'">'+esc(c.bloqueado?'Não contatar':(labels[c.etapa]||c.etapa))+'</span>'+
+ '<div class="meta" style="margin-top:7px">'+esc(c.situacao.replace(/_/g,' '))+'</div></div>'+
+ '<div class="actions-inline"><button class="btn light mini" data-chat-contact="'+i+'"'+(motivoBloqueioConvite(c,c.etapa,c.situacao)?' disabled':'')+'>WhatsApp</button>'+
+ '<button class="btn mini" data-result-contact="'+i+'">Registrar resultado</button>'+
+ '<button class="btn light mini" data-open-contact="'+i+'">Detalhes</button></div></div>').join(''):
+ '<div class="empty">Nenhum contato encontrado. Experimente o nome, telefone ou ID.</div>';
  E('r-lista').querySelectorAll('[data-open-contact]').forEach(el=>el.addEventListener('click',()=>abrirContato(d.registros[Number(el.dataset.openContact)])));
- E('r-lista').querySelectorAll('[data-stage]').forEach(el=>el.addEventListener('change',async()=>{
-  const c=d.registros[Number(el.dataset.stage)],novo=el.value;
-  if(novo==='RETORNAR_DEPOIS'){abrirContato(c);E('edit-etapa').value=novo;el.value=c.etapa;return;}
-  const limpar=novo==='PARA_CONTATAR'&&!!c.retorno;
-  if(limpar&&!confirm('Limpar o próximo retorno deste contato?')){el.value=c.etapa;return;}
-  try{await api('v3_salvarContato',{telefone:c.telefone,versao:c.versao,etapa:novo,limparRetorno:limpar});
-   aviso('Etapa atualizada.');carregarContatos();
-  }catch(e){el.value=c.etapa;aviso(e.message,true);carregarContatos();}
- }));
+ E('r-lista').querySelectorAll('[data-result-contact]').forEach(el=>el.addEventListener('click',()=>abrirResultado(d.registros[Number(el.dataset.resultContact)])));
+ E('r-lista').querySelectorAll('[data-chat-contact]').forEach(el=>el.addEventListener('click',()=>abrirMensagemRapida(d.registros[Number(el.dataset.chatContact)])));
 }
 function pagina(delta){state.pagina+=delta;carregarContatos();}
+let buscaPendente=0;
+function buscaRapida(){
+ // Busca por digitação sem chamar o Apps Script a cada tecla.
+ clearTimeout(buscaPendente);
+ buscaPendente=setTimeout(()=>filtrarContatos(),330);
+}
+const RESULTADOS_RAPIDOS={
+ AGUARDANDO_RESPOSTA:{etapa:'AGUARDANDO_RESPOSTA',resultadoContato:'AGUARDANDO_RESPOSTA'},
+ EM_CONVERSA:{etapa:'EM_CONVERSA',resultadoContato:'EM_CONVERSA'},
+ RETORNAR_DEPOIS:{etapa:'RETORNAR_DEPOIS',resultadoContato:'RETORNAR_DEPOIS'},
+ SEM_INTERESSE:{etapa:'NAO_CONTATAR',situacao:'SEM_INTERESSE',resultadoContato:'SEM_INTERESSE'},
+ NAO_DESEJA_CONTATO:{etapa:'NAO_CONTATAR',situacao:'NAO_DESEJA_CONTATO',resultadoContato:'NAO_DESEJA_CONTATO'},
+ FINALIZADO:{etapa:'FINALIZADO',resultadoContato:'FINALIZADO'}
+};
+function abrirResultado(c){
+ state.resultadoContato=c;
+ state.resultadoSelecionado='';
+ E('resultado-nome').textContent=c.nome+' · '+c.exibicao;
+ E('resultado-nota').value='';
+ E('resultado-data').value='';
+ E('resultado-data-area').hidden=true;
+ E('resultado-aviso').hidden=!c.bloqueado;
+ E('resultado-aviso').textContent=c.bloqueado?
+  'Este contato está bloqueado para novas abordagens. Reativação exige justificativa em Mais detalhes.':'';
+ E('resultado-salvar').disabled=true;
+ E('resultado-opcoes').querySelectorAll('[data-outcome]').forEach(el=>{
+  el.classList.remove('selected');el.disabled=!!c.bloqueado||!state.opt.edicao;
+ });
+ E('modal-resultado').showModal();
+}
+function selecionarResultado(valor){
+ if(!RESULTADOS_RAPIDOS[valor]||state.resultadoContato?.bloqueado)return;
+ state.resultadoSelecionado=valor;
+ E('resultado-opcoes').querySelectorAll('[data-outcome]').forEach(el=>
+  el.classList.toggle('selected',el.dataset.outcome===valor));
+ E('resultado-data-area').hidden=valor!=='RETORNAR_DEPOIS';
+ E('resultado-salvar').disabled=!state.opt.edicao;
+}
+function abrirDetalhesDoResultado(){
+ const c=state.resultadoContato;
+ fechar('modal-resultado');
+ if(c)abrirContato(c);
+}
+async function salvarResultadoRapido(){
+ const c=state.resultadoContato,choice=RESULTADOS_RAPIDOS[state.resultadoSelecionado];
+ if(!c||!choice||c.bloqueado||!state.opt.edicao)return;
+ const payload={telefone:c.telefone,versao:c.versao,...choice};
+ if(state.resultadoSelecionado==='RETORNAR_DEPOIS'){
+  const data=E('resultado-data').value;
+  if(!data){aviso('Escolha a data para retornar.',true);return;}
+  payload.retorno=data;
+ }else if(c.retorno)payload.limparRetorno=true;
+ const note=E('resultado-nota').value.trim();
+ if(note)payload.observacao=(c.observacao?c.observacao+'\n':'')+note;
+ if(payload.observacao?.length>2000){aviso('A observação ultrapassa 2.000 caracteres.',true);return;}
+ if(['SEM_INTERESSE','NAO_DESEJA_CONTATO'].includes(state.resultadoSelecionado)&&
+    !confirm('Confirma que este contato não deve receber novas abordagens?'))return;
+ E('resultado-salvar').disabled=true;
+ try{
+  const res=await api('v3_salvarContato',payload);
+  if(res.status!=='OK')throw Error(res.mensagem);
+  fechar('modal-resultado');aviso('Resultado registrado.');carregarContatos();
+ }catch(e){
+  aviso(e.message,true);
+  if(/alterado após a consulta/.test(e.message)){fechar('modal-resultado');carregarContatos();}
+  else E('resultado-salvar').disabled=false;
+ }
+}
+function abrirMensagemRapida(c){
+ const bloqueio=motivoBloqueioConvite(c,c.etapa,c.situacao);
+ if(bloqueio){aviso(bloqueio,true);return;}
+ const challenge=state.opt.desafios.find(x=>x.id===E('r-desafio-convite').value);
+ if(!challenge){aviso('Selecione o desafio do convite acima da lista de contatos.',true);return;}
+ const ref=E('r-ref-convite').value;
+ const primeiro=c.nome.split(/\s+/)[0];
+ const url='https://desafiogiro.gmbd.com.br/'+(ref?'?ref='+encodeURIComponent(ref):'');
+ const msg='Olá'+(primeiro&&primeiro!=='Nome'?', '+primeiro:'')+'!\nO Desafio Giro está apresentando '+challenge.nome+
+  ', com realização em '+challenge.periodo+'. Gostaria de conhecer a proposta e acompanhar as novidades?\n'+url;
+ window.open('https://wa.me/'+c.telefone+'?text='+encodeURIComponent(msg),'_blank','noopener,noreferrer');
+ aviso('Conversa aberta. Após o atendimento, registre o resultado no sistema.');
+}
+
 function motivoBloqueioConvite(c,etapa,situacao){
  if(!c||state.opt.ambiente==='LAB')return 'Convites bloqueados no LAB.';
  if(!state.opt.edicao)return 'Convites desativados enquanto a produção está em modo leitura.';
