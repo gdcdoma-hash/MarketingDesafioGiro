@@ -76,7 +76,7 @@ Dentro da pasta `build\v3-clean-...` resultante, conferir o `.clasp.json` e exec
 
 ## Solução para erro de criação no Windows: .clasp.json não encontrado
 
-Versões anteriores do instalador chamavam `clasp` com `shell:true` no Windows, causando o aviso `DEP0190` e ocultando a saída de diagnóstico. O instalador atual usa `cmd.exe /d /s /c clasp.cmd`, sem `shell:true`, mostra a saída do `clasp` e recupera o `scriptId` caso o Google retorne a URL mas não grave `.clasp.json`.
+Versões anteriores do instalador chamavam `clasp` com `shell:true` no Windows, causando o aviso `DEP0190` e ocultando a saída de diagnóstico. Outro erro real foi `Project file already exists`, pois o instalador criava `build/v3-lab-novo-...` **dentro do repositório histórico que contém `.clasp.json`**. O `clasp` detecta o arquivo no diretório ancestral e não tenta criar o novo script. A versão corrigida cria o destino em `os.tmpdir()/DG-V3-LAB-INSTALACOES/v3-lab-novo-...`, **fora do repositório**, verifica todos os ancestrais e recusa prosseguir caso encontre `.clasp.json`. Ela usa `cmd.exe /d /s /c clasp.cmd`, sem `shell:true`, mostra a saída do `clasp` e recupera o `scriptId` somente quando o Google retorna a URL mas não grava `.clasp.json`. Nunca remove o vínculo do projeto antigo.
 
 **Não executar a versão antiga novamente.** Primeiro, no PowerShell da pasta original, conferir se um projeto V3 LAB já foi criado remotamente:
 
