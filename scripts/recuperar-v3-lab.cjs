@@ -60,16 +60,16 @@ function checkSafePath(folder) {
       ' | caminho real: ' + real +
       '. Nenhum envio. Use caminho sem atalhos 8.3 nem junctions.');
   }
+  const relative=path.relative(ROOT,absolute);
+  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+    reject('A pasta precisa ficar FORA do repositório antigo.');
+  }
   for (let current=absolute;;current=path.dirname(current)) {
     if (fs.existsSync(path.join(current,'.clasp.json'))) {
       reject('Pasta herda projeto Apps Script já configurado: ' + current +
         '. Nenhum arquivo enviado.');
     }
     if (path.dirname(current) === current) break;
-  }
-  const relative=path.relative(ROOT,absolute);
-  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-    reject('A pasta precisa ficar FORA do repositório antigo.');
   }
 }
 
