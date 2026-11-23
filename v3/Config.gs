@@ -220,8 +220,13 @@ function v3_lab_aceite() {
   v3_painel('dezembro/2026','9003').dados.total===0&&
   v3_painel('dezembro/2026','9003').dados.invalido===true);
  verificar('Quatro contatos fictícios',contatos.total===4);
- verificar('Contato não contatar permanece separado',
-  contatos.indicadores.NAO_CONTATAR===1);
+ const bloqueados=v3_contatos({somenteBloqueados:true,porPagina:100}).dados;
+ const fila=v3_contatos({porPagina:100}).dados;
+ const telefonesBloqueados=new Set(bloqueados.registros.map(c=>c.telefone));
+ verificar('Contatos bloqueados ficam fora da fila de abordagem',
+  bloqueados.total>0&&bloqueados.total===contatos.indicadores.BLOQUEADOS&&
+  bloqueados.registros.every(c=>c.bloqueado)&&
+  fila.registros.every(c=>!c.bloqueado&&!telefonesBloqueados.has(c.telefone)));
  verificar('Ciclismo inclui perfil ambos',esporteBike.total===2);
  verificar('Corrida/caminhada inclui perfil ambos',esportePassos.total===2);
  verificar('Referências de marketing fictícias ativas',opcoes.refAtivas.length===2);
