@@ -26,7 +26,7 @@ O novo sistema **não cria planilhas nem copia dados reais**. Ele acessa diretam
 
 | Ambiente | Marketing/Relacionamento (leitura e escrita autorizada) | Portal Giro (somente leitura) |
 |---|---|---|
-| LAB | `1GGV-coN-1cNQ-0sxV-vAHFVqpfjGiKllzQEwyhGBq8Y` | `1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY` |
+| LAB | `1bHR_mjL4vrVOTv-szVd__X3sgM0k4zhBe947I3hZcgE` | `1pVIcTNdZN8yuEqyQ_WQ_aNfWzc9Wq8HcFFaMoye3dMM` |
 | PROD | `1znhdMCmPsMZ6viMJtWl2wXg3G7yWh-0Xu0M8IcJ-9ao` | `1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ` |
 
 No LAB os IDs são **fixos e obrigatórios**. Na produção, o app inicia em **modo somente leitura**, e as alterações só podem ocorrer depois de configurar a propriedade `DG_PROD_EDICAO_LIBERADA=SIM`. O Web App deve sempre ter `executeAs: USER_DEPLOYING` e `access: MYSELF`.
@@ -35,8 +35,8 @@ No LAB os IDs são **fixos e obrigatórios**. Na produção, o app inicia em **m
 
 LAB:
 - `DG_AMBIENTE=LAB`
-- `DG_MARKETING_SPREADSHEET_ID=1GGV-coN-1cNQ-0sxV-vAHFVqpfjGiKllzQEwyhGBq8Y`
-- `DG_PORTAL_SPREADSHEET_ID=1TpwNegLgeV9p8xDfpTUbnY9iUJdR8q1TQ6SBzHgimFY`
+- `DG_MARKETING_SPREADSHEET_ID=1bHR_mjL4vrVOTv-szVd__X3sgM0k4zhBe947I3hZcgE`
+- `DG_PORTAL_SPREADSHEET_ID=1pVIcTNdZN8yuEqyQ_WQ_aNfWzc9Wq8HcFFaMoye3dMM`
 
 PROD (outro projeto, nunca o LAB):
 - `DG_AMBIENTE=PROD`
