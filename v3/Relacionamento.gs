@@ -73,9 +73,31 @@ function v3_origensListar_ (marketing){
  return {opcoes:o.filter(x=>x.STATUS==='ATIVO').map(x=>({id:x.ID_ORIGEM,nome:x.NOME_ORIGEM})),
    vinculos:vinculos,nomes:nomes};
 }
-function v3_resumoEtapas_(contatos){
- const cards={PARA_CONTATAR:0,AGUARDANDO_RESPOSTA:0,EM_CONVERSA:0,RETORNAR_DEPOIS:0,FINALIZADO:0,NAO_CONTATAR:0};
- contatos.forEach(c=>{if(Object.prototype.hasOwnProperty.call(cards,c.ETAPA))cards[c.ETAPA]++;});
+/**
+ * Regras únicas para a fila operacional e os indicadores.
+ * Nunca muda a etapa armazenada nem reverte opt-out automaticamente.
+ */
+function v3_bloqueadoContato_(c){
+ const etapa=v3_normal_(c.etapa||c.ETAPA);
+ const situacao=v3_normal_(c.situacao||c.SITUACAO);
+ const resultado=v3_normal_(c.resultado||c.RESULTADO);
+ const validade=v3_normal_(c.validade||c.VALIDADE);
+ return etapa==='NAO_CONTATAR'||validade==='INVALIDO'||
+  ['NAO_DESEJA_CONTATO','SEM_INTERESSE','CONTATO_INADEQUADO'].includes(situacao)||
+  ['NAO_CONTATAR','SEM_INTERESSE'].includes(resultado);
+}
+function v3_resumoEtapas_(contatos,hoje){
+ const cards={PARA_CONTATAR:0,AGUARDANDO_RESPOSTA:0,EM_CONVERSA:0,RETORNAR_DEPOIS:0,
+  FINALIZADO:0,NAO_CONTATAR:0,BLOQUEADOS:0,RETORNAR_HOJE:0};
+ contatos.forEach(c=>{
+  if(Object.prototype.hasOwnProperty.call(cards,c.ETAPA))cards[c.ETAPA]++;
+  const bloqueado=v3_bloqueadoContato_(c);
+  if(bloqueado)cards.BLOQUEADOS++;
+  if(!bloqueado&&c.ETAPA==='RETORNAR_DEPOIS'){
+   const data=v3_dataISO_(c.DATA_PROXIMO_RETORNO);
+   if(data&&data<=hoje)cards.RETORNAR_HOJE++;
+  }
+ });
  return cards;
 }
 function v3_contatos(filtros){
@@ -105,20 +127,22 @@ function v3_contatos(filtros){
    etapa:c.ETAPA||'PARA_CONTATAR',situacao:c.SITUACAO||'NAO_CLASSIFICADO',
    resultado:c.RESULTADO||'',validade:c.VALIDADE||'',modalidade:c.MODALIDADE||'NAO_INFORMADO',
    perfil:v3_classificarContato_(c,idx),observacao:c.OBSERVACAO||'',
-   retorno:v3_dataISO_(c.DATA_PROXIMO_RETORNO),idsOrigens:ids,
+   retorno:v3_dataISO_(c.DATA_PROXIMO_RETORNO),
+   bloqueado:v3_bloqueadoContato_(c),idsOrigens:ids,
    origens:ids.map(id=>origens.nomes[id]).filter(Boolean),
    ordem:c.__linha
   };
  });
  const hoje=v3_hoje_();
  const filtrados=todos.filter(c=>{
-  if(etapa==='PADRAO'&&['NAO_CONTATAR','FINALIZADO'].includes(c.etapa))return false;
+  const bloqueado=v3_bloqueadoContato_(c);
+  if(etapa==='PADRAO'&&(bloqueado||c.etapa==='FINALIZADO'))return false;
   if(etapa!=='PADRAO'&&etapa!=='TODOS'&&c.etapa!==etapa)return false;
   if(situacao!=='TODOS'&&c.situacao!==situacao)return false;
   if(sport!=='TODOS'&&!(c.perfil===sport||(sport==='CICLISMO'&&c.perfil==='AMBOS')||
      (sport==='CAMINHADA_CORRIDA'&&c.perfil==='AMBOS')))return false;
   if(origem&&!c.idsOrigens.includes(origem))return false;
-  if(f.retornoPendente&&!(c.etapa==='RETORNAR_DEPOIS'&&c.retorno&&c.retorno<=hoje))return false;
+  if(f.retornoPendente&&(bloqueado||!(c.etapa==='RETORNAR_DEPOIS'&&c.retorno&&c.retorno<=hoje)))return false;
   if(!termo)return true;
   return [c.nome,c.nomeContato,c.telefone,c.idDgmb,c.cidadeUf].some(x=>v3_normal_(x).includes(termo));
  }).sort((a,b)=>{
@@ -131,7 +155,7 @@ function v3_contatos(filtros){
  return v3_resposta_('OK',{
    registros:filtrados.slice((actual-1)*count,actual*count).map(({ordem,idsOrigens,...c})=>c),
    total:total,pagina:actual,paginas:paginas,
-   indicadores:v3_resumoEtapas_(tab.records),origens:origens.opcoes,
+   indicadores:v3_resumoEtapas_(tab.records,hoje),origens:origens.opcoes,
    edicao:b.config.edicao,ambiente:b.config.ambiente
  });
 }
