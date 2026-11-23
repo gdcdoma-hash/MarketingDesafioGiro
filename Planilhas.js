@@ -8,8 +8,9 @@ const DG_PLANILHA_MARKETING_RELACIONAMENTO_ID =
  */
 function dg_configPlanilhas_() {
   const propriedades = PropertiesService.getScriptProperties();
-  const ambiente = String(propriedades.getProperty('DG_AMBIENTE') || 'PROD')
+  const ambiente = String(propriedades.getProperty('DG_AMBIENTE') || '')
     .trim().toUpperCase();
+  if (!ambiente) throw new Error('Defina DG_AMBIENTE = PROD ou LAB antes de utilizar o sistema.');
   if (ambiente !== 'PROD' && ambiente !== 'LAB') {
     throw new Error('DG_AMBIENTE inválido; esperado PROD ou LAB.');
   }
