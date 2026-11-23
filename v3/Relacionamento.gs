@@ -153,7 +153,9 @@ function v3_contatos(filtros){
  const hoje=v3_hoje_();
  const filtrados=todos.filter(c=>{
   const bloqueado=v3_bloqueadoContato_(c);
-  if(etapa==='PADRAO'&&(bloqueado||c.etapa==='FINALIZADO'))return false;
+  // Sem busca, PADRAO é fila de abordagem. Com nome/telefone/ID digitado,
+  // localizar também o histórico de bloqueados/finalizados (sem liberar contato).
+  if(etapa==='PADRAO'&&!termo&&(bloqueado||c.etapa==='FINALIZADO'))return false;
   if(etapa!=='PADRAO'&&etapa!=='TODOS'&&c.etapa!==etapa)return false;
   if(situacao!=='TODOS'&&c.situacao!==situacao)return false;
   if(sport!=='TODOS'&&!(c.perfil===sport||(sport==='CICLISMO'&&c.perfil==='AMBOS')||
