@@ -52,6 +52,30 @@ Em um computador autenticado com a conta que **será proprietária do novo proje
 - Controle de acesso efetivo depende do **deployment criado no Apps Script**, não apenas do manifesto em GitHub. Os métodos remotos são server-side; acesso anônimo na produção histórica precisa ser auditado em sua implantação atual.
 - A propriedade `DG_AMBIENTE=PROD` foi tornada explícita e deve ser configurada numa implantação nova somente após revisão operacional.
 
+## Cadeia de atribuição REF — aprovação coordenada
+
+O sistema completo envolve **três revisões independentes**, que não foram mescladas nem publicadas:
+
+1. **Marketing/Relacionamento:** esta PR #50 cria códigos e permite filtrar resultados, sem alterar inscrições anteriores.
+2. **Landing pages:** PR #190 em `desafiogiro` preserva `?ref=CODIGO` no link dos CTAs para o Portal, inclusive em fallback. As páginas específicas `/desafios/transmissao/` e `/desafios/coracao/` só devem ser divulgadas depois de publicadas e vinculadas aos desafios reais.
+3. **Portal Giro:** PR #492 em `dgmb-inscricoes-repescagem` valida a REF **no servidor**, antes de gravar `dgmbDesafios.REF_MARKETING`. Referências vazias ou malformadas são descartadas sem bloquear a inscrição; fórmulas como `=IMPORTXML(...)` não podem virar código de divulgação.
+
+Até o lançamento das páginas específicas, as mensagens e links genéricos permanecem apontando para a página inicial oficial do Portal Giro. **Não trocar os links para uma landing ainda não publicada.**
+
+Consulta somente leitura à aba `Marketing!A1:A172` em 23/11/2026: **171 referências cadastradas; 168 numéricas, três alfanuméricas; todas atendem ao formato seguro `[A-Za-z0-9_-]{1,100}`**. A validação não exige alterar códigos históricos.
+
+### Evidências e limites
+
+- Teste da landing: GitHub Actions aprovado na PR #190.
+- Testes de Marketing: GitHub Actions aprovado nesta PR.
+- Código do Portal: três verificações isoladas passaram, cobrindo REF válida, rejeição de valores que poderiam virar fórmula e uso da normalização no campo `REF_MARKETING`.
+- A Action da PR #492 registrou **falha na preparação da execução** (sem passos e sem runner associado nas duas tentativas). Por isso **não** considerar a PR #492 homologada por CI até resolver a execução no GitHub.
+- Nenhum teste simula o clique e a inscrição real em um deploy privado do Portal. Esse é um **bloqueio de publicação**, não uma etapa concluída.
+
+### Prova final exigida no LAB
+
+Gerar e acompanhar uma inscrição fictícia em um **Portal LAB verdadeiramente separado**, acessando um convite com `?ref=LAB_TRANSMISSAO` ou `?ref=LAB_CORACAO`; conferir o parâmetro no destino, o campo `REF_MARKETING` persistido e os totais por desafio no Marketing LAB. Testar também URL sem REF e REF inválida, confirmando que a inscrição não recebe atribuição indevida. **Não registrar inscrições falsas na produção.**
+
 ## Evidências automatizadas
 
 - PR #50: https://github.com/gdcdoma-hash/MarketingDesafioGiro/pull/50
