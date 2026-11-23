@@ -57,7 +57,7 @@ function fixtures(){
  };
  return {mark,portal};
 }
-function context(env='LAB',edit='',f=fixtures()){
+function context(env='LAB',edit='',f=fixtures(),cacheStore=null){
  const props={
   DG_AMBIENTE:env,DG_MARKETING_SPREADSHEET_ID:env==='LAB'?ids.lm:ids.pm,
   DG_PORTAL_SPREADSHEET_ID:env==='LAB'?ids.lp:ids.pp,
@@ -80,6 +80,10 @@ function context(env='LAB',edit='',f=fixtures()){
   }};
  }
  const ctx=vm.createContext({
+  ...(cacheStore ? {CacheService:{getScriptCache(){return {
+    get(key){return cacheStore.get(key)||null;},
+    put(key,value){cacheStore.set(key,value);}
+  };}}} : {}),
   PropertiesService:{getScriptProperties(){return {
    getProperty(k){return props[k]||'';},setProperty(k,v){props[k]=v;updates++;}
   }}},
@@ -345,4 +349,29 @@ test('Datas inválidas não devem virar tarefas de retorno',()=>{
  assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',
   etapa:'RETORNAR_DEPOIS',retorno:'2026-02-29'}),/data/);
  assert.equal(c.updates,before,'Não grava data impossível');
+});
+
+test('Índice esportivo não mistura dados cacheados de LAB e PROD',()=>{
+ const cache=new Map();
+ const a=context('LAB','',fixtures(),cache);
+ const bFixture=fixtures();
+ const headers=bFixture.portal.dgmbDesafios[0];
+ const rec=bFixture.portal.dgmbDesafios[1];
+ rec[headers.indexOf('Modalidade_Esportiva')]='CAMINHADA_CORRIDA';
+ const b=context('PROD','',bFixture,cache);
+ const pessoa={ID_DGMB:'LAB01',TELEFONE_NORMALIZADO:'5598991234501',
+  MODALIDADE:'NAO_INFORMADO'};
+ const labIndex=a.ctx.v3_indiceEsportivo_(a.ctx.v3_bases_().portal);
+ const prodIndex=b.ctx.v3_indiceEsportivo_(b.ctx.v3_bases_().portal);
+ assert.equal(a.ctx.v3_classificarContato_(pessoa,labIndex),'CICLISMO');
+ assert.equal(b.ctx.v3_classificarContato_(pessoa,prodIndex),'CAMINHADA_CORRIDA');
+ assert.equal(cache.size,2,'Cada Portal tem cache separado');
+});
+test('Ciclismo confirmado manualmente prevalece quando registro histórico é inconclusivo',()=>{
+ const c=context();
+ const resultado=c.ctx.v3_classificarContato_({
+  ID_DGMB:'LAB04',TELEFONE_NORMALIZADO:'5598991234504',
+  MODALIDADE:'NAO_INFORMADO',E_CICLISTA:'SIM'
+ },{porId:{LAB04:{bike:false,passos:false}},idsPorTelefone:{}});
+ assert.equal(resultado,'CICLISMO');
 });
