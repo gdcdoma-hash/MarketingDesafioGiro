@@ -74,6 +74,14 @@ function install(){
  const id=cfg.scriptId||'';
  if(!/^[A-Za-z0-9_-]{30,150}$/.test(id)||oldIds.has(id))
   refuse('ID retornado é inválido ou pertence a projeto anterior; push bloqueado.');
+ // Pasta recém-criada estava vazia antes do clasp. Remover templates locais
+ // gerados por ele (por exemplo Code.js) para não publicar arquivos extras.
+ for(const name of fs.readdirSync(dir)){
+  if(name==='.clasp.json')continue;
+  const dest=path.join(dir,name);
+  if(!fs.statSync(dest).isFile())refuse('Subpasta inesperada na instalação V3: '+name);
+  fs.unlinkSync(dest);
+ }
  // Copiamos somente após criar/validar o ID; jamais enviamos código legado.
  for(const file of files)fs.copyFileSync(path.join(sourceDir,file),path.join(dir,file));
  // Rejeita arquivos criados pelo clasp que não façam parte do pacote.
