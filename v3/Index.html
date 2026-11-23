@@ -84,7 +84,7 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
 </section>
 <section id="relacionamento" hidden>
  <div class="titlebar"><div><h1>Relacionamento</h1><p class="sub">Contatos, etapas, modalidades e convites individuais</p></div>
-  <button class="btn light" onclick="abrirNovaOrigem()" data-edit>Nova origem</button></div>
+  <div class="row"><button class="btn light" onclick="abrirImportacao()">Importar contatos</button><button class="btn light" onclick="abrirNovaOrigem()" data-edit>Nova origem</button></div></div>
  <div class="cards" id="r-indicadores"></div>
  <div class="panel">
   <div class="filters six">
@@ -114,13 +114,30 @@ dialog{border:0;padding:0;border-radius:18px;box-shadow:0 18px 70px #15233d55;wi
  <div><label>Próximo retorno</label><input id="edit-retorno" type="date"></div></div>
  <div style="margin-top:12px"><label>Observações</label><textarea rows="3" id="edit-obs" maxlength="2000"></textarea></div>
  <div class="actions"><button class="btn light" onclick="fechar('modal-contato')">Cancelar</button><button class="btn" data-edit onclick="salvarContato()">Salvar alterações</button></div>
+ <div class="panel" style="margin-top:15px;margin-bottom:0;background:#f7f9fc"><h3>Origem e histórico</h3>
+ <div class="row"><div class="grow"><label>Vincular contato à origem</label><select id="edit-origem"></select></div>
+ <button class="btn light" onclick="vincularOrigem()" data-edit>Vincular</button><button class="btn light" onclick="carregarHistorico()">Histórico</button></div>
+ <div id="edit-historico" class="muted" style="margin-top:12px"></div>
+ </div>
  <div class="panel" style="margin-top:20px;margin-bottom:0;background:#f7f9fc"><h3>Convite manual</h3>
  <p class="muted">A mensagem será aberta no WhatsApp para revisão. O sistema nunca a envia automaticamente.</p>
  <div class="grid2"><div><label>Desafio</label><select id="convite-desafio"></select></div><div><label>REF de divulgação</label><select id="convite-ref"></select></div></div>
  <button class="btn light" style="margin-top:14px" id="convite-whats" onclick="abrirConvite()">Abrir WhatsApp</button></div>
  </div></dialog>
 <dialog id="modal-origem"><div class="dialog-inner"><div class="dialog-head"><h2>Nova origem</h2><button class="btn light mini" onclick="fechar('modal-origem')">Fechar</button></div><label>Nome</label><input id="origem-nome" maxlength="120"><label style="margin-top:12px">Tipo</label><select id="origem-tipo"><option value="GRUPO_WHATSAPP">Grupo WhatsApp</option><option value="LOJA">Loja</option><option value="EVENTO">Evento</option><option value="LISTA_MANUAL">Lista manual</option><option value="OUTRO">Outro</option></select><div class="actions"><button class="btn light" onclick="fechar('modal-origem')">Cancelar</button><button class="btn" data-edit onclick="salvarOrigem()">Salvar origem</button></div></div></dialog>
-<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="modal-importacao"><div class="dialog-inner">
+ <div class="dialog-head"><h2>Importar contatos</h2><button class="btn light mini" onclick="fechar('modal-importacao')">Fechar</button></div>
+ <p class="muted">Pré-análise obrigatória. Cadastros existentes não serão sobrescritos. Limite: 300 contatos por lote.</p>
+ <label>Arquivo CSV (ou cole os dados abaixo)</label><input id="csv-arquivo" type="file" accept=".csv,.txt,text/csv" onchange="lerCsvArquivo(event)">
+ <label style="margin-top:13px">Nome;Telefone;Cidade;UF — uma pessoa por linha</label>
+ <textarea id="csv-texto" rows="7" placeholder="Pessoa Exemplo;98991234567;Rosário;MA"></textarea>
+ <label style="margin-top:12px">Origem (opcional)</label><select id="csv-origem"></select>
+ <div id="csv-resultado" class="notice" hidden></div>
+ <div class="actions"><button class="btn light" onclick="fechar('modal-importacao')">Cancelar</button>
+ <button class="btn light" onclick="analisarImportacao()">Pré-analisar</button>
+ <button class="btn" id="csv-confirmar" onclick="confirmarImportacao()" disabled data-edit>Confirmar importação</button></div>
+ </div></dialog>
+ <div id="toast" role="status" aria-live="polite"></div>
 <script>
 'use strict';
 const E=id=>document.getElementById(id),state={tab:'<?= area ?>',opt:null,painel:null,contatos:null,ultimo:null,
@@ -264,6 +281,8 @@ function abrirContato(c){
  E('edit-retorno').value=c.retorno||'';E('edit-obs').value=c.observacao||'';
  E('convite-whats').disabled=state.opt.ambiente==='LAB'||c.etapa==='NAO_CONTATAR'||
  ['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO'].includes(c.situacao);
+ options(E('edit-origem'),[{value:'',label:'Escolha uma origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
+ E('edit-historico').textContent='';
  E('modal-contato').showModal();
 }
 async function salvarContato(){
@@ -299,6 +318,87 @@ async function salvarOrigem(){
  }catch(e){aviso(e.message,true);}
 }
 function fechar(id){E(id).close();}
+
+let importacaoPendente=null;
+function abrirImportacao(){
+ importacaoPendente=null;E('csv-resultado').hidden=true;E('csv-confirmar').disabled=true;
+ options(E('csv-origem'),[{value:'',label:'Sem origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
+ E('modal-importacao').showModal();
+}
+async function lerCsvArquivo(ev){
+ const file=ev.target.files?.[0];if(!file)return;
+ E('csv-texto').value=await file.text();
+ importacaoPendente=null;E('csv-confirmar').disabled=true;
+ E('csv-resultado').hidden=true;
+}
+function dividirCSV(linha){
+ const sep=(linha.match(/;/g)||[]).length>=(linha.match(/,/g)||[]).length?';':',';
+ const out=[];let atual='',quoted=false;
+ for(let i=0;i<linha.length;i++){
+  const ch=linha[i];
+  if(ch==='"'){if(quoted&&linha[i+1]==='"'){atual+='"';i++;}else quoted=!quoted;}
+  else if(ch===sep&&!quoted){out.push(atual.trim());atual='';}
+  else atual+=ch;
+ }
+ out.push(atual.trim());return out;
+}
+function dadosCSV(){
+ const linhas=E('csv-texto').value.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean);
+ if(!linhas.length)throw Error('Informe pelo menos um contato.');
+ if(linhas.length>301)throw Error('Máximo de 300 contatos por lote.');
+ const primeira=dividirCSV(linhas[0]).map(v=>v.toLowerCase());
+ const header=primeira.some(v=>/^(nome|name|telefone|phone|phone 1 - value)$/.test(v));
+ let nameIdx=0,phoneIdx=1,cityIdx=2,ufIdx=3;
+ if(header){
+  const choose=(terms,fallback)=>{const i=primeira.findIndex(h=>terms.some(t=>h.includes(t)));return i<0?fallback:i;};
+  nameIdx=choose(['name','nome'],0);phoneIdx=choose(['phone 1 - value','telefone','phone'],1);
+  cityIdx=choose(['city','cidade'],2);ufIdx=choose(['state','uf','estado'],3);
+ }
+ const data=header?linhas.slice(1):linhas;
+ return data.map(l=>{
+  const fields=dividirCSV(l);
+  return {nome:fields[nameIdx]||'',telefone:fields[phoneIdx]||'',
+   cidade:fields[cityIdx]||'',uf:fields[ufIdx]||''};
+ });
+}
+async function analisarImportacao(){
+ try{
+  const registros=dadosCSV(),res=await api('v3_analisarImportacao',{registros});
+  if(res.status!=='OK')throw Error(res.mensagem);
+  importacaoPendente=registros;
+  const d=res.dados;
+  E('csv-resultado').hidden=false;
+  E('csv-resultado').textContent='Total: '+d.total+' · Novos: '+d.novos+' · Repetidos: '+d.repetidos+' · Inválidos: '+d.invalidos+
+    (d.invalidos?' (linhas: '+d.linhasInvalidas.join(', ')+')':'');
+  E('csv-confirmar').disabled=!state.opt.edicao||d.invalidos>0||d.novos===0;
+  aviso('Pré-análise concluída. Nenhum registro foi alterado.');
+ }catch(e){aviso(e.message,true);}
+}
+async function confirmarImportacao(){
+ if(!importacaoPendente||!confirm('Confirmar a inclusão dos contatos novos? Contatos existentes serão preservados.'))return;
+ try{
+  const res=await api('v3_confirmarImportacao',{registros:importacaoPendente,origemId:E('csv-origem').value});
+  if(res.status!=='OK')throw Error(res.mensagem);
+  importacaoPendente=null;fechar('modal-importacao');aviso(res.mensagem);filtrarContatos();
+ }catch(e){aviso(e.message,true);}
+}
+async function vincularOrigem(){
+ const id=E('edit-origem').value;if(!id){aviso('Escolha uma origem.',true);return;}
+ try{const res=await api('v3_vincularOrigem',{telefone:state.ultimo.telefone,origemId:id});
+  if(res.status!=='OK')throw Error(res.mensagem);aviso(res.mensagem);carregarContatos();
+ }catch(e){aviso(e.message,true);}
+}
+async function carregarHistorico(){
+ try{
+  const res=await api('v3_historicoContato',state.ultimo.telefone);
+  if(res.status!=='OK')throw Error(res.mensagem);
+  E('edit-historico').innerHTML=res.dados.eventos.length?
+   res.dados.eventos.map(e=>'<div style="padding:8px 0;border-bottom:1px solid #e4e8ee">'+esc(e.quando)+' · <strong>'+esc(e.tipo)+
+   '</strong><small style="display:block">'+esc(e.antes)+' → '+esc(e.depois)+'</small></div>').join(''):
+   'Nenhuma alteração registrada neste sistema.';
+ }catch(e){aviso(e.message,true);}
+}
+
 (async function iniciar(){
  try{state.opt=await api('v3_opcoes');initFiltros();trocar(state.tab);}
  catch(e){aviso('Não foi possível inicializar o sistema: '+e.message,true);}
