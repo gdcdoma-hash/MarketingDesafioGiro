@@ -119,6 +119,7 @@ function v3_resumoEtapas_(contatos,hoje){
 }
 function v3_contatos(filtros){
  const f=filtros||{},b=v3_bases_();
+ const somenteBloqueados=f.somenteBloqueados===true;
  const tab=v3_tabela_(b.marketing,'Relacionamento_Contatos',
   ['TELEFONE_NORMALIZADO','ETAPA','SITUACAO','NOME_PORTAL']);
  const idx=v3_indiceEsportivo_(b.portal);
@@ -162,7 +163,10 @@ function v3_contatos(filtros){
   const bloqueado=c.bloqueado||v3_bloqueadoContato_(c);
   // Sem busca, PADRAO é fila de abordagem. Com nome/telefone/ID digitado,
   // localizar também o histórico de bloqueados/finalizados (sem liberar contato).
-  if(etapa==='PADRAO'&&!termo&&(bloqueado||c.etapa==='FINALIZADO'))return false;
+  // Consulta explícita de bloqueados tem prioridade sobre a fila padrão;
+  // os demais filtros explícitos continuam valendo.
+  if(somenteBloqueados&&!bloqueado)return false;
+  if(!somenteBloqueados&&etapa==='PADRAO'&&!termo&&(bloqueado||c.etapa==='FINALIZADO'))return false;
   if(etapa!=='PADRAO'&&etapa!=='TODOS'&&c.etapa!==etapa)return false;
   if(situacao!=='TODOS'&&c.situacao!==situacao)return false;
   if(sport!=='TODOS'&&!(c.perfil===sport||(sport==='CICLISMO'&&c.perfil==='AMBOS')||

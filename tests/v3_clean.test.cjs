@@ -304,11 +304,14 @@ test('Autoteste de aceite V3 confirma competência de dezembro e janeiro sem gra
   make('2026-12-20','LAB01','9003','CICLISMO','LAB_BIKE')
  ];
  const c=context('LAB','',f);
+ const logs=[];c.ctx.console={log:msg=>logs.push(msg)};
  const before=c.updates;
  const result=c.ctx.v3_lab_aceite();
  assert.equal(result.status,'OK',JSON.stringify(result));
  assert.equal(result.total,13);
  assert.equal(result.aprovadas,13);
+ assert.deepEqual(Object.keys(result).sort(),['ambiente','aprovadas','status','total','verificacoes'].sort());
+ assert.equal(logs.at(-1),'Aceite LAB: 13/13 verificações aprovadas.');
  assert.equal(c.updates,before,'Autoteste não altera planilhas nem Script Properties');
  // Reproduz a massa real do LAB: uma segunda recusa registrada em teste anterior.
  const t=f.mark.Relacionamento_Contatos,etapa=contHeader.indexOf('ETAPA'),situacao=contHeader.indexOf('SITUACAO');
@@ -317,11 +320,30 @@ test('Autoteste de aceite V3 confirma competência de dezembro e janeiro sem gra
  assert.equal(repetido.status,'OK',JSON.stringify(repetido));
  assert.equal(repetido.aprovadas,13);
  assert.equal(c.updates,before);
+ // Finalizado também deve permanecer fora da fila, sem virar bloqueio.
+ t[2][etapa]='FINALIZADO';
+ assert.equal(c.ctx.v3_lab_aceite().status,'OK');
+ // Falhas simuladas do filtro precisam reprovar o aceite, sem alterar registros.
+ const listar=c.ctx.v3_contatos;
+ for(const variante of ['total','registro','sobreposicao']){
+  c.ctx.v3_contatos=filtros=>{
+   const resposta=listar(filtros),dados=resposta.dados;
+   if(filtros.somenteBloqueados&&variante==='total')dados.total++;
+   if(filtros.somenteBloqueados&&variante==='registro')dados.registros[0].bloqueado=false;
+   if(filtros.etapa==='PADRAO'&&variante==='sobreposicao')dados.registros[0].telefone=t[4][contHeader.indexOf('TELEFONE_NORMALIZADO')];
+   return resposta;
+  };
+  assert.equal(c.ctx.v3_lab_aceite().status,'FALHA',variante);
+  assert.match(logs.at(-1),/recusas/);
+ }
+ c.ctx.v3_contatos=listar;
  // O aceite não pode passar se o contato de referência foi liberado.
  t[4][etapa]='PARA_CONTATAR';t[4][situacao]='PODE_CONTATAR';
  const falha=c.ctx.v3_lab_aceite();
  assert.equal(falha.status,'FALHA');
  assert.ok(falha.verificacoes.some(v=>!v.ok&&v.nome.includes('recusas')));
+ assert.equal(logs.at(-2),'Aceite LAB: 12/13 verificações aprovadas.');
+ assert.match(logs.at(-1),/Verificações que falharam:.*recusas/);
  assert.equal(c.updates,before);
  const prod=context('PROD','',f);
  assert.throws(()=>prod.ctx.v3_lab_aceite(),/somente no LAB/);
@@ -835,4 +857,22 @@ test('Agenda Google complementa nome próprio da fonte sem substituir nome manua
  const novo=c.ctx.v3_contatos({busca:'5598991234599'}).dados.registros[0];
  assert.equal(novo.nome,'LAB Google Novo');assert.equal(novo.nomeContato,'');
  const after=c.updates;assert.equal(c.ctx.v3_confirmarImportacao(dados).dados.complementosGoogle,0);assert.equal(c.updates,after);
+});
+
+test('somenteBloqueados lista recusas, conflitos e inválidos sem depender da etapa padrão',()=>{
+ const c=context(),t=c.fixtures.mark.Relacionamento_Contatos;
+ t[1][contHeader.indexOf('SITUACAO')]='SEM_INTERESSE';
+ t[2][contHeader.indexOf('VALIDADE')]='INVALIDO';
+ t[3][contHeader.indexOf('ETAPA')]='FINALIZADO';
+ const extra=makeRow(contHeader,{TELEFONE_NORMALIZADO:'5598991234598',NOME_CONTATO:'LAB Conflito',ETAPA:'PARA_CONTATAR'});
+ t.push(extra,extra.slice());
+ const todos=c.ctx.v3_contatos({somenteBloqueados:true,porPagina:100}).dados;
+ assert.equal(todos.total,5);assert.equal(todos.total,todos.indicadores.BLOQUEADOS);
+ assert.ok(todos.registros.every(r=>r.bloqueado===true));
+ assert.ok(todos.registros.every(r=>r.etapa!=='FINALIZADO'));
+ assert.equal(c.ctx.v3_contatos({somenteBloqueados:true,etapa:'NAO_CONTATAR'}).dados.total,1);
+ assert.equal(c.ctx.v3_contatos({somenteBloqueados:true,busca:'5598991234501'}).dados.total,1);
+ assert.equal(c.ctx.v3_contatos({somenteBloqueados:true,porPagina:2,pagina:3}).dados.registros.length,1);
+ assert.equal(c.ctx.v3_contatos({}).dados.total,0);
+ assert.equal(c.updates,0);
 });
