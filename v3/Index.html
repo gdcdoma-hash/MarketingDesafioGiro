@@ -485,6 +485,7 @@ function abrirMensagemRapida(c){
 function motivoBloqueioConvite(c,etapa,situacao){
  if(!c||state.opt.ambiente==='LAB')return 'Convites bloqueados no LAB.';
  if(!state.opt.edicao)return 'Convites desativados enquanto a produção está em modo leitura.';
+ if(c.conflitoIdentidade)return 'Telefone com identidade conflitante. Resolva o conflito antes de contatar.';
  if(c.bloqueado)return 'Cadastro bloqueado para convite. Salve qualquer reclassificação e abra o contato novamente.';
  const etapaAtual=etapa||c.etapa,situacaoAtual=situacao||c.situacao;
  if(etapaAtual==='NAO_CONTATAR'||['NAO_DESEJA_CONTATO','CONTATO_INADEQUADO','SEM_INTERESSE'].includes(situacaoAtual)||
@@ -509,7 +510,7 @@ function abrirContato(c){
  }
  E('edit-etapa').value=c.etapa;E('edit-situacao').value=c.situacao;
  E('edit-retorno').value=c.retorno||'';E('edit-obs').value=c.observacao||'';
- E('edit-reativar').hidden=!c.bloqueado||c.validade==='INVALIDO';
+ E('edit-reativar').hidden=!c.bloqueado||c.validade==='INVALIDO'||c.conflitoIdentidade;
  atualizarBloqueioConvite();
  options(E('edit-origem'),[{value:'',label:'Escolha uma origem'},...(state.contatos?.origens||[]).map(o=>({value:o.id,label:o.nome}))],'');
  E('edit-historico').textContent='';
@@ -559,7 +560,7 @@ async function salvarContato(){
 }
 async function reativarContatoComAutorizacao(){
  const c=state.ultimo;
- if(!c||!c.bloqueado||c.validade==='INVALIDO'||!state.opt.edicao)return;
+ if(!c||!c.bloqueado||c.validade==='INVALIDO'||c.conflitoIdentidade||!state.opt.edicao)return;
  const motivo=prompt('Somente reative se a própria pessoa autorizou novo contato. Descreva quando e como ela autorizou (10 a 300 caracteres).');
  if(!motivo||motivo.trim().length<10||motivo.trim().length>300){
   aviso('Reativação cancelada. Registre uma justificativa válida.',true);return;
@@ -596,7 +597,7 @@ async function salvarOrigem(){
 }
 function fechar(id){E(id).close();}
 
-let importacaoPendente=null;
+let importacaoPendente=null,importacaoEmCurso=false;
 let csvResumoLocal={semTelefone:0,repetidos:0,formato:''};
 function invalidarPreviaImportacao(){
  state.consultaImportacao++;
@@ -605,6 +606,7 @@ function invalidarPreviaImportacao(){
  E('csv-confirmar').disabled=true;
 }
 function abrirImportacao(){
+ if(importacaoEmCurso){aviso('Uma importação está em andamento.');return;}
  invalidarPreviaImportacao();
  E('csv-aviso-lab').textContent=state.opt.ambiente==='LAB'?
   'LAB: é permitido analisar um arquivo, mas somente contatos fictícios identificados com LAB ou TESTE poderão ser gravados. Nunca importe sua agenda real neste ambiente.':
@@ -721,6 +723,7 @@ function dadosFicticiosCSV(registros){
   normalizarTituloCSV(r.nome).toUpperCase()));
 }
 async function analisarImportacao(){
+ if(importacaoEmCurso)return;
  invalidarPreviaImportacao();
  const versao=state.consultaImportacao;
  try{
@@ -747,7 +750,7 @@ async function analisarImportacao(){
  }
 }
 async function confirmarImportacao(){
- if(!importacaoPendente||!state.opt.edicao)return;
+ if(importacaoEmCurso||!importacaoPendente||!state.opt.edicao)return;
  let atual;
  try{atual=dadosCSV();}catch(e){invalidarPreviaImportacao();aviso(e.message,true);return;}
  if(E('csv-origem').value!==importacaoPendente.origemId||E('csv-texto').value!==importacaoPendente.conteudo||
@@ -757,15 +760,16 @@ async function confirmarImportacao(){
  if(state.opt.ambiente==='LAB'&&!dadosFicticiosCSV(atual)){
   aviso('LAB aceita apenas contatos fictícios identificados como LAB ou TESTE.',true);return;
  }
- if(!confirm('Adicionar novos contatos e novos vínculos de origem? Os dados e históricos existentes serão preservados.'))return;
- const lotes=lotesCSV(atual),versao=state.consultaImportacao;
- E('csv-confirmar').disabled=true;E('csv-analisar').disabled=true;
+ if(!confirm('Adicionar novos contatos, vínculos e completar nomes Google ausentes? Os nomes manuais, nomes do Portal e históricos serão preservados.'))return;
+ const lotes=lotesCSV(atual),origemId=importacaoPendente.origemId;
+ importacaoEmCurso=true;
+ for(const id of ['csv-confirmar','csv-analisar','csv-arquivo','csv-texto','csv-origem'])E(id).disabled=true;
  let gravados=0,repetidos=0,vinculos=0,conflitos=0,complementos=0;
  try{
   for(let i=0;i<lotes.length;i++){
    E('csv-resultado').textContent='Importando lote '+(i+1)+' de '+lotes.length+'...';
    const res=await api('v3_confirmarImportacao',{
-    registros:lotes[i],origemId:importacaoPendente.origemId,confirmarFicticio:state.opt.ambiente==='LAB'
+    registros:lotes[i],origemId,confirmarFicticio:state.opt.ambiente==='LAB'
    });
    if(res.status!=='OK')throw Error(res.mensagem);
    gravados+=res.dados.gravados;repetidos+=res.dados.repetidos;vinculos+=Number(res.dados.novosVinculos||0);conflitos+=Number(res.dados.conflitos||0);complementos+=Number(res.dados.complementosGoogle||0);
@@ -776,7 +780,11 @@ async function confirmarImportacao(){
  }catch(e){
   aviso('Importação interrompida: '+e.message+'. Lotes anteriores podem ter sido gravados.',true);
   E('csv-resultado').textContent='Importação parcial: '+gravados+' novos incluídos. Analise o arquivo novamente antes de continuar.';
- }finally{E('csv-analisar').disabled=false;}
+ }finally{
+  importacaoEmCurso=false;importacaoPendente=null;
+  for(const id of ['csv-analisar','csv-arquivo','csv-texto','csv-origem'])E(id).disabled=false;
+  E('csv-confirmar').disabled=true;
+ }
 }
 async function vincularOrigem(){
  const id=E('edit-origem').value;if(!id){aviso('Escolha uma origem.',true);return;}
