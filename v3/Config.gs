@@ -205,7 +205,7 @@ function v3_lab_aceite() {
  const janeiro=v3_painel('janeiro/2027','').dados;
  const esporteBike=v3_contatos({esporte:'CICLISMO',etapa:'TODOS'}).dados;
  const esportePassos=v3_contatos({esporte:'CAMINHADA_CORRIDA',etapa:'TODOS'}).dados;
- const contatos=v3_contatos({etapa:'TODOS'}).dados;
+ const contatos=v3_contatos({etapa:'TODOS',porPagina:100}).dados;
  verificar('Duas bases fictícias isoladas',config.marketingId===V3_IDS.LAB_MARKETING&&
   config.portalId===V3_IDS.LAB_PORTAL&&config.portalId!==config.marketingId);
  verificar('Dezembro contém duas campanhas genéricas',dezembro.desafios.length===2);
@@ -224,15 +224,28 @@ function v3_lab_aceite() {
  // A referência LAB04 deve continuar bloqueada e nenhuma recusa pode aparecer na fila.
  const naoContatar=contatos.registros.find(c=>c.idDgmb==='LAB04');
  const fila=v3_contatos({etapa:'PADRAO',porPagina:100}).dados;
+ const bloqueados=v3_contatos({somenteBloqueados:true,porPagina:100}).dados;
+ const telefonesBloqueados=new Set(bloqueados.registros.map(c=>c.telefone));
  verificar('Contato de referência e demais recusas permanecem fora da fila',
   !!naoContatar&&naoContatar.etapa==='NAO_CONTATAR'&&naoContatar.bloqueado===true&&
   contatos.indicadores.NAO_CONTATAR===contatos.registros.filter(c=>c.etapa==='NAO_CONTATAR').length&&
+  bloqueados.total===contatos.indicadores.BLOQUEADOS&&
+  bloqueados.total===contatos.registros.filter(c=>c.bloqueado).length&&
+  bloqueados.registros.length===bloqueados.total&&
+  bloqueados.registros.every(c=>c.bloqueado===true)&&
+  telefonesBloqueados.has(naoContatar.telefone)&&
+  contatos.registros.filter(c=>c.bloqueado).every(c=>telefonesBloqueados.has(c.telefone))&&
   fila.total===contatos.registros.filter(c=>!c.bloqueado&&c.etapa!=='FINALIZADO').length&&
-  fila.registros.every(c=>!c.bloqueado&&c.idDgmb!=='LAB04'));
+  fila.registros.length===fila.total&&
+  fila.registros.every(c=>!c.bloqueado&&c.etapa!=='FINALIZADO'&&!telefonesBloqueados.has(c.telefone)));
  verificar('Ciclismo inclui perfil ambos',esporteBike.total===2);
  verificar('Corrida/caminhada inclui perfil ambos',esportePassos.total===2);
  verificar('Referências de marketing fictícias ativas',opcoes.refAtivas.length===2);
- return {status:verificacoes.every(v=>v.ok)?'OK':'FALHA',
+ const aprovadas=verificacoes.filter(v=>v.ok).length;
+ const falhas=verificacoes.filter(v=>!v.ok).map(v=>v.nome);
+ console.log('Aceite LAB: '+aprovadas+'/'+verificacoes.length+' verificações aprovadas.');
+ if(falhas.length)console.log('Verificações que falharam: '+falhas.join('; '));
+ return {status:falhas.length?'FALHA':'OK',
   ambiente:'LAB',verificacoes:verificacoes,
-  aprovadas:verificacoes.filter(v=>v.ok).length,total:verificacoes.length};
+  aprovadas:aprovadas,total:verificacoes.length};
 }
