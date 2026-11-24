@@ -8,8 +8,9 @@ function v3_importacaoPreparar_(dados,book){
   throw Error('Selecione entre 1 e 300 contatos por lote.');
  const tab=v3_tabela_(book,'Relacionamento_Contatos',
    ['TELEFONE_NORMALIZADO','NOME_CONTATO','ETAPA','SITUACAO']);
- const existentes=new Set(tab.records.map(r=>v3_fone_(r.TELEFONE_NORMALIZADO)));
- const locais=new Set(),novos=[],erros=[],repetidos=[],validos=[];
+ const existentes=new Map();
+ for(const r of tab.records){const tel=v3_fone_(r.TELEFONE_NORMALIZADO);if(!tel)continue;if(!existentes.has(tel))existentes.set(tel,[]);existentes.get(tel).push(r);}
+ const locais=new Set(),novos=[],erros=[],repetidos=[],validos=[],conflitos=[];
  list.forEach((r,idx)=>{
   const tel=v3_fone_(r&&r.telefone);
   const nome=v3_texto_(r&&r.nome),cidade=v3_texto_(r&&r.cidade);
@@ -18,25 +19,34 @@ function v3_importacaoPreparar_(dados,book){
    erros.push(idx+1);return;
   }
   if(locais.has(tel)){repetidos.push(idx+1);return;}
-  locais.add(tel);const contato={telefone:tel,nome:nome,cidade:cidade,uf:uf};validos.push(contato);
+  locais.add(tel);const contato={telefone:tel,nome:nome,cidade:cidade,uf:uf};
+  if((existentes.get(tel)||[]).length>1){conflitos.push(idx+1);return;}
+  validos.push(contato);
   if(existentes.has(tel)){repetidos.push(idx+1);return;}novos.push(contato);
  });
- return {tab:tab,novos:novos,validos:validos,erros:erros,repetidos:repetidos,total:list.length};
+ return {tab:tab,novos:novos,validos:validos,erros:erros,repetidos:repetidos,conflitos,existentes,total:list.length};
 }
 function v3_importacaoVinculos_(book,origem,validos){
- if(!origem)return {tabela:null,novos:[]};
+ if(!origem)return {tabela:null,novos:[],google:false};
  const o=v3_tabela_(book,'Relacionamento_Origens',['ID_ORIGEM','STATUS']);
- if(!o.records.some(x=>x.ID_ORIGEM===origem&&x.STATUS==='ATIVO'))throw Error('Origem não está ativa.');
+ const registro=o.records.find(x=>x.ID_ORIGEM===origem&&x.STATUS==='ATIVO');
+ if(!registro)throw Error('Origem não está ativa.');
  const tabela=v3_tabela_(book,'Relacionamento_ContatoOrigens',['TELEFONE_NORMALIZADO','ID_ORIGEM','DATA_PRIMEIRA_IDENTIFICACAO','DATA_ULTIMA_IDENTIFICACAO','QUANTIDADE_OCORRENCIAS']);
  const existentes=new Set(tabela.records.filter(x=>x.ID_ORIGEM===origem).map(x=>v3_fone_(x.TELEFONE_NORMALIZADO)));
- return {tabela:tabela,novos:validos.filter(c=>!existentes.has(c.telefone))};
+ return {tabela:tabela,novos:validos.filter(c=>!existentes.has(c.telefone)),google:registro.TIPO_ORIGEM==='GOOGLE_CONTATOS'};
+}
+function v3_complementosGoogle_(p,origem){
+ if(!origem.google)return [];
+ if(!p.tab.header.includes('NOME_GOOGLE_CONTATOS'))throw Error('Coluna NOME_GOOGLE_CONTATOS ausente.');
+ return p.validos.filter(c=>c.nome&&(p.existentes.get(c.telefone)||[]).length===1&&!p.existentes.get(c.telefone)[0].NOME_GOOGLE_CONTATOS)
+  .map(c=>({registro:p.existentes.get(c.telefone)[0],nome:v3_seguroCelula_(c.nome)}));
 }
 function v3_analisarImportacao(dados){
  const book=v3_bases_().marketing;
  const p=v3_importacaoPreparar_(dados,book);
  const v=v3_importacaoVinculos_(book,v3_texto_(dados.origemId),p.validos);
  return v3_resposta_('OK',{total:p.total,novos:p.novos.length,novosVinculos:v.novos.length,
-  repetidos:p.repetidos.length,invalidos:p.erros.length,
+  repetidos:p.repetidos.length,invalidos:p.erros.length,conflitos:p.conflitos.length,complementosGoogle:v3_complementosGoogle_(p,v).length,
   linhasInvalidas:p.erros.slice(0,15)});
 }
 function v3_confirmarImportacao(dados){
@@ -55,10 +65,10 @@ function v3_confirmarImportacao(dados){
   if(p.erros.length)throw Error('Corrija os telefones ou campos inválidos antes de importar.');
   const origem=v3_texto_(dados.origemId);
   const plano=v3_importacaoVinculos_(book,origem,p.validos),vinculos=plano.tabela;
-  const tab=p.tab,agora=new Date();
+  const tab=p.tab,agora=new Date(),complementos=v3_complementosGoogle_(p,plano);
   const linhas=p.novos.map(c=>{
    const vals={TELEFONE_NORMALIZADO:c.telefone,TELEFONE_EXIBICAO:c.telefone,
-    NOME_CONTATO:v3_seguroCelula_(c.nome),CIDADE:v3_seguroCelula_(c.cidade),
+    NOME_CONTATO:plano.google?'':v3_seguroCelula_(c.nome),NOME_GOOGLE_CONTATOS:plano.google?v3_seguroCelula_(c.nome):'',CIDADE:v3_seguroCelula_(c.cidade),
     UF:c.uf,ETAPA:'PARA_CONTATAR',SITUACAO:'NAO_CLASSIFICADO',
     E_CICLISTA:'NAO_CONFIRMADO',MODALIDADE:'NAO_INFORMADO',
     DATA_PRIMEIRA_IMPORTACAO:agora,DATA_ULTIMA_IMPORTACAO:agora,ATUALIZADO_EM:agora};
@@ -74,7 +84,8 @@ function v3_confirmarImportacao(dados){
    });
    vinculos.sheet.getRange(inicioVinculos,1,novos.length,vinculos.header.length).setValues(novos);
   }
-  return v3_resposta_('OK',{gravados:linhas.length,repetidos:p.repetidos.length,novosVinculos:plano.novos.length},
+  for(const c of complementos)v3_gravarCampos_(tab,c.registro,{NOME_GOOGLE_CONTATOS:c.nome});
+  return v3_resposta_('OK',{gravados:linhas.length,repetidos:p.repetidos.length,novosVinculos:plano.novos.length,conflitos:p.conflitos.length,complementosGoogle:complementos.length},
    linhas.length+' contato(s) adicionados; '+plano.novos.length+' vínculos novos. Cadastros anteriores preservados.');
  });
 }
@@ -88,7 +99,10 @@ function v3_vincularOrigem(dados){
   const vinc=v3_tabela_(b,'Relacionamento_ContatoOrigens',
     ['TELEFONE_NORMALIZADO','ID_ORIGEM','DATA_PRIMEIRA_IDENTIFICACAO',
      'DATA_ULTIMA_IDENTIFICACAO','QUANTIDADE_OCORRENCIAS']);
-  if(!contatos.records.some(x=>v3_fone_(x.TELEFONE_NORMALIZADO)===phone))throw Error('Contato não encontrado.');
+  if(!phone)throw Error('Telefone inválido.');
+  const correspondencias=contatos.records.filter(x=>v3_fone_(x.TELEFONE_NORMALIZADO)===phone);
+  if(!correspondencias.length)throw Error('Contato não encontrado.');
+  if(correspondencias.length>1)throw Error('Telefone com cadastros duplicados. Resolva o conflito antes de vincular.');
   if(!origens.records.some(x=>x.ID_ORIGEM===origem&&x.STATUS==='ATIVO'))throw Error('Origem inválida.');
   if(vinc.records.some(x=>v3_fone_(x.TELEFONE_NORMALIZADO)===phone&&x.ID_ORIGEM===origem))
    return v3_resposta_('OK',{},'Origem já vinculada.');

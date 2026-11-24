@@ -369,3 +369,37 @@ test('Edição direta envia apenas nome e versão, preservando demais campos',as
  assert.equal(Object.keys(t.queue[0].args[0]).length,3);
  t.queue[0].reject(Error('Falha simulada'));await task;assert.equal(btn.disabled,false);
 });
+
+test('Prévia permite complementar somente nomes Google e mostra conflitos preservados',async()=>{
+ const t=setup();t.elem('csv-texto').value='LAB Pessoa;98991234567';t.elem('csv-origem').value='G1';
+ const task=t.context.analisarImportacao();
+ t.queue[0].resolve({status:'OK',dados:{novos:0,repetidos:1,invalidos:0,novosVinculos:0,complementosGoogle:1,conflitos:1}});
+ await task;assert.equal(t.elem('csv-confirmar').disabled,false);
+ assert.match(t.elem('csv-resultado').textContent,/1 nomes Google a complementar/);
+ assert.match(t.elem('csv-resultado').textContent,/1 conflitos/);
+});
+
+test('Importação em lotes usa a origem confirmada e impede nova análise concorrente',async()=>{
+ const t=setup();t.elem('csv-origem').value='G1';
+ t.elem('csv-texto').value=Array.from({length:301},(_,i)=>'LAB Pessoa '+i+';98991'+String(i).padStart(6,'0')).join('\n');
+ const p=t.context.analisarImportacao();
+ t.queue[0].resolve({status:'OK',dados:{novos:300,repetidos:0,invalidos:0,novosVinculos:300}});
+ await flush();t.queue[1].resolve({status:'OK',dados:{novos:1,repetidos:0,invalidos:0,novosVinculos:1}});
+ await p;
+ const importing=t.context.confirmarImportacao();
+ assert.equal(t.queue[2].args[0].origemId,'G1');assert.equal(t.elem('csv-origem').disabled,true);
+ t.elem('csv-origem').value='G2';t.context.invalidarPreviaImportacao();await t.context.analisarImportacao();
+ assert.equal(t.queue.length,3);
+ t.queue[2].resolve({status:'OK',dados:{gravados:300,repetidos:0,novosVinculos:300}});
+ await flush();assert.equal(t.queue[3].args[0].origemId,'G1');
+ t.queue[3].resolve({status:'OK',dados:{gravados:1,repetidos:0,novosVinculos:1}});
+ await importing;
+ assert.equal(t.elem('csv-origem').disabled,false);assert.equal(t.elem('csv-confirmar').disabled,true);
+ assert.match(t.elem('csv-resultado').textContent,/301 novos contatos/);
+});
+test('Conflito de identidade não permite abrir WhatsApp mesmo sem flag genérica de bloqueio',()=>{
+ const s=setup(),c={...base,conflitoIdentidade:true,bloqueado:false};
+ s.context.abrirMensagemRapida(c);
+ assert.equal(s.opened.length,0);
+ assert.match(s.context.motivoBloqueioConvite(c,c.etapa,c.situacao),/conflitante/);
+});

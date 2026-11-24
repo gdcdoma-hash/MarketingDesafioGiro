@@ -793,3 +793,33 @@ test('Nome manual tem prioridade visual sem alterar nome original do Portal',()=
  const a=c.ctx.v3_contatos({busca:'LAB Apelido'}).dados.registros[0];
  assert.equal(a.nome,'LAB Apelido');assert.equal(a.nomePortal,'Pessoa Teste Bike');
 });
+
+test('Duplicados na base ficam bloqueados na fila e não recebem vínculos ambíguos',()=>{
+ const c=context(),phone='5598991234501',t=c.fixtures.mark.Relacionamento_Contatos;
+ t.push(t[1].slice());
+ const all=c.ctx.v3_contatos({busca:phone}).dados;
+ assert.equal(all.total,2);assert.ok(all.registros.every(r=>r.bloqueado&&r.conflitoIdentidade));
+ assert.equal(c.ctx.v3_contatos({}).dados.registros.some(r=>r.telefone===phone),false);
+ assert.equal(all.indicadores.BLOQUEADOS,3);
+ const dados={registros:[{nome:'LAB Duplicado',telefone:phone}],origemId:'O1',confirmarFicticio:true};
+ assert.equal(c.ctx.v3_analisarImportacao(dados).dados.conflitos,1);
+ const before=c.updates;
+ const done=c.ctx.v3_confirmarImportacao(dados).dados;
+ assert.equal(done.gravados,0);assert.equal(done.novosVinculos,0);assert.equal(c.updates,before);
+ assert.throws(()=>c.ctx.v3_vincularOrigem({telefone:phone,origemId:'O1'}),/duplicados/);
+});
+test('Agenda Google complementa nome próprio da fonte sem substituir nome manual ou Portal',()=>{
+ const c=context(),phone='5598991234502',t=c.fixtures.mark.Relacionamento_Contatos;
+ t[2][contHeader.indexOf('NOME_CONTATO')]='LAB Nome Manual';
+ const id=c.ctx.v3_novaOrigem({nome:'Agenda Google LAB',tipo:'GOOGLE_CONTATOS'}).dados.id;
+ const dados={registros:[{nome:'LAB Nome Google',telefone:phone},{nome:'LAB Google Novo',telefone:'5598991234599'}],origemId:id,confirmarFicticio:true};
+ const before=c.updates,preview=c.ctx.v3_analisarImportacao(dados).dados;
+ assert.equal(preview.complementosGoogle,1);assert.equal(preview.novos,1);assert.equal(c.updates,before);
+ const done=c.ctx.v3_confirmarImportacao(dados).dados;
+ assert.equal(done.complementosGoogle,1);assert.equal(done.novosVinculos,2);assert.equal(done.gravados,1);
+ const old=c.ctx.v3_contatos({busca:phone}).dados.registros[0];
+ assert.equal(old.nome,'LAB Nome Manual');assert.equal(old.nomePortal,'Pessoa Teste Caminhada');assert.equal(old.nomeGoogle,'LAB Nome Google');
+ const novo=c.ctx.v3_contatos({busca:'5598991234599'}).dados.registros[0];
+ assert.equal(novo.nome,'LAB Google Novo');assert.equal(novo.nomeContato,'');
+ const after=c.updates;assert.equal(c.ctx.v3_confirmarImportacao(dados).dados.complementosGoogle,0);assert.equal(c.updates,after);
+});
