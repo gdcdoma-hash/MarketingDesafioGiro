@@ -369,3 +369,12 @@ test('Edição direta envia apenas nome e versão, preservando demais campos',as
  assert.equal(Object.keys(t.queue[0].args[0]).length,3);
  t.queue[0].reject(Error('Falha simulada'));await task;assert.equal(btn.disabled,false);
 });
+
+test('Prévia permite complementar somente nomes Google e mostra conflitos preservados',async()=>{
+ const t=setup();t.elem('csv-texto').value='LAB Pessoa;98991234567';t.elem('csv-origem').value='G1';
+ const task=t.context.analisarImportacao();
+ t.queue[0].resolve({status:'OK',dados:{novos:0,repetidos:1,invalidos:0,novosVinculos:0,complementosGoogle:1,conflitos:1}});
+ await task;assert.equal(t.elem('csv-confirmar').disabled,false);
+ assert.match(t.elem('csv-resultado').textContent,/1 nomes Google a complementar/);
+ assert.match(t.elem('csv-resultado').textContent,/1 conflitos/);
+});

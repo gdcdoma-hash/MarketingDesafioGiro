@@ -106,11 +106,12 @@ function v3_resumoEtapas_(contatos,hoje){
  const cards={PARA_CONTATAR:0,AGUARDANDO_RESPOSTA:0,EM_CONVERSA:0,RETORNAR_DEPOIS:0,
   FINALIZADO:0,NAO_CONTATAR:0,BLOQUEADOS:0,RETORNAR_HOJE:0};
  contatos.forEach(c=>{
-  if(Object.prototype.hasOwnProperty.call(cards,c.ETAPA))cards[c.ETAPA]++;
-  const bloqueado=v3_bloqueadoContato_(c);
+  const etapa=c.etapa||c.ETAPA;
+  if(Object.prototype.hasOwnProperty.call(cards,etapa))cards[etapa]++;
+  const bloqueado=!!c.bloqueado||v3_bloqueadoContato_(c);
   if(bloqueado)cards.BLOQUEADOS++;
-  if(!bloqueado&&c.ETAPA==='RETORNAR_DEPOIS'){
-   const data=v3_dataISO_(c.DATA_PROXIMO_RETORNO);
+  if(!bloqueado&&etapa==='RETORNAR_DEPOIS'){
+   const data=v3_dataISO_(c.retorno||c.DATA_PROXIMO_RETORNO);
    if(data&&data<=hoje)cards.RETORNAR_HOJE++;
   }
  });
@@ -131,11 +132,13 @@ function v3_contatos(filtros){
  if(!['TODOS','PADRAO',...V3_ETAPAS].includes(etapa))throw Error('Etapa inválida.');
  if(!['TODOS',...V3_SITUACOES].includes(situacao))throw Error('Situação inválida.');
  if(!['TODOS','CICLISMO','CAMINHADA_CORRIDA','AMBOS','NAO_IDENTIFICADO'].includes(sport))throw Error('Esporte inválido.');
+ const frequencias=new Map();
+ for(const c of tab.records){const tel=v3_fone_(c.TELEFONE_NORMALIZADO);if(tel)frequencias.set(tel,(frequencias.get(tel)||0)+1);}
  const todos=tab.records.map(c=>{
   const tel=v3_fone_(c.TELEFONE_NORMALIZADO);
   const ids=origens.vinculos[tel]||[];
   const portalIds=idx.idsPorTelefone[tel]||[];
-  const conflito=portalIds.length>1||(portalIds.length===1&&!!c.ID_DGMB&&c.ID_DGMB!==portalIds[0]);
+  const conflito=(frequencias.get(tel)||0)>1||portalIds.length>1||(portalIds.length===1&&!!c.ID_DGMB&&c.ID_DGMB!==portalIds[0]);
   return {
    telefone:tel,exibicao:c.TELEFONE_EXIBICAO||tel,
    idDgmb:conflito?'':(c.ID_DGMB||portalIds[0]||''),
@@ -149,7 +152,7 @@ function v3_contatos(filtros){
    perfil:v3_classificarContato_(c,idx),observacao:c.OBSERVACAO||'',
    versao:v3_versaoContato_(c),
    retorno:v3_dataISO_(c.DATA_PROXIMO_RETORNO),
-   bloqueado:v3_bloqueadoContato_(c)||conflito,idsOrigens:ids,
+   bloqueado:!tel||v3_bloqueadoContato_(c)||conflito,idsOrigens:ids,
    origens:[...new Set([...ids.map(id=>origens.nomes[id]).filter(Boolean),...(portalIds.length===1&&!conflito?['Portal Giro']:[])])],
    ordem:c.__linha
   };
@@ -179,7 +182,7 @@ function v3_contatos(filtros){
  return v3_resposta_('OK',{
    registros:filtrados.slice((actual-1)*count,actual*count).map(({ordem,idsOrigens,...c})=>c),
    total:total,pagina:actual,paginas:paginas,
-   indicadores:v3_resumoEtapas_(tab.records,hoje),origens:origens.opcoes,
+   indicadores:v3_resumoEtapas_(todos,hoje),origens:origens.opcoes,
    edicao:b.config.edicao,ambiente:b.config.ambiente
  });
 }
@@ -319,7 +322,7 @@ function v3_novaOrigem(dados){
   const tab=v3_tabela_(b,'Relacionamento_Origens',
     ['ID_ORIGEM','NOME_ORIGEM','TIPO_ORIGEM','STATUS','DATA_CADASTRO','OBSERVACAO']);
   const nome=v3_texto_(dados&&dados.nome),tipo=v3_texto_(dados&&dados.tipo).toUpperCase();
-  if(!nome||nome.length>120||!['GRUPO_WHATSAPP','LOJA','EVENTO','LISTA_MANUAL','OUTRO'].includes(tipo))
+  if(!nome||nome.length>120||!['GRUPO_WHATSAPP','GOOGLE_CONTATOS','LOJA','EVENTO','LISTA_MANUAL','OUTRO'].includes(tipo))
    throw Error('Nome ou tipo de origem inválido.');
   if(tab.records.some(r=>v3_normal_(r.NOME_ORIGEM)===v3_normal_(nome)))throw Error('Origem já cadastrada.');
   const id='ORG_'+Utilities.getUuid().replace(/-/g,'').slice(0,12).toUpperCase();
