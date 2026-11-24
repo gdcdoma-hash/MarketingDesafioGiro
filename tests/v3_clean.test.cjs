@@ -1,0 +1,878 @@
+'use strict';
+const test=require('node:test'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),cp=require('node:child_process');
+const root=path.resolve(__dirname,'..'),app=path.join(root,'v3');
+const file=name=>fs.readFileSync(path.join(app,name),'utf8');
+const ids={
+  lm:'1bHR_mjL4vrVOTv-szVd__X3sgM0k4zhBe947I3hZcgE',
+  lp:'1pVIcTNdZN8yuEqyQ_WQ_aNfWzc9Wq8HcFFaMoye3dMM',
+  pm:'1znhdMCmPsMZ6viMJtWl2wXg3G7yWh-0Xu0M8IcJ-9ao',
+  pp:'1h9Rlk5WbsuuaJLPcmSd6CpglP23XkhXY1bo9dON2stQ'
+};
+const contHeader=['TELEFONE_NORMALIZADO','TELEFONE_EXIBICAO','ID_DGMB','NOME_PORTAL','NOME_CONTATO','CIDADE_UF_PORTAL',
+ 'CIDADE','UF','ETAPA','RESULTADO','VALIDADE','E_CICLISTA','MODALIDADE','DATA_PRIMEIRA_IMPORTACAO','DATA_ULTIMA_IMPORTACAO',
+ 'DATA_ANALISE','DATA_PRIMEIRA_MENSAGEM','DATA_ULTIMA_INTERACAO','DATA_PROXIMO_RETORNO','QUANTIDADE_TENTATIVAS',
+ 'EXPORTACAO_GOOGLE_STATUS','DATA_ULTIMA_EXPORTACAO','OBSERVACAO','ATUALIZADO_EM','NOME_GOOGLE_CONTATOS','SITUACAO'];
+const makeRow=(h,record)=>h.map(k=>record[k]||'');
+function fixtures(){
+ const mark={
+  Marketing:[
+   ['REF','ID_DGMB','NOME_ORIGEM','TIPO','STATUS'],
+   ['LAB_BIKE','','Canal Bike LAB','APOIADOR','ATIVO'],
+   ['LAB_PASSOS','','Canal Passos LAB','APOIADOR','ATIVO']
+  ],
+  Relacionamento_Contatos:[contHeader,
+   ...[
+    {TELEFONE_NORMALIZADO:'5598991234501',TELEFONE_EXIBICAO:'(98) 99123-4501',ID_DGMB:'LAB01',NOME_PORTAL:'Pessoa Teste Bike',
+      ETAPA:'PARA_CONTATAR',SITUACAO:'PODE_CONTATAR'},
+    {TELEFONE_NORMALIZADO:'5598991234502',TELEFONE_EXIBICAO:'(98) 99123-4502',ID_DGMB:'LAB02',NOME_PORTAL:'Pessoa Teste Caminhada',
+      ETAPA:'PARA_CONTATAR',SITUACAO:'PODE_CONTATAR'},
+    {TELEFONE_NORMALIZADO:'5598991234503',TELEFONE_EXIBICAO:'(98) 99123-4503',ID_DGMB:'LAB03',NOME_PORTAL:'Pessoa Teste Ambas',
+      ETAPA:'PARA_CONTATAR',SITUACAO:'PODE_CONTATAR'},
+    {TELEFONE_NORMALIZADO:'5598991234504',TELEFONE_EXIBICAO:'(98) 99123-4504',ID_DGMB:'LAB04',NOME_PORTAL:'Pessoa Teste Nao Contatar',
+      ETAPA:'NAO_CONTATAR',SITUACAO:'NAO_DESEJA_CONTATO'}
+   ].map(x=>makeRow(contHeader,x))],
+  Relacionamento_Origens:[['ID_ORIGEM','NOME_ORIGEM','TIPO_ORIGEM','STATUS','DATA_CADASTRO','OBSERVACAO'],
+   ['O1','Equipe fictícia','LISTA_MANUAL','ATIVO','','']],
+  Relacionamento_ContatoOrigens:[['TELEFONE_NORMALIZADO','ID_ORIGEM','DATA_PRIMEIRA_IDENTIFICACAO','DATA_ULTIMA_IDENTIFICACAO','QUANTIDADE_OCORRENCIAS'],
+   ['5598991234501','O1','','',1]],
+  Relacionamento_Historico:[['ID_EVENTO','TELEFONE_NORMALIZADO','TIPO_EVENTO','DATA_HORA','VALOR_ANTERIOR','VALOR_NOVO','DETALHE','USUARIO']],
+ };
+ const portal={
+  DadosPessoais:[['ID_DGMB','whatsapp','nome'],
+    ['LAB01','5598991234501','Pessoa Teste Bike'],['LAB02','5598991234502','Pessoa Teste Caminhada'],
+    ['LAB03','5598991234503','Pessoa Teste Ambas'],['LAB04','5598991234504','Pessoa Teste Nao Contatar']],
+  ListaDesafios:[['id_Desafio_lista','Nome_Desafio','Tipo','Periodo','Data_Inicio','Modalidade_Esportiva'],
+    ['9001','Desafio teste ciclismo','Normal','dezembro/2026','2026-11-20','CICLISMO'],
+    ['9002','Desafio teste caminhada','Normal','dezembro/2026','2026-12-01','CAMINHADA_CORRIDA'],
+    ['9003','Desafio teste janeiro','Normal','janeiro/2027','2026-12-22','CICLISMO']],
+  dgmbDesafios:[['Timestamp','ID_DGMB','Observacao','Modalidade_Esportiva','REF_MARKETING','Status_Usuario_Desafio','Status_Desafio'],
+    ['2026-11-22','LAB01','[ID_DESAFIO:9001]','CICLISMO','LAB_BIKE','EM_ANDAMENTO','Ativo'],
+    ['2026-12-11','LAB03','[ID_DESAFIO:9001]','CICLISMO','LAB_BIKE','EM_ANDAMENTO','Ativo'],
+    ['2026-12-11','LAB02','[ID_DESAFIO:9002]','CAMINHADA_CORRIDA','LAB_PASSOS','EM_ANDAMENTO','Ativo'],
+    ['2026-12-13','LAB03','[ID_DESAFIO:9002]','CAMINHADA_CORRIDA','','EM_ANDAMENTO','Ativo'],
+    ['2026-12-21','LAB02','[ID_DESAFIO:9002]','','LAB_BIKE','CANCELADO','Ativo'],
+    ['2026-12-22','LAB01','[ID_DESAFIO:9003]','','NAO_CADASTRADA','EM_ANDAMENTO','Ativo']
+  ]
+ };
+ return {mark,portal};
+}
+function context(env='LAB',edit='',f=fixtures(),cacheStore=null){
+ const props={
+  DG_AMBIENTE:env,DG_MARKETING_SPREADSHEET_ID:env==='LAB'?ids.lm:ids.pm,
+  DG_PORTAL_SPREADSHEET_ID:env==='LAB'?ids.lp:ids.pp,
+  DG_PROD_EDICAO_LIBERADA:edit,METAS_MARKETING_V2:'{}'
+ };
+ let updates=0,uuid=0;
+ function book(id,sets){
+  return {getId:()=>id,getSheetByName(name){
+   const values=sets[name];if(!values)return null;
+   return {getDataRange(){return {getDisplayValues(){return values}};},
+     getRange(row,col){
+      return {
+       setValue(value){updates++;values[row-1][col-1]=String(value);return this;},
+       setValues(matrix){updates++;matrix.forEach((r,i)=>{values[row-1+i]=r.map(v=>String(v));});return this;}
+      };
+     },
+     appendRow(row){updates++;values.push(row.map(v=>String(v)));},
+     getLastRow(){return values.length;}
+   };
+  }};
+ }
+ const ctx=vm.createContext({
+  ...(cacheStore ? {CacheService:{getScriptCache(){return {
+    get(key){return cacheStore.get(key)||null;},
+    put(key,value){cacheStore.set(key,value);}
+  };}}} : {}),
+  PropertiesService:{getScriptProperties(){return {
+   getProperty(k){return props[k]||'';},
+   getProperties(){return {...props};},
+   setProperty(k,v){props[k]=v;updates++;},
+   setProperties(values){Object.assign(props,values);updates++;}
+  }}},
+  SpreadsheetApp:{openById(id){
+   if(id===ids.lm||id===ids.pm)return book(id,f.mark);
+   if(id===ids.lp||id===ids.pp)return book(id,f.portal);
+   throw Error('unexpected spreadsheet id');
+  }},
+  LockService:{getScriptLock(){return {waitLock(){},releaseLock(){}};}},
+  Utilities:{getUuid(){return 'test-uuid-'+(++uuid)},formatDate(){return '2026-12-12'}},
+  Session:{getEffectiveUser(){return {getEmail(){return 'lab@example.test'}}},
+   getScriptTimeZone(){return 'America/Fortaleza';}}
+ });
+ for(const name of ['Config.gs','Marketing.gs','Relacionamento.gs','Importacao.gs']){
+  vm.runInContext(file(name),ctx,{filename:name});
+ }
+ return {ctx,props,fixtures:f,get updates(){return updates}};
+}
+function versaoContato(c,telefone){
+ const tab=c.ctx.v3_tabela_(c.ctx.v3_bases_().marketing,'Relacionamento_Contatos',['TELEFONE_NORMALIZADO']);
+ const record=tab.records.find(v=>c.ctx.v3_fone_(v.TELEFONE_NORMALIZADO)===telefone);
+ assert.ok(record,'Contato deve existir antes da edição');
+ return c.ctx.v3_versaoContato_(record);
+}
+test('LAB usa só duas planilhas fictícias autorizadas',()=>{
+ const c=context();assert.equal(c.ctx.v3_config_().ambiente,'LAB');
+ assert.equal(c.ctx.v3_config_().edicao,true);
+ c.props.DG_MARKETING_SPREADSHEET_ID=ids.pm;
+ assert.throws(()=>c.ctx.v3_config_(),/LAB deve usar/);
+});
+test('PROD começa bloqueado para qualquer mudança',()=>{
+ const c=context('PROD');assert.equal(c.ctx.v3_config_().edicao,false);
+ assert.throws(()=>c.ctx.v3_salvarMetas({periodo:'dezembro/2026',geral:100,desafios:{}}),/somente leitura/);
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',situacao:'PODE_CONTATAR'}),/somente leitura/);
+ assert.throws(()=>c.ctx.v3_registrarDivulgador({nome:'X',tipo:'OUTRO'}),/somente leitura/);
+ assert.equal(c.updates,0);
+});
+test('Marketing conta pela competência e exclui canceladas, sem inventar REF',()=>{
+ const c=context(),d=c.ctx.v3_painel('dezembro/2026','').dados;
+ assert.equal(d.total,4);assert.equal(d.atribuido,3);
+ assert.equal(d.direto,1);assert.equal(d.naoCadastrada,0);
+ assert.equal(d.desafios.length,2);
+ assert.equal(c.ctx.v3_painel('dezembro/2026','9001').dados.total,2);
+ assert.equal(c.ctx.v3_painel('dezembro/2026','9002').dados.total,2);
+ assert.equal(c.ctx.v3_painel('dezembro/2026','9003').dados.total,0);
+ assert.equal(c.ctx.v3_painel('dezembro/2026','9003').dados.invalido,true);
+ const jan=c.ctx.v3_painel('janeiro/2027','').dados;
+ assert.equal(jan.total,1);assert.equal(jan.naoCadastrada,1);
+ assert.equal(c.updates,0);
+});
+test('Metas são isoladas por mês, zero é válido e desafio errado falha',()=>{
+ const c=context();
+ let a=c.ctx.v3_salvarMetas({periodo:'dezembro/2026',geral:0,desafios:{9001:50,9002:30}});
+ assert.equal(a.status,'OK');assert.equal(c.ctx.v3_painel('dezembro/2026','').dados.meta,0);
+ assert.equal(c.ctx.v3_painel('dezembro/2026','9001').dados.meta,50);
+ assert.equal(c.ctx.v3_painel('janeiro/2027','').dados.meta,200);
+ assert.throws(()=>c.ctx.v3_salvarMetas({periodo:'dezembro/2026',geral:10,desafios:{9003:8}}),/não pertence/);
+});
+test('Referências podem ser cadastradas sem gravar no Portal',()=>{
+ const c=context(),n=c.fixtures.mark.Marketing.length;
+ const r=c.ctx.v3_registrarDivulgador({nome:'Equipe Teste',tipo:'APOIADOR'});
+ assert.equal(r.status,'OK');assert.equal(c.fixtures.mark.Marketing.length,n+1);
+ assert.match(r.dados.ref,/^\d+$/);
+ assert.throws(()=>c.ctx.v3_registrarDivulgador({ref:'=HYPERLINK',nome:'Evil',tipo:'OUTRO'}),/REF inválida/);
+ const status=c.ctx.v3_alterarDivulgador('LAB_BIKE','INATIVO');
+ assert.equal(status.status,'OK');
+ assert.equal(c.fixtures.mark.Marketing[1][4],'INATIVO');
+});
+test('Relacionamento filtra esportes, permite ambos e preserva não contatar',()=>{
+ const c=context(),all=c.ctx.v3_contatos({etapa:'TODOS'}).dados;
+ assert.equal(all.total,4);
+ assert.equal(all.indicadores.PARA_CONTATAR,3);
+ assert.equal(all.indicadores.NAO_CONTATAR,1);
+ assert.equal(c.ctx.v3_contatos({}).dados.total,3);
+ const bike=c.ctx.v3_contatos({etapa:'TODOS',esporte:'CICLISMO'}).dados.registros;
+ assert.equal(bike.length,2);
+ assert.ok(bike.some(x=>x.nome==='Pessoa Teste Ambas'&&x.perfil==='AMBOS'));
+ const run=c.ctx.v3_contatos({etapa:'TODOS',esporte:'CAMINHADA_CORRIDA'}).dados.registros;
+ assert.equal(run.length,2);
+ assert.equal(c.ctx.v3_contatos({etapa:'TODOS',busca:'4502'}).dados.total,1);
+});
+test('Edição de contato gera histórico sem alterar planilha do Portal',()=>{
+ const c=context(),b=c.fixtures.portal.dgmbDesafios.length;
+ c.ctx.v3_salvarContato({telefone:'5598991234501',versao:versaoContato(c,'5598991234501'),etapa:'RETORNAR_DEPOIS',retorno:'2026-12-27',
+  situacao:'PODE_CONTATAR',observacao:'Contatar após o evento'});
+ assert.equal(c.fixtures.mark.Relacionamento_Contatos[1][8],'RETORNAR_DEPOIS');
+ assert.equal(c.fixtures.mark.Relacionamento_Contatos[1][18],'2026-12-27');
+ assert.ok(c.fixtures.mark.Relacionamento_Historico.length>=2);
+ assert.equal(c.fixtures.portal.dgmbDesafios.length,b);
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',versao:versaoContato(c,'5598991234501'),etapa:'RETORNAR_DEPOIS'}),/data/);
+});
+test('Atribuição da REF é numérica ou alfanumérica e sem fórmula',()=>{
+ const c=context();
+ assert.equal(c.ctx.v3_ref_('LAB_123'),'LAB_123');
+ assert.equal(c.ctx.v3_ref_('1145'),'1145');
+ assert.equal(c.ctx.v3_ref_('=IMPORTXML("x")'),'');
+ assert.equal(c.ctx.v3_ref_('__proto__'),'__proto__');
+});
+test('Pacote v3 é limpo e não possui serviços antigos ou projeto anterior',()=>{
+ const script=path.join(root,'scripts/preparar-v3-limpa.cjs');
+ const run=args=>cp.spawnSync(process.execPath,[script,...args],{cwd:root,encoding:'utf8'});
+ const dry=run(['--dry-run']);
+ assert.equal(dry.status,0,dry.stderr);assert.match(dry.stdout,/6 arquivos/);
+ const old=run(['--script-id=1qOTRjWCldsxcu2cRa_nNzZPhoUHFO_NoEcCs0IQcItK7a87yR1tcTHYk',
+  '--confirm-new-project=SIM']);
+ assert.notEqual(old.status,0);assert.match(old.stderr,/bloqueado/);
+ const id='1V3_NOVO_'+'X'.repeat(32);
+ const build=run(['--script-id='+id,'--confirm-new-project=SIM']);
+ assert.equal(build.status,0,build.stderr);
+ const m=build.stdout.match(/PACOTE LIMPO V3: ([^\r\n]+)/);
+ assert.ok(m);
+ const dir=path.resolve(m[1]);
+ try {
+  assert.ok(fs.existsSync(path.join(dir,'.clasp.json')));
+  const files=fs.readdirSync(dir).sort();
+  assert.deepEqual(files,['.clasp.json','Config.gs','Importacao.gs','Index.html','Marketing.gs','Relacionamento.gs','appsscript.json']);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir,'.clasp.json'),'utf8')).scriptId,id);
+  assert.ok(!files.includes('MigracaoBaseMarketingRelacionamento.js'));
+ }finally{
+  if(path.dirname(dir)===path.join(root,'build')&&path.basename(dir).startsWith('v3-clean-'))
+   fs.rmSync(dir,{force:true,recursive:true});
+ }
+});
+
+test('CSV/contatos: pré-análise não grava, duplica nem substitui a agenda',()=>{
+ const c=context();const before=c.updates;
+ const dados={confirmarFicticio:true,registros:[
+  {nome:'LAB João Novo',telefone:'98991234577',cidade:'Cidade Fictícia',uf:'MA'},
+  {nome:'LAB Outra Pessoa',telefone:'5598991234501',cidade:'',uf:'MA'},
+  {nome:'LAB Duplicado no lote',telefone:'5598991234577',cidade:'',uf:'MA'},
+  {nome:'LAB Invalido',telefone:'123'}
+ ]};
+ const preview=c.ctx.v3_analisarImportacao(dados).dados;
+ assert.equal(preview.total,4);
+ assert.equal(preview.novos,1);
+ assert.equal(preview.repetidos,2);
+ assert.equal(preview.invalidos,1);
+ assert.equal(c.updates,before,'A prévia nunca grava dados');
+ assert.throws(()=>c.ctx.v3_confirmarImportacao(dados),/Corrija/);
+ const fix={registros:dados.registros.slice(0,3),origemId:'O1',confirmarFicticio:true};
+ const done=c.ctx.v3_confirmarImportacao(fix).dados;
+ assert.equal(done.gravados,1);
+ assert.equal(done.repetidos,2);
+ assert.ok(c.fixtures.mark.Relacionamento_Contatos.some(x=>x[0]==='5598991234577'));
+ assert.equal(c.fixtures.mark.Relacionamento_ContatoOrigens.length,3);
+ assert.ok(c.updates>before);
+ const back=c.ctx.v3_contatos({etapa:'TODOS',busca:'91234577'}).dados;
+ assert.equal(back.total,1);
+});
+test('Importação e vínculo são bloqueados por padrão em produção',()=>{
+ const c=context('PROD');
+ assert.throws(()=>c.ctx.v3_confirmarImportacao({registros:[]}),/somente leitura/);
+ assert.throws(()=>c.ctx.v3_vincularOrigem({telefone:'5598991234501',origemId:'O1'}),/somente leitura/);
+ const p=c.ctx.v3_analisarImportacao({registros:[{nome:'Novo',telefone:'98991234587'}]}).dados;
+ assert.equal(p.novos,1);
+ assert.equal(c.updates,0);
+});
+test('Vínculo com origem evita duplicação e o histórico é consultável',()=>{
+ const c=context();
+ const old=c.ctx.v3_vincularOrigem({telefone:'5598991234501',origemId:'O1'});
+ assert.match(old.mensagem,/já vinculada/);
+ c.ctx.v3_salvarContato({telefone:'5598991234501',versao:versaoContato(c,'5598991234501'),etapa:'EM_CONVERSA'});
+ const r=c.ctx.v3_historicoContato('5598991234501');
+ assert.equal(r.status,'OK');
+ assert.ok(r.dados.eventos.some(x=>x.tipo==='ETAPA'));
+});
+test('HTML de dois módulos não inclui serviço legado ou envio automático',()=>{
+ const source=file('Index.html');
+ for(const x of ['Marketing','Relacionamento','v3_analisarImportacao','v3_confirmarImportacao',
+  'v3_historicoContato','v3_vincularOrigem','v3_painel','v3_contatos']){
+  assert.ok(source.includes(x),x);
+ }
+ assert.match(source,/state\.opt\.ambiente==='LAB'/);
+ assert.doesNotMatch(source,/messages\.send|\.sendMessage\(/i);
+ const script=source.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+ assert.ok(script);
+ assert.doesNotThrow(()=>new vm.Script(script.replace(/<\?=[^>]+?\?>/g,"LAB")));
+});
+
+test('Telefone local DDD 55 recebe DDI e não é confundido com código de país',()=>{
+ const c=context();
+ assert.equal(c.ctx.v3_fone_('55 9 9123-4567'),'5555991234567');
+ assert.equal(c.ctx.v3_fone_('+55 55 99123-4567'),'5555991234567');
+ assert.equal(c.ctx.v3_fone_('98 99123-4501'),'5598991234501');
+});
+test('Ciclista confirmado manualmente pode ser reconhecido sem inscrição histórica',()=>{
+ const c=context(),idx=c.ctx.v3_indiceEsportivo_(c.ctx.v3_bases_().portal);
+ assert.equal(c.ctx.v3_classificarContato_({ID_DGMB:'SEM_INSCRICAO',
+  TELEFONE_NORMALIZADO:'5598888888888',MODALIDADE:'NAO_INFORMADO',
+  E_CICLISTA:'SIM'},idx),'CICLISMO');
+ assert.equal(c.ctx.v3_classificarContato_({ID_DGMB:'SEM_INSCRICAO',
+  TELEFONE_NORMALIZADO:'5598888888888',MODALIDADE:'NAO_INFORMADO',
+  E_CICLISTA:'NAO_CONFIRMADO'},idx),'NAO_IDENTIFICADO');
+});
+test('Nomes iniciados por fórmula são gravados como texto em planilha, nunca interpretados',()=>{
+ const c=context('PROD','SIM');
+ c.ctx.v3_confirmarImportacao({registros:[{telefone:'98991234688',nome:'=IMPORTXML("https://x","/")',cidade:'Cidade Teste',uf:'MA'}]});
+ const row=c.fixtures.mark.Relacionamento_Contatos.at(-1);
+ assert.match(row[4],/^'=IMPORTXML/);
+ assert.equal(c.ctx.v3_ref_('+1'),'');
+});
+
+test('Autoteste de aceite V3 confirma competência de dezembro e janeiro sem gravação',()=>{
+ const f=fixtures();
+ const cH=f.portal.dgmbDesafios[0];
+ const make=(stamp,id,challenge,mode,ref)=>[
+  stamp,id,'[ID_DESAFIO:'+challenge+']',mode,ref,'EM_ANDAMENTO','Ativo'
+ ];
+ f.portal.dgmbDesafios=[
+  cH,
+  make('2026-11-23','LAB01','9001','CICLISMO','LAB_BIKE'),
+  make('2026-12-02','LAB02','9002','CAMINHADA_CORRIDA','LAB_PASSOS'),
+  make('2026-11-26','LAB03','9001','CICLISMO','LAB_BIKE'),
+  make('2026-12-04','LAB03','9002','CAMINHADA_CORRIDA','LAB_PASSOS'),
+  make('2026-12-20','LAB01','9003','CICLISMO','LAB_BIKE')
+ ];
+ const c=context('LAB','',f);
+ const logs=[];c.ctx.console={log:msg=>logs.push(msg)};
+ const before=c.updates;
+ const result=c.ctx.v3_lab_aceite();
+ assert.equal(result.status,'OK',JSON.stringify(result));
+ assert.equal(result.total,13);
+ assert.equal(result.aprovadas,13);
+ assert.deepEqual(Object.keys(result).sort(),['ambiente','aprovadas','status','total','verificacoes'].sort());
+ assert.equal(logs.at(-1),'Aceite LAB: 13/13 verificações aprovadas.');
+ assert.equal(c.updates,before,'Autoteste não altera planilhas nem Script Properties');
+ // Reproduz a massa real do LAB: uma segunda recusa registrada em teste anterior.
+ const t=f.mark.Relacionamento_Contatos,etapa=contHeader.indexOf('ETAPA'),situacao=contHeader.indexOf('SITUACAO');
+ t[1][etapa]='NAO_CONTATAR';t[1][situacao]='NAO_DESEJA_CONTATO';
+ const repetido=c.ctx.v3_lab_aceite();
+ assert.equal(repetido.status,'OK',JSON.stringify(repetido));
+ assert.equal(repetido.aprovadas,13);
+ assert.equal(c.updates,before);
+ // Finalizado também deve permanecer fora da fila, sem virar bloqueio.
+ t[2][etapa]='FINALIZADO';
+ assert.equal(c.ctx.v3_lab_aceite().status,'OK');
+ // Falhas simuladas do filtro precisam reprovar o aceite, sem alterar registros.
+ const listar=c.ctx.v3_contatos;
+ for(const variante of ['total','registro','sobreposicao']){
+  c.ctx.v3_contatos=filtros=>{
+   const resposta=listar(filtros),dados=resposta.dados;
+   if(filtros.somenteBloqueados&&variante==='total')dados.total++;
+   if(filtros.somenteBloqueados&&variante==='registro')dados.registros[0].bloqueado=false;
+   if(filtros.etapa==='PADRAO'&&variante==='sobreposicao')dados.registros[0].telefone=t[4][contHeader.indexOf('TELEFONE_NORMALIZADO')];
+   return resposta;
+  };
+  assert.equal(c.ctx.v3_lab_aceite().status,'FALHA',variante);
+  assert.match(logs.at(-1),/recusas/);
+ }
+ c.ctx.v3_contatos=listar;
+ // O aceite não pode passar se o contato de referência foi liberado.
+ t[4][etapa]='PARA_CONTATAR';t[4][situacao]='PODE_CONTATAR';
+ const falha=c.ctx.v3_lab_aceite();
+ assert.equal(falha.status,'FALHA');
+ assert.ok(falha.verificacoes.some(v=>!v.ok&&v.nome.includes('recusas')));
+ assert.equal(logs.at(-2),'Aceite LAB: 12/13 verificações aprovadas.');
+ assert.match(logs.at(-1),/Verificações que falharam:.*recusas/);
+ assert.equal(c.updates,before);
+ const prod=context('PROD','',f);
+ assert.throws(()=>prod.ctx.v3_lab_aceite(),/somente no LAB/);
+});
+
+test('Busca rápida encontra bloqueados e finalizados, mas fila e filtros continuam seguros',()=>{
+ const c=context();
+ const todos=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros;
+ const bloqueado=todos.find(x=>x.bloqueado);
+ assert.ok(bloqueado,'Massa LAB deve conter contato com bloqueio');
+ assert.ok(!c.ctx.v3_contatos({}).dados.registros.some(x=>x.telefone===bloqueado.telefone),
+   'Fila padrão não deve sugerir novo contato');
+ const encontrado=c.ctx.v3_contatos({busca:bloqueado.telefone}).dados;
+ assert.equal(encontrado.total,1,'Busca por telefone precisa localizar contato bloqueado');
+ assert.equal(encontrado.registros[0].bloqueado,true,'Busca não concede autorização de abordar');
+
+ const h=c.fixtures.mark.Relacionamento_Contatos[0];
+ const primeiro=c.fixtures.mark.Relacionamento_Contatos[1];
+ const tel=primeiro[h.indexOf('TELEFONE_NORMALIZADO')];
+ primeiro[h.indexOf('ETAPA')]='FINALIZADO';
+ const finalizado=c.ctx.v3_contatos({busca:tel}).dados;
+ assert.equal(finalizado.total,1,'Histórico finalizado continua localizável pela busca');
+ assert.equal(finalizado.registros[0].etapa,'FINALIZADO');
+ assert.equal(c.ctx.v3_contatos({}).dados.registros.some(x=>x.telefone===tel),false);
+ assert.equal(c.ctx.v3_contatos({busca:tel,etapa:'PARA_CONTATAR'}).dados.total,0,
+   'Filtro explícito de etapa deve continuar valendo');
+ assert.equal(c.updates,0,'Pesquisa nunca modifica registros');
+});
+test('Fila padrão exclui recusas mesmo com etapa Para Contatar',()=>{
+ const c=context();
+ const header=c.fixtures.mark.Relacionamento_Contatos[0];
+ const row=c.fixtures.mark.Relacionamento_Contatos[1];
+ row[header.indexOf('SITUACAO')]='SEM_INTERESSE';
+ assert.equal(row[header.indexOf('ETAPA')],'PARA_CONTATAR');
+ const principal=c.ctx.v3_contatos({}).dados;
+ assert.equal(principal.total,2,'Contato recusado não integra fila de ação');
+ const todos=c.ctx.v3_contatos({etapa:'TODOS'}).dados;
+ assert.equal(todos.total,4,'Contato recusado permanece para consulta e auditoria');
+ assert.equal(todos.indicadores.BLOQUEADOS,2,'Opt-out e etapa Não Contatar');
+ const impedido=todos.registros.find(r=>r.telefone==='5598991234501');
+ assert.equal(impedido.bloqueado,true);
+ assert.equal(c.updates,0,'Listagem não altera situação ou etapa');
+});
+test('Retornar hoje inclui pendentes vencidos e exclui bloqueados',()=>{
+ const c=context(), h=c.fixtures.mark.Relacionamento_Contatos[0];
+ const prazo=h.indexOf('DATA_PROXIMO_RETORNO'), etapa=h.indexOf('ETAPA'),situacao=h.indexOf('SITUACAO');
+ const um=c.fixtures.mark.Relacionamento_Contatos[1];
+ const dois=c.fixtures.mark.Relacionamento_Contatos[2];
+ const tres=c.fixtures.mark.Relacionamento_Contatos[3];
+ um[etapa]='RETORNAR_DEPOIS';um[prazo]='2026-12-10';
+ dois[etapa]='RETORNAR_DEPOIS';dois[prazo]='2026-12-12';
+ tres[etapa]='RETORNAR_DEPOIS';tres[prazo]='2026-12-08';
+ tres[situacao]='SEM_INTERESSE';
+ const res=c.ctx.v3_contatos({etapa:'TODOS'}).dados;
+ assert.equal(res.indicadores.RETORNAR_HOJE,2);
+ assert.equal(res.indicadores.BLOQUEADOS,2);
+ const pendentes=c.ctx.v3_contatos({etapa:'TODOS',retornoPendente:true}).dados;
+ assert.equal(pendentes.total,2);
+ assert.ok(pendentes.registros.every(c=>c.bloqueado===false));
+ assert.equal(c.updates,0);
+});
+test('Datas inválidas não devem virar tarefas de retorno',()=>{
+ const c=context();
+ assert.equal(c.ctx.v3_dataISO_('2026-02-29'),'');
+ assert.equal(c.ctx.v3_dataISO_('31/02/2026'),'');
+ assert.equal(c.ctx.v3_dataISO_('2026-13-01'),'');
+ assert.equal(c.ctx.v3_dataISO_('2028-02-29'),'2028-02-29');
+ assert.equal(c.ctx.v3_dataISO_('12/12/2026'),'2026-12-12');
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:'5598991234501',
+  versao:versaoContato(c,'5598991234501'),etapa:'RETORNAR_DEPOIS',retorno:'2026-02-29'}),/data/);
+ assert.equal(c.updates,before,'Não grava data impossível');
+});
+
+test('Índice esportivo não mistura dados cacheados de LAB e PROD',()=>{
+ const cache=new Map();
+ const a=context('LAB','',fixtures(),cache);
+ const bFixture=fixtures();
+ const headers=bFixture.portal.dgmbDesafios[0];
+ for(const rec of bFixture.portal.dgmbDesafios.slice(1)){
+  if(rec[headers.indexOf('ID_DGMB')]==='LAB01')
+   rec[headers.indexOf('Modalidade_Esportiva')]='CAMINHADA_CORRIDA';
+ }
+ const b=context('PROD','',bFixture,cache);
+ const pessoa={ID_DGMB:'LAB01',TELEFONE_NORMALIZADO:'5598991234501',
+  MODALIDADE:'NAO_INFORMADO'};
+ const labIndex=a.ctx.v3_indiceEsportivo_(a.ctx.v3_bases_().portal);
+ const prodIndex=b.ctx.v3_indiceEsportivo_(b.ctx.v3_bases_().portal);
+ assert.equal(a.ctx.v3_classificarContato_(pessoa,labIndex),'CICLISMO');
+ assert.equal(b.ctx.v3_classificarContato_(pessoa,prodIndex),'CAMINHADA_CORRIDA');
+ assert.equal(cache.size,2,'Cada Portal tem cache separado');
+});
+test('Ciclismo confirmado manualmente prevalece quando registro histórico é inconclusivo',()=>{
+ const c=context();
+ const resultado=c.ctx.v3_classificarContato_({
+  ID_DGMB:'LAB04',TELEFONE_NORMALIZADO:'5598991234504',
+  MODALIDADE:'NAO_INFORMADO',E_CICLISTA:'SIM'
+ },{porId:{LAB04:{bike:false,passos:false}},idsPorTelefone:{}});
+ assert.equal(resultado,'CICLISMO');
+});
+
+test('Duas sessões: versão antiga não substitui classificação mais recente',()=>{
+ const c=context(),telefone='5598991234501',versaoAntiga=versaoContato(c,telefone);
+ const primeiro=c.ctx.v3_salvarContato({telefone,versao:versaoAntiga,
+  etapa:'EM_CONVERSA',observacao:'Primeira sessão atualizou'});
+ assert.equal(primeiro.status,'OK');
+ const after=c.updates,versionNew=versaoContato(c,telefone);
+ assert.notEqual(versaoAntiga,versionNew);
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone,versao:versaoAntiga,
+  etapa:'FINALIZADO',observacao:'Sobrescrita indevida'}),/alterado após a consulta/);
+ assert.equal(c.updates,after,'Nenhuma gravação após conflito');
+ const fresh=c.ctx.v3_salvarContato({telefone,versao:versionNew,etapa:'FINALIZADO'});
+ assert.equal(fresh.status,'OK');
+});
+test('Contato em NAO_CONTATAR exige confirmação e motivo para reativação',()=>{
+ const c=context(),tel='5598991234504',v=versaoContato(c,tel),before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'PARA_CONTATAR',
+  situacao:'PODE_CONTATAR'}),/Reativação exige confirmação/);
+ assert.equal(c.updates,before,'Reativação sem autorização não grava');
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'PARA_CONTATAR',
+  situacao:'PODE_CONTATAR',autorizarReativacao:true,motivoReativacao:'sim'}),/Reativação exige confirmação/);
+ assert.equal(c.updates,before);
+ const done=c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'PARA_CONTATAR',
+  situacao:'PODE_CONTATAR',autorizarReativacao:true,
+  motivoReativacao:'Solicitação expressa registrada pelo administrador em LAB'});
+ assert.equal(done.status,'OK');
+ const hist=c.ctx.v3_historicoContato(tel).dados.eventos;
+ assert.ok(hist.some(x=>x.tipo==='REATIVACAO'),JSON.stringify(hist));
+ assert.equal(c.ctx.v3_contatos({}).dados.total,4);
+});
+test('Falha de esquema no histórico não permite alterar contato parcialmente',()=>{
+ const fake=fixtures();
+ fake.mark.Relacionamento_Historico[0]=['ID_EVENTO','TELEFONE_NORMALIZADO','TIPO_EVENTO'];
+ const c=context('LAB','',fake),tel='5598991234501',before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'EM_CONVERSA'}),/Coluna/);
+ assert.equal(c.updates,before);
+ assert.equal(fake.mark.Relacionamento_Contatos[1][8],'PARA_CONTATAR');
+});
+
+test('Autoteste V3 valida 11 condições operacionais e os cabeçalhos obrigatórios',()=>{
+ const c=context();
+ const status=c.ctx.v3_autoteste();
+ assert.equal(status.status,'OK');
+ assert.equal(status.verificacoes,11);
+ assert.equal(status.aprovadas,11);
+ assert.equal(status.totais.contatos,4);
+ assert.equal(status.totais.referencias,2);
+ const bad=fixtures();
+ bad.mark.Relacionamento_Historico[0]=['ID_EVENTO','TELEFONE_NORMALIZADO'];
+ const outro=context('LAB','',bad);
+ assert.throws(()=>outro.ctx.v3_autoteste(),/Coluna/);
+});
+test('Reserva de linhas de lote expande aba cheia sem alterar linhas anteriores',()=>{
+ const c=context();
+ let max=1000,insertCalls=0;
+ const fake={
+  getLastRow(){return 1000;},
+  getMaxRows(){return max;},
+  insertRowsAfter(index,quantity){
+   assert.equal(index,1000);
+   assert.equal(quantity,4);
+   insertCalls++;
+   max+=quantity;
+  }
+ };
+ const first=c.ctx.v3_prepararEspaco_(fake,4);
+ assert.equal(first,1001);
+ assert.equal(insertCalls,1);
+ assert.equal(max,1004);
+ assert.throws(()=>c.ctx.v3_prepararEspaco_(fake,0),/Quantidade/);
+});
+test('Histórico registra nome, observação e retorno sem copiar seu conteúdo',()=>{
+ const c=context(),phone='5598991234501';
+ const inicio=c.fixtures.mark.Relacionamento_Historico.length;
+ const version=versaoContato(c,phone);
+ c.ctx.v3_salvarContato({
+  telefone:phone,versao:version,nomeContato:'Nome Manual Atualizado',
+  observacao:'Uma anotação privada que não deve entrar no histórico',
+  etapa:'RETORNAR_DEPOIS',retorno:'2026-12-30'
+ });
+ const hist=c.ctx.v3_historicoContato(phone).dados.eventos;
+ for(const tipo of ['ETAPA','NOME_CONTATO','OBSERVACAO','RETORNO'])
+  assert.ok(hist.some(x=>x.tipo===tipo),'Histórico deve incluir '+tipo);
+ assert.ok(c.fixtures.mark.Relacionamento_Historico.length>inicio);
+ assert.equal(JSON.stringify(hist).includes('Uma anotação privada'),false);
+});
+
+test('Instalador seguro pode validar pacote sem fazer push ou criar projeto',()=>{
+ const script=path.join(root,'scripts/instalar-v3-lab.cjs');
+ const run=args=>cp.spawnSync(process.execPath,[script,...args],{cwd:root,encoding:'utf8'});
+ const dry=run(['--dry-run']);
+ assert.equal(dry.status,0,dry.stderr);
+ assert.match(dry.stdout,/Nenhum projeto criado ou enviado/);
+ const noConfirm=run([]);
+ assert.notEqual(noConfirm.status,0);
+ assert.match(noConfirm.stderr,/confirmar-novo-lab=SIM/);
+});
+test('Configuração automática do LAB exige projeto sem propriedades prévias',()=>{
+ const c=context();
+ // Projeto novo não possui nenhuma propriedade de script.
+ for(const k of Object.keys(c.props))delete c.props[k];
+ const n=c.updates;
+ const diag=c.ctx.v3_instalarLab();
+ assert.equal(diag.status,'OK');
+ assert.equal(diag.verificacoes,11);
+ assert.equal(diag.aprovadas,11);
+ assert.equal(c.props.DG_AMBIENTE,'LAB');
+ assert.equal(c.updates,n+1);
+ const novamente=c.ctx.v3_instalarLab();
+ assert.equal(novamente.status,'OK');
+ assert.equal(c.updates,n+1,'Instalação repetida não regrava propriedades');
+ c.props.DG_AMBIENTE='PROD';
+ assert.throws(()=>c.ctx.v3_instalarLab(),/Instalação LAB recusada/);
+});
+
+test('Instalador Windows invoca clasp.cmd sem shell:true e preserva argumentos',()=>{
+ const source=fs.readFileSync(path.join(root,'scripts/instalar-v3-lab.cjs'),'utf8');
+ const clean=source.replace(/^#![^\n]*\n/,'').split("try{install();}catch(e)")[0];
+ const calls=[];
+ const sandbox=vm.createContext({
+  require(name){
+   if(name==='node:child_process')return {spawnSync(bin,args,opts){
+    calls.push({bin,args,opts});
+    return {status:0,stdout:'Created new script: https://script.google.com/d/'+('A'.repeat(45))+'/edit',stderr:''};
+   }};
+   return require(name);
+  },
+  process:{platform:'win32',env:{ComSpec:'C:\\Windows\\System32\\cmd.exe'}},
+  console:{log(){},error(){}},
+  __dirname:path.join(root,'scripts')
+ });
+ vm.runInContext(clean,sandbox,{filename:'installer-windows.js'});
+ const res=vm.runInContext("command(['create-script','--title','DG-Marketing-Relacionamento-V3-LAB','--type','standalone'],'C:\\\\Projetos\\\\DG REL')",sandbox);
+ assert.equal(res.status,0);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].bin,'C:\\Windows\\System32\\cmd.exe');
+ assert.equal(calls[0].opts.shell,false);
+ assert.deepEqual(Array.from(calls[0].args.slice(0,3)),['/d','/s','/c']);
+ assert.match(calls[0].args[3],/^clasp\.cmd create-script --title /);
+ assert.equal(calls[0].opts.cwd,'C:\\Projetos\\DG REL');
+ assert.equal(calls[0].opts.stdio[1],'pipe');
+});
+test('Se Google fornece ID mas não salva .clasp.json, instalador recupera sem criar outro',()=>{
+ const source=fs.readFileSync(path.join(root,'scripts/instalar-v3-lab.cjs'),'utf8');
+ const clean=source.replace(/^#![^\n]*\n/,'').split("try{install();}catch(e)")[0];
+ const sandbox=vm.createContext({require,process,console:{log(){},error(){}},
+  __dirname:path.join(root,'scripts')});
+ vm.runInContext(clean,sandbox,{filename:'installer-recovery.js'});
+ const dir=fs.mkdtempSync(path.join(require('node:os').tmpdir(),'dg-v3-recovery-'));
+ try{
+  const id='1LAB_V3_'+'A'.repeat(43);
+  sandbox.result={status:0,stdout:'Created new script: https://script.google.com/d/'+id+'/edit',stderr:''};
+  sandbox.tempDir=dir;
+  const out=vm.runInContext("vinculoSeCriado(result,tempDir)",sandbox);
+  assert.equal(out,path.join(dir,'.clasp.json'));
+  assert.equal(JSON.parse(fs.readFileSync(out,'utf8')).scriptId,id);
+  assert.equal(vm.runInContext("vinculoSeCriado(result,tempDir)",sandbox),out);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('Instalador V3 cria projeto em temp FORA do .clasp.json legado',()=>{
+ const file=path.join(root,'scripts/instalar-v3-lab.cjs');
+ const source=fs.readFileSync(file,'utf8').replace(/^#![^\n]*\n/,'')
+  .split("try{install();}catch(e)")[0];
+ let destination='',pushes=0;
+ const logs=[];
+ const sandbox=vm.createContext({require,
+  process:{...process,argv:['node',file,'--confirmar-novo-lab=SIM'],env:process.env},
+  console:{log(...args){logs.push(args.join(' '));},error(...args){logs.push(args.join(' '));}},
+  __dirname:path.join(root,'scripts')
+ });
+ vm.runInContext(source,sandbox,{filename:'installer-temp-flow.js'});
+ sandbox.onCommand=(args,cwd)=>{
+  if(args[0]==='list-scripts')return {status:0,stdout:'',stderr:''};
+  if(args[0]==='create-script'){
+   destination=cwd;
+   fs.writeFileSync(path.join(cwd,'.clasp.json'),JSON.stringify({
+    scriptId:'1V3_SAFE_'+'X'.repeat(38),rootDir:'.'
+   }),{flag:'wx'});
+   return {status:0,stdout:'Created script',stderr:''};
+  }
+  if(args[0]==='push'){pushes++;return {status:0,stdout:'Pushed 6 files',stderr:''};}
+  throw Error('Comando imprevisto: '+args.join(' '));
+ };
+ vm.runInContext('command=(args,cwd)=>onCommand(args,cwd)',sandbox);
+ try{
+  vm.runInContext('install()',sandbox);
+  assert.ok(destination,'Deve criar pasta');
+  assert.ok(path.relative(root,destination).startsWith('..')||
+    path.isAbsolute(path.relative(root,destination)),
+    'Destino nunca pode estar sob a árvore do repositório legado');
+  assert.equal(pushes,1);
+  assert.deepEqual(fs.readdirSync(destination).sort(),[
+   '.clasp.json','Config.gs','Importacao.gs','Index.html',
+   'Marketing.gs','Relacionamento.gs','appsscript.json'
+  ]);
+  assert.ok(logs.some(x=>x.includes('LAB V3 criado e código enviado')));
+ }finally{
+  const base=path.join(require('node:os').tmpdir(),'DG-V3-LAB-INSTALACOES');
+  if(destination&&path.dirname(destination)===base)fs.rmSync(destination,{recursive:true,force:true});
+ }
+});
+test('Clasp informa Project file already exists com status 0: instalador RECUSA e não faz push',()=>{
+ const file=path.join(root,'scripts/instalar-v3-lab.cjs');
+ const source=fs.readFileSync(file,'utf8').replace(/^#![^\n]*\n/,'')
+  .split("try{install();}catch(e)")[0];
+ let destination='',pushes=0;
+ const sandbox=vm.createContext({require,
+  process:{...process,argv:['node',file,'--confirmar-novo-lab=SIM'],env:process.env},
+  console:{log(){},error(){}},
+  __dirname:path.join(root,'scripts')
+ });
+ vm.runInContext(source,sandbox,{filename:'installer-project-exists.js'});
+ sandbox.onCommand=(args,cwd)=>{
+  destination=cwd;
+  if(args[0]==='list-scripts')return {status:0,stdout:'',stderr:''};
+  if(args[0]==='create-script')return {status:0,stdout:'',
+    stderr:'Project file already exists.'};
+  if(args[0]==='push'){pushes++;return {status:0,stdout:'',stderr:''};}
+  throw Error('Comando imprevisto');
+ };
+ vm.runInContext('command=(args,cwd)=>onCommand(args,cwd)',sandbox);
+ try{
+  assert.throws(()=>vm.runInContext('install()',sandbox),/Clasp encontrou .clasp.json existente/);
+  assert.equal(pushes,0);
+ }finally{
+  const base=path.join(require('node:os').tmpdir(),'DG-V3-LAB-INSTALACOES');
+  if(destination&&path.dirname(destination)===base)fs.rmSync(destination,{recursive:true,force:true});
+ }
+});
+
+test('Recuperação V3: valida fonte, ID existente e operação seca sem criar projeto',()=>{
+ const recovery=require('../scripts/recuperar-v3-lab.cjs');
+ assert.doesNotThrow(()=>recovery.checkSource());
+ const id='1V3_LAB_TESTE_RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR';
+ assert.equal(recovery.checkId(id),id);
+ assert.throws(()=>recovery.checkId('1qOTRjWCldsxcu2cRa_nNzZPhoUHFO_NoEcCs0IQcItK7a87yR1tcTHYk'),/antigo/);
+ assert.throws(()=>recovery.checkId('abc'),/inválido/);
+ assert.doesNotThrow(()=>recovery.recover(['--dry-run']));
+ assert.throws(()=>recovery.recover(['--script-id='+id]),/confirmar-recuperacao/);
+});
+test('Recuperação V3 rejeita diretório com .clasp.json ancestral e diretório do legado',()=>{
+ const recovery=require('../scripts/recuperar-v3-lab.cjs');
+ const os=require('node:os');
+ const base=fs.mkdtempSync(path.join(os.tmpdir(),'dg-v3-safety-'));
+ const nested=path.join(base,'conteudo');
+ fs.mkdirSync(nested);
+ try{
+  assert.doesNotThrow(()=>recovery.checkSafePath(nested));
+  fs.writeFileSync(path.join(base,'.clasp.json'),'{"scriptId":"ID_ANTIGO"}');
+  assert.throws(()=>recovery.checkSafePath(nested),/herda projeto/);
+  assert.throws(()=>recovery.checkSafePath(root),/FORA do repositório/);
+ }finally{
+  fs.rmSync(base,{recursive:true,force:true});
+ }
+});
+test('Recuperação V3 nunca chama create-script; escolhe volume do projeto e exige push',()=>{
+ const script=fs.readFileSync(path.join(root,'scripts/recuperar-v3-lab.cjs'),'utf8');
+ const js=script.replace(/^#![^\n]*\n/,'');
+ assert.ok(script.includes("const volume = path.parse(ROOT).root"));
+ assert.ok(script.includes("path.join(volume,'DG-V3-RECUP-')"));
+ assert.ok(script.includes("cp.spawnSync(bin,args"));
+ assert.ok(script.includes("clasp.cmd push"));
+ assert.doesNotMatch(js,/command\(['"]create-script/);
+ assert.ok(script.includes("if (absolute !== real)"));
+});
+
+test('LAB não importa agenda real mesmo que alguém chame servidor diretamente',()=>{
+ const c=context();
+ const payload={registros:[{nome:'Pessoa Real',telefone:'98991234655',cidade:'',uf:'MA'}],
+  confirmarFicticio:true};
+ const before=c.updates;
+ assert.equal(c.ctx.v3_analisarImportacao(payload).status,'OK');
+ assert.throws(()=>c.ctx.v3_confirmarImportacao(payload),/LAB aceita somente contatos fictícios/);
+ assert.equal(c.updates,before);
+ assert.throws(()=>c.ctx.v3_confirmarImportacao({
+  registros:[{nome:'LAB Exemplo',telefone:'98991234655'}]
+ }),/LAB aceita somente contatos fictícios/);
+ assert.equal(c.updates,before);
+});
+test('Registro rápido aguardar resposta persiste resultado e histórico, sem marcar envio automático',()=>{
+ const c=context(),tel='5598991234501',antes=c.updates;
+ const done=c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'AGUARDANDO_RESPOSTA',resultadoContato:'AGUARDANDO_RESPOSTA'});
+ assert.equal(done.status,'OK');
+ const rows=c.fixtures.mark.Relacionamento_Contatos;
+ const h=rows[0],r=rows[1];
+ assert.equal(r[h.indexOf('ETAPA')],'AGUARDANDO_RESPOSTA');
+ assert.equal(r[h.indexOf('RESULTADO')],'AGUARDANDO_RESPOSTA');
+ assert.equal(r[h.indexOf('DATA_PRIMEIRA_MENSAGEM')],'','O sistema não pode afirmar que mensagem foi enviada');
+ assert.ok(c.ctx.v3_historicoContato(tel).dados.eventos.some(x=>x.tipo==='RESULTADO'));
+ assert.ok(c.updates>antes);
+});
+test('Resultado rápido de retorno exige data e não bloqueia futuras abordagens',()=>{
+ const c=context(),tel='5598991234501',v=versaoContato(c,tel);
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:v,
+  etapa:'RETORNAR_DEPOIS',resultadoContato:'RETORNAR_DEPOIS'}),/data/);
+ assert.equal(c.updates,before);
+ c.ctx.v3_salvarContato({telefone:tel,versao:v,etapa:'RETORNAR_DEPOIS',
+  retorno:'2026-12-20',resultadoContato:'RETORNAR_DEPOIS'});
+ const rec=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros.find(x=>x.telefone===tel);
+ assert.equal(rec.retorno,'2026-12-20');
+ assert.equal(rec.bloqueado,false);
+});
+test('Resultado Sem Interesse impede mensagens e bloqueia contato até reativação justificada',()=>{
+ const c=context(),tel='5598991234501',v=versaoContato(c,tel);
+ const ok=c.ctx.v3_salvarContato({telefone:tel,versao:v,
+  etapa:'NAO_CONTATAR',situacao:'SEM_INTERESSE',resultadoContato:'SEM_INTERESSE'});
+ assert.equal(ok.status,'OK');
+ const rec=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros.find(x=>x.telefone===tel);
+ assert.equal(rec.bloqueado,true);
+ assert.ok(c.ctx.v3_contatos({}).dados.registros.every(x=>x.telefone!==tel));
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'PARA_CONTATAR',situacao:'PODE_CONTATAR',resultadoContato:'EM_CONVERSA'}),/Reativação exige/);
+ assert.equal(c.updates,before);
+});
+test('Servidor rejeita resultado de recusa sem bloquear a situação/etapa',()=>{
+ const c=context(),tel='5598991234501';
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),
+  etapa:'EM_CONVERSA',resultadoContato:'SEM_INTERESSE'}),/Recusa exige/);
+ assert.equal(c.updates,before);
+});
+
+test('Reativação com autorização substitui resultado bloqueado, preservando histórico',()=>{
+ const c=context(),tel='5598991234501';
+ const initial=versaoContato(c,tel);
+ c.ctx.v3_salvarContato({telefone:tel,versao:initial,
+  etapa:'NAO_CONTATAR',situacao:'SEM_INTERESSE',resultadoContato:'SEM_INTERESSE'});
+ const now=versaoContato(c,tel);
+ const before=c.updates;
+ assert.throws(()=>c.ctx.v3_salvarContato({telefone:tel,versao:now,
+  etapa:'PARA_CONTATAR',situacao:'PODE_CONTATAR',resultadoContato:'REATIVADO',
+  limparRetorno:true}),/Reativação exige/);
+ assert.equal(c.updates,before);
+ c.ctx.v3_salvarContato({telefone:tel,versao:now,
+  etapa:'PARA_CONTATAR',situacao:'PODE_CONTATAR',resultadoContato:'REATIVADO',
+  limparRetorno:true,autorizarReativacao:true,
+  motivoReativacao:'O titular confirmou autorização para nova abordagem em LAB'});
+ const rec=c.ctx.v3_contatos({etapa:'TODOS'}).dados.registros.find(x=>x.telefone===tel);
+ assert.equal(rec.bloqueado,false);
+ assert.equal(rec.resultado,'REATIVADO');
+ assert.ok(c.ctx.v3_historicoContato(tel).dados.eventos.some(x=>x.tipo==='REATIVACAO'));
+});
+
+test('Reimportar telefone conhecido com outra origem adiciona vínculo sem alterar cadastro',()=>{
+ const c=context(),phone='5598991234502';
+ const dados={registros:[{nome:'LAB Nome alternativo',telefone:phone}],origemId:'O1',confirmarFicticio:true};
+ const old=JSON.stringify(c.fixtures.mark.Relacionamento_Contatos);
+ const preview=c.ctx.v3_analisarImportacao(dados).dados;
+ assert.equal(preview.novos,0);assert.equal(preview.novosVinculos,1);assert.equal(c.updates,0);
+ const done=c.ctx.v3_confirmarImportacao(dados).dados;
+ assert.equal(done.gravados,0);assert.equal(done.novosVinculos,1);
+ assert.equal(JSON.stringify(c.fixtures.mark.Relacionamento_Contatos),old);
+ assert.equal(c.ctx.v3_confirmarImportacao(dados).dados.novosVinculos,0);
+ assert.ok(c.ctx.v3_contatos({etapa:'TODOS',origem:'O1'}).dados.registros.some(r=>r.telefone===phone));
+});
+
+test('Portal: sincroniza atleta novo sem modificar fonte nem duplicar telefone',()=>{
+ const c=context();c.fixtures.portal.DadosPessoais.push(['LAB05','5598991234599','LAB Novo']);
+ const antes=JSON.stringify(c.fixtures.portal);
+ assert.equal(c.ctx.v3_analisarPortal().dados.novos,1);
+ assert.equal(c.updates,0);
+ const r=c.ctx.v3_sincronizarPortal({confirmar:true}).dados;
+ assert.equal(r.gravados,1);assert.equal(JSON.stringify(c.fixtures.portal),antes);
+ assert.equal(c.ctx.v3_sincronizarPortal({confirmar:true}).dados.gravados,0);
+ assert.equal(c.ctx.v3_contatos({busca:'(98) 99123-4599'}).dados.total,1);
+});
+test('Portal: telefone compartilhado não é unido e fica bloqueado para abordagem',()=>{
+ const c=context();c.fixtures.portal.DadosPessoais.push(['LAB99','5598991234501','LAB Conflito']);
+ assert.equal(c.ctx.v3_analisarPortal().dados.conflitos,1);
+ const a=c.ctx.v3_contatos({busca:'5598991234501'}).dados.registros[0];
+ assert.equal(a.conflitoIdentidade,true);assert.equal(a.bloqueado,true);
+ assert.equal(c.ctx.v3_sincronizarPortal({confirmar:true}).dados.gravados,0);
+});
+test('Nome manual tem prioridade visual sem alterar nome original do Portal',()=>{
+ const c=context(),tel='5598991234501';
+ c.ctx.v3_salvarContato({telefone:tel,versao:versaoContato(c,tel),nomeContato:'LAB Apelido'});
+ const a=c.ctx.v3_contatos({busca:'LAB Apelido'}).dados.registros[0];
+ assert.equal(a.nome,'LAB Apelido');assert.equal(a.nomePortal,'Pessoa Teste Bike');
+});
+
+test('Duplicados na base ficam bloqueados na fila e não recebem vínculos ambíguos',()=>{
+ const c=context(),phone='5598991234501',t=c.fixtures.mark.Relacionamento_Contatos;
+ t.push(t[1].slice());
+ const all=c.ctx.v3_contatos({busca:phone}).dados;
+ assert.equal(all.total,2);assert.ok(all.registros.every(r=>r.bloqueado&&r.conflitoIdentidade));
+ assert.equal(c.ctx.v3_contatos({}).dados.registros.some(r=>r.telefone===phone),false);
+ assert.equal(all.indicadores.BLOQUEADOS,3);
+ const dados={registros:[{nome:'LAB Duplicado',telefone:phone}],origemId:'O1',confirmarFicticio:true};
+ assert.equal(c.ctx.v3_analisarImportacao(dados).dados.conflitos,1);
+ const before=c.updates;
+ const done=c.ctx.v3_confirmarImportacao(dados).dados;
+ assert.equal(done.gravados,0);assert.equal(done.novosVinculos,0);assert.equal(c.updates,before);
+ assert.throws(()=>c.ctx.v3_vincularOrigem({telefone:phone,origemId:'O1'}),/duplicados/);
+});
+test('Agenda Google complementa nome próprio da fonte sem substituir nome manual ou Portal',()=>{
+ const c=context(),phone='5598991234502',t=c.fixtures.mark.Relacionamento_Contatos;
+ t[2][contHeader.indexOf('NOME_CONTATO')]='LAB Nome Manual';
+ const id=c.ctx.v3_novaOrigem({nome:'Agenda Google LAB',tipo:'GOOGLE_CONTATOS'}).dados.id;
+ const dados={registros:[{nome:'LAB Nome Google',telefone:phone},{nome:'LAB Google Novo',telefone:'5598991234599'}],origemId:id,confirmarFicticio:true};
+ const before=c.updates,preview=c.ctx.v3_analisarImportacao(dados).dados;
+ assert.equal(preview.complementosGoogle,1);assert.equal(preview.novos,1);assert.equal(c.updates,before);
+ const done=c.ctx.v3_confirmarImportacao(dados).dados;
+ assert.equal(done.complementosGoogle,1);assert.equal(done.novosVinculos,2);assert.equal(done.gravados,1);
+ const old=c.ctx.v3_contatos({busca:phone}).dados.registros[0];
+ assert.equal(old.nome,'LAB Nome Manual');assert.equal(old.nomePortal,'Pessoa Teste Caminhada');assert.equal(old.nomeGoogle,'LAB Nome Google');
+ const novo=c.ctx.v3_contatos({busca:'5598991234599'}).dados.registros[0];
+ assert.equal(novo.nome,'LAB Google Novo');assert.equal(novo.nomeContato,'');
+ const after=c.updates;assert.equal(c.ctx.v3_confirmarImportacao(dados).dados.complementosGoogle,0);assert.equal(c.updates,after);
+});
+
+test('somenteBloqueados lista recusas, conflitos e inválidos sem depender da etapa padrão',()=>{
+ const c=context(),t=c.fixtures.mark.Relacionamento_Contatos;
+ t[1][contHeader.indexOf('SITUACAO')]='SEM_INTERESSE';
+ t[2][contHeader.indexOf('VALIDADE')]='INVALIDO';
+ t[3][contHeader.indexOf('ETAPA')]='FINALIZADO';
+ const extra=makeRow(contHeader,{TELEFONE_NORMALIZADO:'5598991234598',NOME_CONTATO:'LAB Conflito',ETAPA:'PARA_CONTATAR'});
+ t.push(extra,extra.slice());
+ const todos=c.ctx.v3_contatos({somenteBloqueados:true,porPagina:100}).dados;
+ assert.equal(todos.total,5);assert.equal(todos.total,todos.indicadores.BLOQUEADOS);
+ assert.ok(todos.registros.every(r=>r.bloqueado===true));
+ assert.ok(todos.registros.every(r=>r.etapa!=='FINALIZADO'));
+ assert.equal(c.ctx.v3_contatos({somenteBloqueados:true,etapa:'NAO_CONTATAR'}).dados.total,1);
+ assert.equal(c.ctx.v3_contatos({somenteBloqueados:true,busca:'5598991234501'}).dados.total,1);
+ assert.equal(c.ctx.v3_contatos({somenteBloqueados:true,porPagina:2,pagina:3}).dados.registros.length,1);
+ assert.equal(c.ctx.v3_contatos({}).dados.total,0);
+ assert.equal(c.updates,0);
+});
