@@ -220,8 +220,15 @@ function v3_lab_aceite() {
   v3_painel('dezembro/2026','9003').dados.total===0&&
   v3_painel('dezembro/2026','9003').dados.invalido===true);
  verificar('Quatro contatos fictícios',contatos.total===4);
- verificar('Contato não contatar permanece separado',
-  contatos.indicadores.NAO_CONTATAR===1);
+ // O LAB é operacional: testes anteriores podem ter registrado outras recusas.
+ // A referência LAB04 deve continuar bloqueada e nenhuma recusa pode aparecer na fila.
+ const naoContatar=contatos.registros.find(c=>c.idDgmb==='LAB04');
+ const fila=v3_contatos({etapa:'PADRAO',porPagina:100}).dados;
+ verificar('Contato de referência e demais recusas permanecem fora da fila',
+  !!naoContatar&&naoContatar.etapa==='NAO_CONTATAR'&&naoContatar.bloqueado===true&&
+  contatos.indicadores.NAO_CONTATAR===contatos.registros.filter(c=>c.etapa==='NAO_CONTATAR').length&&
+  fila.total===contatos.registros.filter(c=>!c.bloqueado&&c.etapa!=='FINALIZADO').length&&
+  fila.registros.every(c=>!c.bloqueado&&c.idDgmb!=='LAB04'));
  verificar('Ciclismo inclui perfil ambos',esporteBike.total===2);
  verificar('Corrida/caminhada inclui perfil ambos',esportePassos.total===2);
  verificar('Referências de marketing fictícias ativas',opcoes.refAtivas.length===2);

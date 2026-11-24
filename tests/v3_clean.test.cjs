@@ -310,6 +310,19 @@ test('Autoteste de aceite V3 confirma competência de dezembro e janeiro sem gra
  assert.equal(result.total,13);
  assert.equal(result.aprovadas,13);
  assert.equal(c.updates,before,'Autoteste não altera planilhas nem Script Properties');
+ // Reproduz a massa real do LAB: uma segunda recusa registrada em teste anterior.
+ const t=f.mark.Relacionamento_Contatos,etapa=contHeader.indexOf('ETAPA'),situacao=contHeader.indexOf('SITUACAO');
+ t[1][etapa]='NAO_CONTATAR';t[1][situacao]='NAO_DESEJA_CONTATO';
+ const repetido=c.ctx.v3_lab_aceite();
+ assert.equal(repetido.status,'OK',JSON.stringify(repetido));
+ assert.equal(repetido.aprovadas,13);
+ assert.equal(c.updates,before);
+ // O aceite não pode passar se o contato de referência foi liberado.
+ t[4][etapa]='PARA_CONTATAR';t[4][situacao]='PODE_CONTATAR';
+ const falha=c.ctx.v3_lab_aceite();
+ assert.equal(falha.status,'FALHA');
+ assert.ok(falha.verificacoes.some(v=>!v.ok&&v.nome.includes('recusas')));
+ assert.equal(c.updates,before);
  const prod=context('PROD','',f);
  assert.throws(()=>prod.ctx.v3_lab_aceite(),/somente no LAB/);
 });
